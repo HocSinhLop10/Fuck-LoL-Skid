@@ -21,7 +21,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
-    Title = "Hutao hub [TEST] | Ink Game",
+    Title = "Hutao Hub [SSR] | Ink Game",
     SubTitle = "Version 2.5.9",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
