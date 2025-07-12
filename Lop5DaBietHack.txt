@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [SSR] | Ink Game",
-    SubTitle = "Version 2.6.1",
+    SubTitle = "Version 2.6.2",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -1011,9 +1011,59 @@ pingToggle:OnChanged(function(val)
 end)
 
 
+    Tabs.Player:AddSection("↳ Bypass")
 
+    local UIS = game:GetService("UserInputService")
+    local SkipHoldToggle = Tabs.Misc:AddToggle("SkipHoldToggle", {Title = "Fast Help Player", Default = false})
 
+    local function skipHoldPrompt(prompt)
+        if prompt and prompt:IsA("ProximityPrompt") and prompt.HoldDuration > 0 then
+            -- Store original HoldDuration if not already stored
+            if prompt:GetAttribute("OriginalHold") == nil then
+                prompt:SetAttribute("OriginalHold", prompt.HoldDuration)
+            end
+            prompt.HoldDuration = 0 -- Remove hold time
+        end
+    end
 
+    local function enableSkipHold()
+        for _, obj in ipairs(workspace:GetDescendants()) do
+            if obj:IsA("ProximityPrompt") then
+                skipHoldPrompt(obj)
+            end
+        end
+
+        -- Ensure new prompts also get modified
+        local connection
+        connection = workspace.DescendantAdded:Connect(function(obj)
+            task.wait(0.1) -- Prevent errors
+            if SkipHoldToggle.Value then
+                skipHoldPrompt(obj)
+            else
+                connection:Disconnect() -- Stop listening if disabled
+            end
+        end)
+    end
+
+    local function disableSkipHold()
+        for _, obj in ipairs(workspace:GetDescendants()) do
+            if obj:IsA("ProximityPrompt") then
+                local originalHold = obj:GetAttribute("OriginalHold")
+                if originalHold then
+                    obj.HoldDuration = originalHold -- Restore original HoldDuration
+                    obj:SetAttribute("OriginalHold", nil) -- Remove stored attribute
+                end
+            end
+        end
+    end
+
+    SkipHoldToggle:OnChanged(function()
+        if SkipHoldToggle.Value then
+            enableSkipHold()
+        else
+            disableSkipHold()
+        end
+    end)
 
 -- Tabs.Settings
 
@@ -1206,347 +1256,6 @@ end)
 
 
 -- Tab.Main
-
-
--- Biến điều khiển vòng lặp
-local teleporting = false
-
--- Vị trí cần teleport
-local targetPosition = Vector3.new(194.9, 54.5, -1.9)
-
--- Tạo Toggle
-Tabs.Main:AddToggle("AutoTeleportToggle", {
-    Title = "Auto Join Game",
-    Default = false
-}):OnChanged(function(state)
-    teleporting = state
-    if teleporting then
-        task.spawn(function()
-            while teleporting do
-                local player = game:GetService("Players").LocalPlayer
-                local character = player.Character or player.CharacterAdded:Wait()
-                local root = character:FindFirstChild("HumanoidRootPart")
-                if root then
-                    root.CFrame = CFrame.new(targetPosition)
-                end
-                task.wait(1) -- Delay giữa mỗi lần teleport, có thể chỉnh (giảm nếu muốn nhanh)
-            end
-        end)
-    end
-end)
-
-
-
--- Yêu cầu: đã có Fluent GUI + Tabs.ESP
-local RunService = game:GetService("RunService")
-local Camera = workspace.CurrentCamera
-local Players = game:GetService("Players")
-
-local drawings = {}
-local npcConnection
-
--- Kiểm tra 1 model có phải là NPC không
-local function isNPC(model)
-    return model:IsA("Model") and model:FindFirstChild("Humanoid") and not Players:GetPlayerFromCharacter(model)
-end
-
--- Tạo ESP cho NPC
-local function createESP(model)
-    if drawings[model] then return end
-
-    local text = Drawing.new("Text")
-    text.Size = 14
-    text.Center = true
-    text.Outline = true
-    text.Color = Color3.fromRGB(0, 255, 0) -- Xanh lá
-    text.Visible = false
-
-    drawings[model] = text
-end
-
--- Xoá ESP
-local function removeESP(model)
-    if drawings[model] then
-        drawings[model]:Remove()
-        drawings[model] = nil
-    end
-end
-
--- Bắt đầu ESP NPC
-local function startNPCESP()
-    npcConnection = RunService.RenderStepped:Connect(function()
-        -- Tạo ESP nếu gặp NPC mới
-        for _, model in ipairs(workspace:GetDescendants()) do
-            if isNPC(model) then
-                createESP(model)
-            end
-        end
-
-        -- Cập nhật vị trí ESP
-        for model, text in pairs(drawings) do
-            if not model or not model.Parent or not isNPC(model) then
-                removeESP(model)
-            else
-                local hrp = model:FindFirstChild("HumanoidRootPart")
-                local humanoid = model:FindFirstChild("Humanoid")
-
-                if hrp and humanoid and humanoid.Health > 0 then
-                    local pos, visible = Camera:WorldToViewportPoint(hrp.Position + Vector3.new(0, 2.5, 0))
-                    local distance = (hrp.Position - Camera.CFrame.Position).Magnitude
-                    text.Text = string.format("%s [%.0fm]", model.Name, distance)
-                    text.Position = Vector2.new(pos.X, pos.Y)
-                    text.Visible = visible
-                else
-                    text.Visible = false
-                end
-            end
-        end
-    end)
-end
-
--- Dừng ESP
-local function stopNPCESP()
-    if npcConnection then
-        npcConnection:Disconnect()
-        npcConnection = nil
-    end
-    for _, text in pairs(drawings) do
-        text:Remove()
-    end
-    drawings = {}
-end
-
--- ✅ Tích hợp Fluent GUI Toggle trong Tabs.ESP
-Tabs.Main:AddToggle("ESPNPCToggle", {
-    Title = "ESP All NPC",
-    Default = false,
-}):OnChanged(function(enabled)
-    if enabled then
-        startNPCESP()
-    else
-        stopNPCESP()
-    end
-end)
-
-
-
-    -- 🟢 Enhanced NPC Lock Script with Draggable UI
-    local Players = game:GetService("Players")
-    local UserInputService = game:GetService("UserInputService")
-    local TweenService = game:GetService("TweenService")
-    local VirtualInputManager = game:GetService("VirtualInputManager")
-    local StarterGui = game:GetService("StarterGui")
-    local RunService = game:GetService("RunService")
-    local CoreGui = game:GetService("CoreGui")
-    local Camera = workspace.CurrentCamera
-
-    local player = Players.LocalPlayer
-
-    -- UI Setup
-    local screenGui = Instance.new("ScreenGui")
-    screenGui.Name = "Cathub_NPC_Lock_UI"
-    screenGui.Parent = CoreGui
-
-    local button = Instance.new("TextButton")
-    button.Name = "NPC Lock: ON/OFF"
-    button.Size = UDim2.new(0, 150, 0, 50)
-    button.Position = UDim2.new(0.5, -75, 0.9, -25) -- Default position
-    button.BackgroundColor3 = Color3.fromRGB(30, 30, 30) -- Windows 11 Style
-    button.BackgroundTransparency = 0.3
-    button.TextColor3 = Color3.fromRGB(255, 255, 255)
-    button.Text = "NPC Lock: OFF"
-    button.Font = Enum.Font.SourceSansSemibold
-    button.TextScaled = true
-    button.ZIndex = 1000
-
-    local icon = Instance.new("ImageLabel")
-    icon.Name = "Icon"
-    icon.Size = UDim2.new(0, 20, 0, 20) -- Adjust size as needed
-    icon.Position = UDim2.new(0, 5, 0, 5) -- Top-left corner padding
-    icon.BackgroundTransparency = 1 -- Make background invisible
-    icon.Image = "rbxassetid://121302760641013" -- Replace with your image ID
-    icon.Parent = button
-    icon.ZIndex = 1001
-
-
-    button.Parent = screenGui
-
-    local uicorner = Instance.new("UICorner")
-    uicorner.CornerRadius = UDim.new(0.2, 0)
-    uicorner.Parent = button
-
-    -- 🟢 Dragging Feature (Integrated)
-    local dragging, dragStart, startPos, isDragging = false, nil, nil, false
-    local dragThreshold = 10
-
-    local function startDrag(input)
-        isDragging = false
-        dragging = true
-        dragStart = input.Position
-        startPos = button.Position
-
-        input.Changed:Connect(function()
-            if input.UserInputState == Enum.UserInputState.End then
-                dragging = false
-            end
-        end)
-    end
-
-    local function onDrag(input)
-        if dragging then
-            local delta = (input.Position - dragStart).Magnitude
-            if delta > dragThreshold then
-                isDragging = true
-            end
-            button.Position = UDim2.new(
-                startPos.X.Scale, startPos.X.Offset + (input.Position.X - dragStart.X),
-                startPos.Y.Scale, startPos.Y.Offset + (input.Position.Y - dragStart.Y)
-            )
-        end
-    end
-
-    button.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            startDrag(input)
-        end
-    end)
-
-    button.InputChanged:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-            onDrag(input)
-        end
-    end)
-
-    -- 🟢 Click Animation
-    button.MouseButton1Click:Connect(function()
-        if isDragging then return end
-
-        local clickTween = TweenService:Create(button, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 0.5})
-        clickTween:Play()
-        task.wait(0.1)
-        local resetTween = TweenService:Create(button, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 0.3})
-        resetTween:Play()
-    end)
-
-    -- 🟢 NPC Lock Logic
-    local npcLock = false
-    local lastTarget = nil
-    local toggleLoop
-
-    local function addPlayerHighlight()
-        if player.Character then
-            local highlight = player.Character:FindFirstChild("PlayerHighlightESP")
-            if not highlight then
-                highlight = Instance.new("Highlight")
-                highlight.Name = "PlayerHighlightESP"
-                highlight.FillColor = Color3.new(1, 1, 1)
-                highlight.OutlineColor = Color3.new(1, 1, 1)
-                highlight.FillTransparency = 0.5
-                highlight.OutlineTransparency = 0
-                highlight.Parent = player.Character
-            end
-        end
-    end
-
-    local function removePlayerHighlight()
-        if player.Character and player.Character:FindFirstChild("PlayerHighlightESP") then
-            player.Character.PlayerHighlightESP:Destroy()
-        end
-    end
-
-    local function getClosestNPC()
-        local closestNPC = nil
-        local closestDistance = math.huge
-
-        for _, object in ipairs(workspace:GetDescendants()) do
-            if object:IsA("Model") then
-                local humanoid = object:FindFirstChild("Humanoid") or object:FindFirstChildWhichIsA("Humanoid")
-                local hrp = object:FindFirstChild("HumanoidRootPart") or object.PrimaryPart
-                if humanoid and hrp and humanoid.Health > 0 and object.Name ~= "Horse" then
-                    local isPlayer = false
-                    for _, pl in ipairs(Players:GetPlayers()) do
-                        if pl.Character == object then
-                            isPlayer = true
-                            break
-                        end
-                    end
-                    if not isPlayer then
-                        local distance = (hrp.Position - player.Character.HumanoidRootPart.Position).Magnitude
-                        if distance < closestDistance then
-                            closestDistance = distance
-                            closestNPC = object
-                        end
-                    end
-                end
-            end
-        end
-
-        return closestNPC
-    end
-
-    local CamLToggle = Tabs.Main:AddToggle("CamLToggle", {Title = "NPC Cam Lock", Default = false }) 
-
-    CamLToggle:OnChanged(function(Value)
-        if not Value then
-            button.Visible = false
-        else
-            button.Visible = true
-        end
-    end)
-
-    button.MouseButton1Click:Connect(function()
-        if isDragging then return end -- Prevent accidental toggling
-
-        npcLock = not npcLock
-        button.Text = npcLock and "NPC Lock: ON" or "NPC Lock: OFF"
-
-        local runService = game:GetService("RunService")
-        local players = game:GetService("Players")
-        local player = players.LocalPlayer
-        local camera = workspace.CurrentCamera 
-
-        if npcLock then
-            toggleLoop = runService.RenderStepped:Connect(function()
-                local npc = getClosestNPC()
-                if npc and npc:FindFirstChild("Humanoid") then
-                    local npcHumanoid = npc:FindFirstChild("Humanoid")
-                    if npcHumanoid.Health > 0 then
-                        camera.CameraSubject = npcHumanoid
-                        lastTarget = npc
-                        addPlayerHighlight()
-                    else
-                        Fluent:Notify({
-                            Title = "Hutao hub",
-                            Content = "Killed NPC",
-                            SubContent = npc.Name, -- Optional
-                            Duration = 1
-                        })
-                        lastTarget = nil
-                        removePlayerHighlight()
-                        if player.Character and player.Character:FindFirstChild("Humanoid") then
-                            camera.CameraSubject = player.Character:FindFirstChild("Humanoid")
-                        end
-                    end
-                else
-                    if player.Character and player.Character:FindFirstChild("Humanoid") then
-                        camera.CameraSubject = player.Character:FindFirstChild("Humanoid")
-                    end
-                    lastTarget = nil
-                    removePlayerHighlight()
-                end
-            end)
-        else
-            if toggleLoop then
-                toggleLoop:Disconnect()
-                toggleLoop = nil
-            end
-            removePlayerHighlight()
-            if player.Character and player.Character:FindFirstChild("Humanoid") then
-                camera.CameraSubject = player.Character:FindFirstChild("Humanoid")
-            end
-        end
-    end)
-
 
 local Toggles = {}
 
