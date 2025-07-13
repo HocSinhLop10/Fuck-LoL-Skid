@@ -1339,6 +1339,100 @@ end)
 
 -- Tab.Main
 
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+
+local player = Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local root = character:WaitForChild("HumanoidRootPart")
+
+-- ✅ GUI Fluent Toggle
+local Toggles = {}
+Toggles.TeleportNPC = Tabs.Main:AddToggle("TeleportNPC", {
+    Title = "Kill All Npc V1",
+    Default = false
+})
+
+-- ✅ Khoảng cách và cấu hình
+local distanceInFront = 8
+local usedNPCs = {}
+local currentNPC = nil
+
+-- ✅ Kiểm tra NPC hợp lệ
+local function isValidNPC(model)
+	if model:IsA("Model") and model:FindFirstChild("Humanoid") and model:FindFirstChild("HumanoidRootPart") then
+		if model ~= character and not usedNPCs[model] then
+			return true
+		end
+	end
+	return false
+end
+
+-- ✅ Tìm NPC gần nhất chưa xử lý
+local function findNextNPC()
+	local closestNPC = nil
+	local shortestDistance = math.huge
+
+	for _, obj in ipairs(workspace:GetDescendants()) do
+		if isValidNPC(obj) then
+			local dist = (obj.HumanoidRootPart.Position - root.Position).Magnitude
+			if dist < shortestDistance then
+				shortestDistance = dist
+				closestNPC = obj
+			end
+		end
+	end
+
+	return closestNPC
+end
+
+-- ✅ Đóng băng NPC, vô hiệu hóa AI
+local function freezeNPC(npc)
+	local humanoid = npc:FindFirstChild("Humanoid")
+	if humanoid then
+		humanoid.WalkSpeed = 0
+		humanoid.JumpPower = 0
+		humanoid.PlatformStand = true
+		humanoid:ChangeState(Enum.HumanoidStateType.Physics)
+	end
+
+	for _, obj in ipairs(npc:GetDescendants()) do
+		if obj:IsA("Script") or obj:IsA("LocalScript") then
+			pcall(function() obj:Destroy() end)
+		end
+	end
+end
+
+-- ✅ Đưa NPC đến trước mặt bạn
+local function teleportInFront(npc)
+	local pos = root.Position + root.CFrame.LookVector * distanceInFront
+	npc:MoveTo(pos)
+end
+
+-- ✅ Theo dõi hoạt động
+RunService.Heartbeat:Connect(function()
+	if Toggles.TeleportNPC.Value then
+		if not currentNPC or not currentNPC.Parent then
+			currentNPC = findNextNPC()
+			if currentNPC then
+				usedNPCs[currentNPC] = true
+				freezeNPC(currentNPC)
+				teleportInFront(currentNPC)
+			end
+		else
+			local humanoid = currentNPC:FindFirstChild("Humanoid")
+			if humanoid and humanoid.Health <= 0 then
+				currentNPC = nil
+			end
+		end
+	end
+end)
+
+
+
+
+
 local Toggles = {}
 
 -- ✅ Tạo các Toggle
