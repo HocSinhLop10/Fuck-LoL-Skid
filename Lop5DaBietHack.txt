@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Subcribe!!] | Ink Game",
-    SubTitle = "Version 2.7.4",
+    SubTitle = "Version 2.7.5",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -286,11 +286,28 @@ local function startESP()
                 local distance = (hrp.Position - Camera.CFrame.Position).Magnitude
                 text.Text = string.format("%s [%.0fm]", player.Name, distance)
 
-                -- Team color: cyan (đồng đội) vs red (địch)
-                if player.Team == LocalPlayer.Team then
-                    text.Color = Color3.fromRGB(0, 255, 255)
+                -- 🔁 Kiểm tra nếu player có tool tên là "Knife"
+                local hasKnife = false
+                local backpack = player:FindFirstChildOfClass("Backpack")
+                local characterTools = character:GetChildren()
+
+                -- Kiểm tra cả Backpack và tool đang cầm trên tay
+                if backpack and backpack:FindFirstChild("Knife") then
+                    hasKnife = true
                 else
-                    text.Color = Color3.fromRGB(255, 0, 0)
+                    for _, tool in ipairs(characterTools) do
+                        if tool:IsA("Tool") and tool.Name == "Knife" then
+                            hasKnife = true
+                            break
+                        end
+                    end
+                end
+
+                -- 🔁 Màu: Đỏ nếu có Knife, xanh nếu không
+                if hasKnife then
+                    text.Color = Color3.fromRGB(255, 0, 0) -- Red
+                else
+                    text.Color = Color3.fromRGB(0, 255, 0) -- Green
                 end
 
                 text.Position = Vector2.new(pos.X, pos.Y)
