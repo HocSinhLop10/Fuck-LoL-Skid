@@ -1011,7 +1011,7 @@ pingToggle:OnChanged(function(val)
 end)
 
 
-    Tabs.Player:AddSection("↳ Bypass")
+    Tabs.Misc:AddSection("↳ Bypass")
 
     local UIS = game:GetService("UserInputService")
     local SkipHoldToggle = Tabs.Misc:AddToggle("SkipHoldToggle", {Title = "Fast Help Player", Default = false})
@@ -1421,4 +1421,4 @@ do
 
     if Client.Character then Setup(Client.Character) end
     Client.CharacterAdded:Connect(Setup)
-end 
+end      
