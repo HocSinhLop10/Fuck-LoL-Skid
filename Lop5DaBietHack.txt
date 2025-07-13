@@ -884,7 +884,7 @@ Tabs.Player:AddButton({
         game.Lighting.GlobalShadows = true
     end
 
-    local FbToggle1 = Tabs.Misc:AddToggle("FbToggle1", {Title = "Auto Full Bright", Description = "Auto full bright when night.", Default = false })
+    local FbToggle1 = Tabs.Misc:AddToggle("FbToggle1", {Title = "Auto Full Bright", Default = false })
     FbToggle1:OnChanged(function(Value)
         fullBrightEnabled1 = Value
         if fullBrightEnabled1 then
