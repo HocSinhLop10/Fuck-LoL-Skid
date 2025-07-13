@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [SSR] | Ink Game",
-    SubTitle = "Version 2.6.2",
+    SubTitle = "Version 2.6.3",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -343,13 +343,14 @@ local LastTarget = nil
 local hasActivatedOnStart = false
 local PreferWeak = true
 local AutoHeal = true
+local IsHealing = false
 
---// Danh sách Player VIP
+--// Player VIP
 local VipPlayers = {
     ["Hu1a0_Hu9"] = true
 }
 
---// Tool kích hoạt
+--// Tool kích hoạt (như phím 1)
 local activationTools = {
     "Power Hold",
     "Push",
@@ -370,52 +371,34 @@ local healTools = {
     "Bandage"
 }
 
---// Tìm tool
+--// Tìm tool trong backpack và character
 local function FindTool(name)
     local backpack = LocalPlayer:FindFirstChildOfClass("Backpack")
     local character = LocalPlayer.Character
 
     if backpack then
         for _, tool in ipairs(backpack:GetChildren()) do
-            if tool:IsA("Tool") and tool.Name == name then
-                return tool
-            end
+            if tool:IsA("Tool") and tool.Name == name then return tool end
         end
     end
-
     if character then
         for _, tool in ipairs(character:GetChildren()) do
-            if tool:IsA("Tool") and tool.Name == name then
-                return tool
-            end
+            if tool:IsA("Tool") and tool.Name == name then return tool end
         end
     end
-
     return nil
 end
 
---// Dùng tool kích hoạt
-local function ActivateToolByEquip()
-    local humanoid = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-    if not humanoid then return end
-
-    for _, toolName in ipairs(activationTools) do
-        local tool = FindTool(toolName)
-        if tool then
-            humanoid:EquipTool(tool)
-            task.wait(0.5)
-            break
-        end
-    end
-end
-
---// Cầm vũ khí
+--// Cầm vũ khí nếu chưa cầm
 local function EquipWeapon()
     local humanoid = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
     if not humanoid then return end
 
-    for _, toolName in ipairs(weaponTools) do
-        local tool = FindTool(toolName)
+    local current = LocalPlayer.Character:FindFirstChildOfClass("Tool")
+    if current and table.find(weaponTools, current.Name) then return end
+
+    for _, name in ipairs(weaponTools) do
+        local tool = FindTool(name)
         if tool then
             humanoid:EquipTool(tool)
             break
@@ -423,32 +406,51 @@ local function EquipWeapon()
     end
 end
 
---// Hồi máu nếu có tool
-local function TryHeal()
-    local character = LocalPlayer.Character
-    local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-    local root = character and character:FindFirstChild("HumanoidRootPart")
-    if not humanoid or not root then return false end
+--// Cầm và dùng tool kích hoạt (Push, Trip...)
+local function ActivateToolIfNear()
+    local humanoid = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+    if not humanoid then return end
 
-    for _, healToolName in ipairs(healTools) do
-        local tool = FindTool(healToolName)
+    for _, name in ipairs(activationTools) do
+        local tool = FindTool(name)
         if tool then
             humanoid:EquipTool(tool)
+            task.wait(0.2)
+            VirtualInput:SendMouseButtonEvent(0, 0, 0, true, game, 0)
+            task.wait(0.05)
+            VirtualInput:SendMouseButtonEvent(0, 0, 0, false, game, 0)
+            break
+        end
+    end
+end
 
-            -- Bay lên Y = 50
-            root.CFrame = CFrame.new(root.Position.X, 50, root.Position.Z)
+--// Hồi máu
+local function TryHeal()
+    local char = LocalPlayer.Character
+    local humanoid = char and char:FindFirstChildOfClass("Humanoid")
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    if not humanoid or not root then return false end
 
-            -- Click để sử dụng
+    for _, name in ipairs(healTools) do
+        local tool = FindTool(name)
+        if tool then
+            IsHealing = true
+            humanoid:EquipTool(tool)
+
+            -- Dịch lên cao thêm 50 đơn vị
+            local pos = root.Position
+            root.CFrame = CFrame.new(pos.X, pos.Y + 50, pos.Z)
+
+            -- Click để dùng
             VirtualInput:SendMouseButtonEvent(0, 0, 0, true, game, 0)
             task.wait(0.05)
             VirtualInput:SendMouseButtonEvent(0, 0, 0, false, game, 0)
 
-            -- Đợi 2.5 giây để hồi máu
+            -- Đợi hồi máu xong
             task.wait(2.5)
 
-            -- Sau khi hồi xong, cầm lại vũ khí
             EquipWeapon()
-
+            IsHealing = false
             return true
         end
     end
@@ -456,30 +458,33 @@ local function TryHeal()
     return false
 end
 
---// Chọn player mục tiêu
+--// Chọn player
 local function GetTargetPlayer()
     local myChar = LocalPlayer.Character
     if not myChar or not myChar:FindFirstChild("HumanoidRootPart") then return nil end
     local myPos = myChar.HumanoidRootPart.Position
 
-    local candidates = {}
+    local list = {}
 
-    for _, player in pairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and not VipPlayers[player.Name] and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-            local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
-            if humanoid and humanoid.Health > 0 then
-                table.insert(candidates, {
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and not VipPlayers[player.Name] then
+            local char = player.Character
+            local hum = char and char:FindFirstChildOfClass("Humanoid")
+            local root = char and char:FindFirstChild("HumanoidRootPart")
+
+            if hum and hum.Health > 0 and root then
+                table.insert(list, {
                     Player = player,
-                    Health = humanoid.Health,
-                    Distance = (player.Character.HumanoidRootPart.Position - myPos).Magnitude
+                    Health = hum.Health,
+                    Distance = (root.Position - myPos).Magnitude
                 })
             end
         end
     end
 
-    if #candidates == 0 then return nil end
+    if #list == 0 then return nil end
 
-    table.sort(candidates, function(a, b)
+    table.sort(list, function(a, b)
         if PreferWeak then
             if a.Health == b.Health then
                 return a.Distance < b.Distance
@@ -491,10 +496,10 @@ local function GetTargetPlayer()
         end
     end)
 
-    return candidates[1].Player
+    return list[1].Player
 end
 
---// Toggle AutoAttack
+--// AutoAttack Toggle
 Tabs.Player:AddToggle("AutoAttackToggle", {
     Title = "Auto Kill Player",
     Default = false
@@ -502,22 +507,28 @@ Tabs.Player:AddToggle("AutoAttackToggle", {
     AutoAttack = Value
     LastTarget = nil
     hasActivatedOnStart = false
+    IsHealing = false
 
     if AutoAttack then
         task.spawn(function()
             local lastClick = 0
 
             while AutoAttack do
-                local myHumanoid = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-                if not myHumanoid then task.wait(0.2) continue end
+                local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+                if not hum then task.wait(0.2) continue end
 
-                -- Hồi máu nếu yếu và bật auto heal
-                if AutoHeal and myHumanoid.Health <= 40 then
+                -- Hồi máu khi HP thấp
+                if AutoHeal and hum.Health <= 40 and not IsHealing then
                     local healed = TryHeal()
                     if not healed then
-                        repeat task.wait(0.5) until not AutoAttack or myHumanoid.Health > 40
+                        repeat task.wait(0.5) until not AutoAttack or hum.Health > 40
                     end
-                    continue -- Không tấn công khi đang hồi
+                    continue
+                end
+
+                if IsHealing then
+                    task.wait(0.1)
+                    continue
                 end
 
                 local Target = GetTargetPlayer()
@@ -526,31 +537,30 @@ Tabs.Player:AddToggle("AutoAttackToggle", {
                     continue
                 end
 
-                local root = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                local myRoot = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
                 local targetRoot = Target.Character:FindFirstChild("HumanoidRootPart")
-                if not root or not targetRoot then break end
+                if not myRoot or not targetRoot then continue end
 
-                -- Bật lần đầu
+                -- Khởi động lần đầu
                 if not hasActivatedOnStart then
                     hasActivatedOnStart = true
-                    ActivateToolByEquip()
                     EquipWeapon()
                 end
 
-                -- Đổi mục tiêu
+                -- Nếu đổi player
                 if Target ~= LastTarget then
                     LastTarget = Target
-                    ActivateToolByEquip()
                     EquipWeapon()
                 end
 
-                -- Dịch chuyển sau lưng
-                local backOffset = -targetRoot.CFrame.LookVector * 1.5
-                local behindPosition = targetRoot.Position + backOffset
-                local lookDirection = targetRoot.Position + targetRoot.CFrame.LookVector * 5
-                root.CFrame = CFrame.new(behindPosition, lookDirection)
+                -- Đứng sau lưng
+                local behind = targetRoot.Position - targetRoot.CFrame.LookVector * 1.5
+                myRoot.CFrame = CFrame.new(behind, targetRoot.Position + targetRoot.CFrame.LookVector * 5)
 
-                -- Click tấn công
+                -- Kích hoạt tool như Push/Trip
+                ActivateToolIfNear()
+
+                -- Click đánh
                 if tick() - lastClick >= 0.5 then
                     VirtualInput:SendMouseButtonEvent(0, 0, 0, true, game, 0)
                     task.wait(0.05)
@@ -564,7 +574,7 @@ Tabs.Player:AddToggle("AutoAttackToggle", {
     end
 end)
 
---// Toggle ưu tiên máu yếu
+--// Prefer Weak Toggle
 Tabs.Player:AddToggle("PreferWeakToggle", {
     Title = "Prefer Low Health",
     Default = true
@@ -572,12 +582,13 @@ Tabs.Player:AddToggle("PreferWeakToggle", {
     PreferWeak = Value
 end)
 
---// Toggle auto heal
+--// Auto Heal Toggle
 Tabs.Player:AddToggle("AutoHealToggle", {
-    Title = "Auto Heal (40HP)",
+    Title = "Auto Heal (40 HP)",
     Default = true
 }):OnChanged(function(Value)
     AutoHeal = Value
+    IsHealing = false
 end)
 
 
