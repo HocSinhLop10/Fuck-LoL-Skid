@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Subcribe!!] | Ink Game",
-    SubTitle = "Version 2.6.8",
+    SubTitle = "Version 2.7.0",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -848,55 +848,124 @@ Tabs.Player:AddButton({
 
 -- Tabs.Misc
 
+    local fullBrightEnabled1 = false
+    local autoNightLoop 
 
-local CollectionService = game:GetService("CollectionService")
+    local function applyFullBright1()
+        if not fullBrightEnabled1 then return end
 
-local EffectsToggle = Tabs.Misc:AddToggle("EffectsDisablerToggle", {
-    Title = "Fix Lag PRO",
-    Default = false
-})
+        local hour = game.Lighting:GetMinutesAfterMidnight() / 60
+        local isNight = (hour >= 18 or hour < 6)
 
-local running = false
-local tagName = "EffectDisabledByScript"
-
-EffectsToggle:OnChanged(function(Value)
-    running = Value
-
-    if Value then
-        task.spawn(function()
-            while running do
-                for _, v in ipairs(game:GetDescendants()) do
-                    if not CollectionService:HasTag(v, tagName) then
-                        if v:IsA("Part") or v:IsA("Union") or v:IsA("BasePart") then
-                            v.Material = Enum.Material.SmoothPlastic
-                            CollectionService:AddTag(v, tagName)
-
-                        elseif v:IsA("ParticleEmitter") or v:IsA("Smoke") or v:IsA("Explosion") or v:IsA("Sparkles") or v:IsA("Fire") then
-                            v.Enabled = false
-                            CollectionService:AddTag(v, tagName)
-
-                        elseif v:IsA("BloomEffect") or v:IsA("BlurEffect") or v:IsA("DepthOfFieldEffect") or v:IsA("SunRaysEffect") then
-                            v.Enabled = false
-                            CollectionService:AddTag(v, tagName)
-
-                        elseif v:IsA("Decal") or v:IsA("Texture") then
-                            v.Texture = ""
-                            CollectionService:AddTag(v, tagName)
-
-                        elseif v:IsA("Sky") then
-                            v:Destroy()
-                        end
-                    end
-                end
-                task.wait(30)
-            end
-        end)
+        if isNight then
+            game.Lighting.Ambient = Color3.new(1, 1, 1)
+            game.Lighting.Brightness = 10
+            game.Lighting.GlobalShadows = false
+        else
+            game.Lighting.Ambient = Color3.new(0.5, 0.5, 0.5)
+            game.Lighting.Brightness = 1
+            game.Lighting.GlobalShadows = true
+        end
     end
-end)
+
+    local function enableAutoFullBright()
+        if autoNightLoop then autoNightLoop:Disconnect() end
+        applyFullBright1()
+        autoNightLoop = game.Lighting:GetPropertyChangedSignal("ClockTime"):Connect(applyFullBright1)
+    end
+
+    local function disableFullBright()
+        if autoNightLoop then
+            autoNightLoop:Disconnect()
+            autoNightLoop = nil
+        end
+        game.Lighting.Ambient = Color3.new(0.5, 0.5, 0.5)
+        game.Lighting.Brightness = 1
+        game.Lighting.GlobalShadows = true
+    end
+
+    local FbToggle1 = Tabs.Misc:AddToggle("FbToggle1", {Title = "Auto Full Bright", Description = "Auto full bright when night.", Default = false })
+    FbToggle1:OnChanged(function(Value)
+        fullBrightEnabled1 = Value
+        if fullBrightEnabled1 then
+            enableAutoFullBright()
+        else
+            disableFullBright()
+        end
+    end)
+
+    local lightingg = game:GetService("Lighting")
+    local runService5 = game:GetService("RunService")
+    local function removeFog()
+        if lightingg.FogEnd ~= 1000000 then
+            lightingg.FogEnd = 1000000
+        end
+        if lightingg.FogStart ~= 0 then
+            lightingg.FogStart = 0
+        end
+        if lightingg:FindFirstChild("Atmosphere") then
+            local atmosphere = lightingg.Atmosphere
+            if atmosphere.Density ~= 0 then
+                atmosphere.Density = 0
+            end
+            if atmosphere.Offset ~= 0 then
+                atmosphere.Offset = 0
+            end
+            if atmosphere.Haze ~= 0 then
+                atmosphere.Haze = 0
+            end
+            if atmosphere.Color ~= Color3.new(1, 1, 1) then
+                atmosphere.Color = Color3.new(1, 1, 1)
+            end
+        end
+    end
+
+    local function restoreFog()
+        lightingg.FogEnd = 1000 -- Default
+        lightingg.FogStart = 200 -- Default
+        if lightingg:FindFirstChild("Atmosphere") then
+            local atmosphere = lightingg.Atmosphere
+            atmosphere.Density = 0.3
+            atmosphere.Offset = 0
+            atmosphere.Haze = 0.5
+            atmosphere.Color = Color3.fromRGB(200, 200, 200)
+        end
+    end
 
 
 
 
+
+
+
+
+    local noFogEnabled = false
+    local fogLoop
+
+    local NoFogToggle = Tabs.Misc:AddToggle("NoFogToggle", {
+        Title = "Remove Fog",
+        Default = false
+    })
+
+    NoFogToggle:OnChanged(function(Value)
+        noFogEnabled = Value
+
+        if noFogEnabled then
+            removeFog()
+            fogLoop = runService5.Heartbeat:Connect(function()
+                removeFog()
+            end)
+        else
+            if fogLoop then
+                fogLoop:Disconnect()
+                fogLoop = nil
+            end
+            restoreFog()
+        end
+    end)
+
+
+    Tabs.Misc:AddSection("↳ Visual")
 
 -- FPS + Ping Drawing Setup
 local showFPS = true
@@ -974,6 +1043,54 @@ pingToggle:OnChanged(function(val)
     showPing = val
     msText.Visible = val
 end)
+
+    Tabs.Misc:AddSection("↳ FPS")
+
+local CollectionService = game:GetService("CollectionService")
+
+local EffectsToggle = Tabs.Misc:AddToggle("EffectsDisablerToggle", {
+    Title = "Fix Lag PRO",
+    Default = false
+})
+
+local running = false
+local tagName = "EffectDisabledByScript"
+
+EffectsToggle:OnChanged(function(Value)
+    running = Value
+
+    if Value then
+        task.spawn(function()
+            while running do
+                for _, v in ipairs(game:GetDescendants()) do
+                    if not CollectionService:HasTag(v, tagName) then
+                        if v:IsA("Part") or v:IsA("Union") or v:IsA("BasePart") then
+                            v.Material = Enum.Material.SmoothPlastic
+                            CollectionService:AddTag(v, tagName)
+
+                        elseif v:IsA("ParticleEmitter") or v:IsA("Smoke") or v:IsA("Explosion") or v:IsA("Sparkles") or v:IsA("Fire") then
+                            v.Enabled = false
+                            CollectionService:AddTag(v, tagName)
+
+                        elseif v:IsA("BloomEffect") or v:IsA("BlurEffect") or v:IsA("DepthOfFieldEffect") or v:IsA("SunRaysEffect") then
+                            v.Enabled = false
+                            CollectionService:AddTag(v, tagName)
+
+                        elseif v:IsA("Decal") or v:IsA("Texture") then
+                            v.Texture = ""
+                            CollectionService:AddTag(v, tagName)
+
+                        elseif v:IsA("Sky") then
+                            v:Destroy()
+                        end
+                    end
+                end
+                task.wait(30)
+            end
+        end)
+    end
+end)
+
 
 
     Tabs.Misc:AddSection("↳ Bypass")
