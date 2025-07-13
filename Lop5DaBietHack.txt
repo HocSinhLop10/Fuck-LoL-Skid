@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Subcribe!!] | Ink Game",
-    SubTitle = "Version 2.7.5",
+    SubTitle = "Version 2.7.6",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -307,7 +307,7 @@ local function startESP()
                 if hasKnife then
                     text.Color = Color3.fromRGB(255, 0, 0) -- Red
                 else
-                    text.Color = Color3.fromRGB(0, 255, 0) -- Green
+                    text.Color = Color3.fromRGB(0, 255, 255) -- Cyan
                 end
 
                 text.Position = Vector2.new(pos.X, pos.Y)
