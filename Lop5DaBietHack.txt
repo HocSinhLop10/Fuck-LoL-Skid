@@ -21,8 +21,8 @@ local minimizeUI = Enum.KeyCode.RightAlt
 
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
-    Title = "Hutao Hub [SSR] | Ink Game",
-    SubTitle = "Version 2.6.6",
+    Title = "Hutao Hub [Subcribe!!] | Ink Game",
+    SubTitle = "Version 2.6.8",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -353,7 +353,7 @@ local VipPlayers = {
 --// Tools
 local activationTools = { "Power Hold", "Push", "Pocket Sand", "Trip" }
 local weaponTools = { "Fists", "Knife", "Fork", "Bottle" }
-local healTools = { "Bandage" }
+local healTools = { "Bandage", "Kimbap", "Onigiri", "Soda", "Umbrella Cookie", "Star Cookie", "Triangle Cookie", "Circle Cookie", "MonaLisa Cookie" }
 
 --// Tìm tool
 local function FindTool(name)
