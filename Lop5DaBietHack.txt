@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Subcribe!!] | Ink Game",
-    SubTitle = "Version 2.7.2",
+    SubTitle = "Version 2.7.4",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -848,26 +848,61 @@ Tabs.Player:AddButton({
 
 -- Tabs.Misc
 
-local fullBrightEnabled1 = false
-local autoNightLoop
+local Lighting = game:GetService("Lighting")
+local RunService = game:GetService("RunService")
 
-local lighting = game:GetService("Lighting")
-local runService = game:GetService("RunService")
+-- ✅ FullBright Settings
+local fullBrightEnabled = false
+local fullBrightLoop
 
--- ✅ Xoá sương mù và làm sáng môi trường bất kể giờ
-local function applyFullBright1()
-    if not fullBrightEnabled1 then return end
+local function applyFullBright()
+    if not fullBrightEnabled then return end
 
-    -- FullBright Settings
-    lighting.Ambient = Color3.new(1, 1, 1)
-    lighting.Brightness = 10
-    lighting.GlobalShadows = false
+    Lighting.Ambient = Color3.fromRGB(200, 200, 200) -- sáng nhẹ
+    Lighting.Brightness = 4 -- giảm độ sáng từ 10 → 4
+    Lighting.GlobalShadows = false
+end
 
-    -- Remove fog
-    lighting.FogStart = 0
-    lighting.FogEnd = 1000000
+local function enableFullBright()
+    if fullBrightLoop then fullBrightLoop:Disconnect() end
+    applyFullBright()
+    fullBrightLoop = Lighting:GetPropertyChangedSignal("ClockTime"):Connect(applyFullBright)
+end
 
-    local atmosphere = lighting:FindFirstChild("Atmosphere")
+local function disableFullBright()
+    if fullBrightLoop then
+        fullBrightLoop:Disconnect()
+        fullBrightLoop = nil
+    end
+
+    Lighting.Ambient = Color3.fromRGB(128, 128, 128)
+    Lighting.Brightness = 1
+    Lighting.GlobalShadows = true
+end
+
+-- ✅ Toggle: FullBright
+local FbToggle = Tabs.Misc:AddToggle("FbToggle", {
+    Title = "Auto Full Bright",
+    Default = false
+})
+FbToggle:OnChanged(function(Value)
+    fullBrightEnabled = Value
+    if fullBrightEnabled then
+        enableFullBright()
+    else
+        disableFullBright()
+    end
+end)
+
+-- ✅ Remove Fog Settings
+local fogEnabled = false
+local fogLoop
+
+local function removeFog()
+    Lighting.FogStart = 0
+    Lighting.FogEnd = 1000000
+
+    local atmosphere = Lighting:FindFirstChild("Atmosphere")
     if atmosphere then
         atmosphere.Density = 0
         atmosphere.Offset = 0
@@ -876,30 +911,11 @@ local function applyFullBright1()
     end
 end
 
--- ✅ Bật hệ thống và gắn với ClockTime nếu có thay đổi
-local function enableAutoFullBright()
-    if autoNightLoop then autoNightLoop:Disconnect() end
-    applyFullBright1()
-    autoNightLoop = lighting:GetPropertyChangedSignal("ClockTime"):Connect(applyFullBright1)
-end
+local function restoreFog()
+    Lighting.FogStart = 200
+    Lighting.FogEnd = 1000
 
--- ✅ Tắt fullbright và khôi phục mặc định
-local function disableFullBright()
-    if autoNightLoop then
-        autoNightLoop:Disconnect()
-        autoNightLoop = nil
-    end
-
-    -- Restore lighting
-    lighting.Ambient = Color3.new(0.5, 0.5, 0.5)
-    lighting.Brightness = 1
-    lighting.GlobalShadows = true
-
-    -- Restore fog
-    lighting.FogStart = 200
-    lighting.FogEnd = 1000
-
-    local atmosphere = lighting:FindFirstChild("Atmosphere")
+    local atmosphere = Lighting:FindFirstChild("Atmosphere")
     if atmosphere then
         atmosphere.Density = 0.3
         atmosphere.Offset = 0
@@ -908,52 +924,21 @@ local function disableFullBright()
     end
 end
 
--- ✅ Fluent Toggle GUI
-local FbToggle1 = Tabs.Misc:AddToggle("FbToggle1", {
-    Title = "Auto Full Bright",
+-- ✅ Toggle: Remove Fog
+local FogToggle = Tabs.Misc:AddToggle("FogToggle", {
+    Title = "Remove Fog",
     Default = false
 })
-
-FbToggle1:OnChanged(function(Value)
-    fullBrightEnabled1 = Value
-    if fullBrightEnabled1 then
-        enableAutoFullBright()
+FogToggle:OnChanged(function(Value)
+    fogEnabled = Value
+    if fogEnabled then
+        removeFog()
+        fogLoop = RunService.Heartbeat:Connect(removeFog)
     else
-        disableFullBright()
+        if fogLoop then fogLoop:Disconnect() fogLoop = nil end
+        restoreFog()
     end
 end)
-
-
-
-
-
-
-
-
-    local noFogEnabled = false
-    local fogLoop
-
-    local NoFogToggle = Tabs.Misc:AddToggle("NoFogToggle", {
-        Title = "Remove Fog",
-        Default = false
-    })
-
-    NoFogToggle:OnChanged(function(Value)
-        noFogEnabled = Value
-
-        if noFogEnabled then
-            removeFog()
-            fogLoop = runService5.Heartbeat:Connect(function()
-                removeFog()
-            end)
-        else
-            if fogLoop then
-                fogLoop:Disconnect()
-                fogLoop = nil
-            end
-            restoreFog()
-        end
-    end)
 
 
     Tabs.Misc:AddSection("↳ Visual")
@@ -1338,14 +1323,14 @@ local player = Players.LocalPlayer
 local character = player.Character or player.CharacterAdded:Wait()
 local root = character:WaitForChild("HumanoidRootPart")
 
--- ✅ Tạo Toggle trong GUI Fluent
+-- ✅ GUI Fluent Toggle
 local Toggles = {}
 Toggles.TeleportNPC = Tabs.Main:AddToggle("TeleportNPC", {
-    Title = "Kill All Npc",
+    Title = "Kill All Npc V1",
     Default = false
 })
 
--- ✅ Khoảng cách trước mặt
+-- ✅ Khoảng cách và cấu hình
 local distanceInFront = 8
 local usedNPCs = {}
 local currentNPC = nil
@@ -1378,7 +1363,7 @@ local function findNextNPC()
 	return closestNPC
 end
 
--- ✅ Đóng băng NPC và phá AI
+-- ✅ Đóng băng NPC, vô hiệu hóa AI
 local function freezeNPC(npc)
 	local humanoid = npc:FindFirstChild("Humanoid")
 	if humanoid then
@@ -1390,32 +1375,30 @@ local function freezeNPC(npc)
 
 	for _, obj in ipairs(npc:GetDescendants()) do
 		if obj:IsA("Script") or obj:IsA("LocalScript") then
-			pcall(function()
-				obj:Destroy()
-			end)
+			pcall(function() obj:Destroy() end)
 		end
 	end
 end
 
--- ✅ Luôn dịch NPC đến trước mặt bạn
+-- ✅ Đưa NPC đến trước mặt bạn
+local function teleportInFront(npc)
+	local pos = root.Position + root.CFrame.LookVector * distanceInFront
+	npc:MoveTo(pos)
+end
+
+-- ✅ Theo dõi hoạt động
 RunService.Heartbeat:Connect(function()
 	if Toggles.TeleportNPC.Value then
-		-- Nếu chưa có NPC hoặc NPC chết/xoá → lấy NPC khác
 		if not currentNPC or not currentNPC.Parent then
 			currentNPC = findNextNPC()
 			if currentNPC then
 				usedNPCs[currentNPC] = true
 				freezeNPC(currentNPC)
+				teleportInFront(currentNPC)
 			end
-		end
-
-		-- Nếu NPC hợp lệ còn sống thì giữ trước mặt bạn
-		if currentNPC and currentNPC.Parent then
+		else
 			local humanoid = currentNPC:FindFirstChild("Humanoid")
-			if humanoid and humanoid.Health > 0 then
-				local targetPos = root.Position + root.CFrame.LookVector * distanceInFront
-				currentNPC:MoveTo(targetPos)
-			else
+			if humanoid and humanoid.Health <= 0 then
 				currentNPC = nil
 			end
 		end
