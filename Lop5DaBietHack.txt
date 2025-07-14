@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Subcribe!!] | Ink Game",
-    SubTitle = "Version 2.8.3",
+    SubTitle = "Version 2.8.4",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -1521,14 +1521,21 @@ local AutoHitboxNPC = false
 local forwardDistance = 6
 local ClonedNPCParts = {}
 
+-- Danh sách NPC bị chặn hitbox (chữ thường)
+local BlockedNPCNames = {
+	["adjute"] = true,
+	["frontman"] = true,
+	["badpreload"] = true
+}
+
 -- Kiểm tra part hợp lệ
 local function IsValidHitbox(part)
 	return part:IsA("BasePart") and part.Name ~= "HumanoidRootPart"
 end
 
--- Tạo và lưu hitbox từ NPC
+-- Tạo hitbox từ NPC không bị chặn
 local function CloneNPCHitboxes()
-	-- Xóa cũ
+	-- Xóa hitbox cũ
 	for _, part in ipairs(ClonedNPCParts) do
 		if part and part.Parent then part:Destroy() end
 	end
@@ -1536,33 +1543,35 @@ local function CloneNPCHitboxes()
 
 	for _, npc in ipairs(workspace:GetDescendants()) do
 		if npc:IsA("Model") and not Players:GetPlayerFromCharacter(npc) and npc:FindFirstChildOfClass("Humanoid") then
-			for _, part in ipairs(npc:GetChildren()) do
-				if IsValidHitbox(part) then
-					local clone = part:Clone()
-					clone.Anchored = true
-					clone.CanCollide = false
-					clone.Transparency = 0.4
-					clone.Material = Enum.Material.ForceField
-					clone.Color = Color3.fromRGB(255, 255, 255)
-					clone.Size = part.Size * 3
-					clone.Name = "[NPC_Hitbox]"
-					clone.Parent = workspace
-					table.insert(ClonedNPCParts, clone)
+			local lowerName = npc.Name:lower()
+			if not BlockedNPCNames[lowerName] then
+				for _, part in ipairs(npc:GetChildren()) do
+					if IsValidHitbox(part) then
+						local clone = part:Clone()
+						clone.Anchored = true
+						clone.CanCollide = false
+						clone.Transparency = 1 -- Ẩn hoàn toàn
+						clone.Material = Enum.Material.SmoothPlastic
+						clone.Size = part.Size * 3
+						clone.Name = "[NPC_Hitbox]"
+						clone.Parent = workspace
+						table.insert(ClonedNPCParts, clone)
+					end
 				end
 			end
 		end
 	end
 end
 
--- Di chuyển hitbox đến trước mặt player
+-- Di chuyển toàn bộ hitbox vào cùng một chỗ trước mặt player
 local function UpdateHitboxPositions()
 	local root = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
 	if not root then return end
 
+	local targetPos = root.Position + root.CFrame.LookVector * forwardDistance + Vector3.new(0, 3, 0)
 	for _, part in ipairs(ClonedNPCParts) do
 		if part and part.Parent then
-			local offset = Vector3.new(0, math.random(2, 6), 0)
-			part.CFrame = CFrame.new(root.Position + root.CFrame.LookVector * forwardDistance) + offset
+			part.CFrame = CFrame.new(targetPos)
 		end
 	end
 end
@@ -1594,6 +1603,92 @@ end)
 
 
 
+local RunService = game:GetService("RunService")
+local Camera = workspace.CurrentCamera
+
+-- ESP Container
+local npcDrawings = {}
+local npcConnection
+
+-- Hàm tạo ESP cho NPC
+local function createNPCESP(npc)
+    if npcDrawings[npc] then return end
+
+    local text = Drawing.new("Text")
+    text.Size = 14
+    text.Center = true
+    text.Outline = true
+    text.Visible = false
+    text.Color = Color3.fromRGB(0, 255, 0) -- Xanh lá
+
+    npcDrawings[npc] = text
+end
+
+-- Xoá ESP NPC
+local function removeNPCESP(npc)
+    if npcDrawings[npc] then
+        npcDrawings[npc]:Remove()
+        npcDrawings[npc] = nil
+    end
+end
+
+-- Bắt đầu ESP NPC
+local function startNPCESP()
+    -- Quét toàn bộ các NPC có Humanoid
+    for _, npc in ipairs(workspace:GetDescendants()) do
+        if npc:IsA("Model") and not game:GetService("Players"):FindFirstChild(npc.Name) then
+            if npc:FindFirstChild("Humanoid") and npc:FindFirstChild("HumanoidRootPart") then
+                createNPCESP(npc)
+            end
+        end
+    end
+
+    npcConnection = RunService.RenderStepped:Connect(function()
+        for npc, text in pairs(npcDrawings) do
+            if npc and npc:FindFirstChild("HumanoidRootPart") and npc:FindFirstChild("Humanoid") then
+                local hrp = npc.HumanoidRootPart
+                local humanoid = npc.Humanoid
+
+                if humanoid.Health > 0 then
+                    local pos, visible = Camera:WorldToViewportPoint(hrp.Position + Vector3.new(0, 2.5, 0))
+                    local distance = (hrp.Position - Camera.CFrame.Position).Magnitude
+                    text.Text = string.format("%s [%.0fm]", npc.Name, distance)
+                    text.Position = Vector2.new(pos.X, pos.Y)
+                    text.Visible = visible
+                else
+                    text.Visible = false
+                end
+            else
+                text.Visible = false
+            end
+        end
+    end)
+end
+
+-- Dừng ESP NPC
+local function stopNPCESP()
+    if npcConnection then
+        npcConnection:Disconnect()
+        npcConnection = nil
+    end
+
+    for _, text in pairs(npcDrawings) do
+        text:Remove()
+    end
+    npcDrawings = {}
+end
+
+-- ✅ Tích hợp Fluent GUI Toggle trong Tabs.ESP
+Tabs.Main:AddToggle("ESPNPC", {
+    Title = "ESP NPC V2",
+    Default = false,
+}):OnChanged(function(enabled)
+    if enabled then
+        startNPCESP()
+    else
+        stopNPCESP()
+    end
+end)
 
 
 local Toggles = {}
