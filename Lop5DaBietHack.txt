@@ -234,18 +234,11 @@ Tabs.Teleport:AddButton({
 -- Tabs.Item
 
 local AutoCollectBandage = false
-local lastDropTime = 0
 
--- Kiểm tra có Bandage trong backpack
+-- Kiểm tra có Bandage chưa (chỉ tính trong backpack)
 local function HasBandage()
     local backpack = LocalPlayer:FindFirstChildOfClass("Backpack")
     return backpack and backpack:FindFirstChild("Bandage") ~= nil
-end
-
--- Kiểm tra có tool Bandage Drop không
-local function HasBandageDrop()
-    local backpack = LocalPlayer:FindFirstChildOfClass("Backpack")
-    return backpack and backpack:FindFirstChild("Bandage Drop")
 end
 
 -- Tìm model DroppedBandage và trả về một BasePart để teleport
@@ -262,30 +255,6 @@ local function FindBandageModel()
     return nil
 end
 
--- Click chuột trái
-local function ClickMouse()
-    VirtualInput:SendMouseButtonEvent(0, 0, 0, true, game, 0)
-    task.wait(0.05)
-    VirtualInput:SendMouseButtonEvent(0, 0, 0, false, game, 0)
-end
-
--- Dùng Bandage Drop để tạo bandage nếu đủ cooldown
-local function TryDropBandage()
-    local tool = HasBandageDrop()
-    local char = LocalPlayer.Character
-    local humanoid = char and char:FindFirstChildOfClass("Humanoid")
-
-    if tool and humanoid and tick() - lastDropTime >= 20 then
-        humanoid:EquipTool(tool)
-        task.wait(0.25) -- 🕒 Đợi sau khi cầm tool
-
-        ClickMouse() -- ✅ Click chuột trái để tạo Bandage
-        lastDropTime = tick()
-        return true
-    end
-    return false
-end
-
 -- Toggle GUI
 Tabs.Item:AddToggle("AutoCollectBandage", {
     Title = "Auto Collect Bandage",
@@ -295,23 +264,16 @@ Tabs.Item:AddToggle("AutoCollectBandage", {
 
     task.spawn(function()
         while AutoCollectBandage do
-            task.wait(0.2)
+            task.wait(0.1)
 
             if HasBandage() then continue end
 
-            -- Ưu tiên dùng Bandage Drop nếu có
-            if HasBandageDrop() and TryDropBandage() then
-                task.wait(1)
-                continue
-            end
-
-            -- Nếu không, tìm DroppedBandage trong map
             local bandagePart = FindBandageModel()
             local root = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
 
             if bandagePart and root then
                 root.CFrame = bandagePart.CFrame + Vector3.new(0, 2, 0)
-                task.wait(0.5)
+                task.wait(0.1) -- Đợi để nhặt
             end
         end
     end)
