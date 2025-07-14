@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Subcribe!!] | Ink Game",
-    SubTitle = "Version 2.7.7",
+    SubTitle = "Version 2.7.8",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -366,13 +366,18 @@ local healFloatY = nil
 
 --// Player VIP
 local VipPlayers = {
-    ["Hu1a0_Hu9"] = true
+    ["Hu1a0_Hu9"] = true,
+    ["SudonButbad"] = true
 }
 
 --// Tools
 local activationTools = { "Power Hold", "Push", "Pocket Sand", "Trip" }
 local weaponTools = { "Fists", "Knife", "Fork", "Bottle" }
-local healTools = { "Bandage", "Kimbap", "Onigiri", "Soda", "Umbrella Cookie", "Star Cookie", "Triangle Cookie", "Circle Cookie", "MonaLisa Cookie" }
+local healTools = {
+    "Bandage", "Kimbap", "Onigiri", "Soda",
+    "Umbrella Cookie", "Star Cookie", "Triangle Cookie",
+    "Circle Cookie", "MonaLisa Cookie"
+}
 
 --// Tìm tool
 local function FindTool(name)
@@ -434,41 +439,47 @@ local function TryHeal()
     local root = char and char:FindFirstChild("HumanoidRootPart")
     local humanoid = char and char:FindFirstChildOfClass("Humanoid")
     if not root or not humanoid then return false end
+    if wasHealing then return true end
+    wasHealing = true
 
-    for _, toolName in ipairs(healTools) do
-        local tool = FindTool(toolName)
-        if tool then
-            -- Chỉ set lại Y nếu chưa bay
-            if not healFloatY then
-                healFloatY = root.Position.Y + 50
-            end
-
-            -- Liên tục giữ ở độ cao healFloatY
-            local floatConn
-            floatConn = game:GetService("RunService").Heartbeat:Connect(function()
-                if not AutoAttack or not wasHealing then
-                    floatConn:Disconnect()
-                    return
-                end
-                local pos = root.Position
-                root.CFrame = CFrame.new(Vector3.new(pos.X, healFloatY, pos.Z))
-            end)
-
-            -- Dùng tool hồi máu
-            EquipTool(toolName)
-            VirtualInput:SendMouseButtonEvent(0, 0, 0, true, game, 0)
-            task.wait(0.05)
-            VirtualInput:SendMouseButtonEvent(0, 0, 0, false, game, 0)
-
-            task.wait(2.5)
-
-            healFloatY = nil
-            EnsureWeaponEquipped()
-            return true
-        end
+    if not healFloatY then
+        healFloatY = root.Position.Y + 50
     end
 
-    return false
+    local floatConn
+    floatConn = game:GetService("RunService").Heartbeat:Connect(function()
+        if not AutoAttack or not wasHealing then
+            floatConn:Disconnect()
+            return
+        end
+        local pos = root.Position
+        root.CFrame = CFrame.new(Vector3.new(pos.X, healFloatY, pos.Z))
+    end)
+
+    while humanoid.Health <= 40 and AutoAttack and AutoHeal do
+        local used = false
+        for _, toolName in ipairs(healTools) do
+            local tool = FindTool(toolName)
+            if tool then
+                EquipTool(toolName)
+                VirtualInput:SendMouseButtonEvent(0, 0, 0, true, game, 0)
+                task.wait(0.05)
+                VirtualInput:SendMouseButtonEvent(0, 0, 0, false, game, 0)
+                task.wait(2.5)
+                used = true
+                break
+            end
+        end
+        if not used then break end
+    end
+
+    task.delay(0.1, function()
+        wasHealing = false
+        healFloatY = nil
+        EnsureWeaponEquipped()
+    end)
+
+    return true
 end
 
 --// Tìm target
@@ -521,12 +532,8 @@ Tabs.Player:AddToggle("AutoAttackToggle", {
 
             -- Hồi máu nếu HP thấp
             if AutoHeal and humanoid.Health <= 40 then
-                wasHealing = true
-                if TryHeal() then
-                    -- done
-                end
+                TryHeal()
                 repeat task.wait(0.2) until humanoid.Health > 40 or not AutoAttack
-                wasHealing = false
             end
 
             if wasHealing then task.wait(0.1) continue end
