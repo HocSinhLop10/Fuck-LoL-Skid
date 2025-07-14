@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Subcribe!!] | Ink Game",
-    SubTitle = "Version 2.8.2",
+    SubTitle = "Version 2.8.3",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -1514,91 +1514,81 @@ end)
 
 
 local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
 local RunService = game:GetService("RunService")
 
-local player = Players.LocalPlayer
-local character = player.Character or player.CharacterAdded:Wait()
-local root = character:WaitForChild("HumanoidRootPart")
+local AutoHitboxNPC = false
+local forwardDistance = 6
+local ClonedNPCParts = {}
 
--- ✅ GUI Fluent Toggle
-local Toggles = {}
-Toggles.TeleportNPC = Tabs.Main:AddToggle("TeleportNPC", {
-    Title = "Kill All Npc V1",
-    Default = false
-})
-
--- ✅ Khoảng cách và cấu hình
-local distanceInFront = 8
-local usedNPCs = {}
-local currentNPC = nil
-
--- ✅ Kiểm tra NPC hợp lệ
-local function isValidNPC(model)
-	if model:IsA("Model") and model:FindFirstChild("Humanoid") and model:FindFirstChild("HumanoidRootPart") then
-		if model ~= character and not usedNPCs[model] then
-			return true
-		end
-	end
-	return false
+-- Kiểm tra part hợp lệ
+local function IsValidHitbox(part)
+	return part:IsA("BasePart") and part.Name ~= "HumanoidRootPart"
 end
 
--- ✅ Tìm NPC gần nhất chưa xử lý
-local function findNextNPC()
-	local closestNPC = nil
-	local shortestDistance = math.huge
+-- Tạo và lưu hitbox từ NPC
+local function CloneNPCHitboxes()
+	-- Xóa cũ
+	for _, part in ipairs(ClonedNPCParts) do
+		if part and part.Parent then part:Destroy() end
+	end
+	table.clear(ClonedNPCParts)
 
-	for _, obj in ipairs(workspace:GetDescendants()) do
-		if isValidNPC(obj) then
-			local dist = (obj.HumanoidRootPart.Position - root.Position).Magnitude
-			if dist < shortestDistance then
-				shortestDistance = dist
-				closestNPC = obj
+	for _, npc in ipairs(workspace:GetDescendants()) do
+		if npc:IsA("Model") and not Players:GetPlayerFromCharacter(npc) and npc:FindFirstChildOfClass("Humanoid") then
+			for _, part in ipairs(npc:GetChildren()) do
+				if IsValidHitbox(part) then
+					local clone = part:Clone()
+					clone.Anchored = true
+					clone.CanCollide = false
+					clone.Transparency = 0.4
+					clone.Material = Enum.Material.ForceField
+					clone.Color = Color3.fromRGB(255, 255, 255)
+					clone.Size = part.Size * 3
+					clone.Name = "[NPC_Hitbox]"
+					clone.Parent = workspace
+					table.insert(ClonedNPCParts, clone)
+				end
 			end
 		end
 	end
-
-	return closestNPC
 end
 
--- ✅ Đóng băng NPC, vô hiệu hóa AI
-local function freezeNPC(npc)
-	local humanoid = npc:FindFirstChild("Humanoid")
-	if humanoid then
-		humanoid.WalkSpeed = 0
-		humanoid.JumpPower = 0
-		humanoid.PlatformStand = true
-		humanoid:ChangeState(Enum.HumanoidStateType.Physics)
-	end
+-- Di chuyển hitbox đến trước mặt player
+local function UpdateHitboxPositions()
+	local root = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+	if not root then return end
 
-	for _, obj in ipairs(npc:GetDescendants()) do
-		if obj:IsA("Script") or obj:IsA("LocalScript") then
-			pcall(function() obj:Destroy() end)
+	for _, part in ipairs(ClonedNPCParts) do
+		if part and part.Parent then
+			local offset = Vector3.new(0, math.random(2, 6), 0)
+			part.CFrame = CFrame.new(root.Position + root.CFrame.LookVector * forwardDistance) + offset
 		end
 	end
 end
 
--- ✅ Đưa NPC đến trước mặt bạn
-local function teleportInFront(npc)
-	local pos = root.Position + root.CFrame.LookVector * distanceInFront
-	npc:MoveTo(pos)
-end
+-- Toggle Fluent GUI
+Tabs.Main:AddToggle("AutoNPC_Hitbox", {
+	Title = "Auto Kill NPC",
+	Default = false
+}):OnChanged(function(Value)
+	AutoHitboxNPC = Value
 
--- ✅ Theo dõi hoạt động
-RunService.Heartbeat:Connect(function()
-	if Toggles.TeleportNPC.Value then
-		if not currentNPC or not currentNPC.Parent then
-			currentNPC = findNextNPC()
-			if currentNPC then
-				usedNPCs[currentNPC] = true
-				freezeNPC(currentNPC)
-				teleportInFront(currentNPC)
+	if Value then
+		task.spawn(function()
+			while AutoHitboxNPC do
+				CloneNPCHitboxes()
+				UpdateHitboxPositions()
+				task.wait(0.5)
 			end
-		else
-			local humanoid = currentNPC:FindFirstChild("Humanoid")
-			if humanoid and humanoid.Health <= 0 then
-				currentNPC = nil
+		end)
+	else
+		for _, part in ipairs(ClonedNPCParts) do
+			if part and part.Parent then
+				part:Destroy()
 			end
 		end
+		table.clear(ClonedNPCParts)
 	end
 end)
 
