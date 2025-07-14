@@ -235,25 +235,25 @@ Tabs.Teleport:AddButton({
 
 local AutoCollectBandage = false
 
--- Kiểm tra có Bandage chưa
+-- Kiểm tra đã có Bandage chưa
 local function HasBandage()
     return FindTool("Bandage") ~= nil
 end
 
--- Tìm model chứa "Bandage"
-local function FindBandageModel()
+-- Tìm đúng model DroppedBandage
+local function FindDroppedBandageModel()
     for _, obj in ipairs(workspace:GetDescendants()) do
-        if obj:IsA("Model") and obj.Name:lower():find("bandage") then
-            local hrp = obj:FindFirstChild("HumanoidRootPart") or obj:FindFirstChild("Handle") or obj:FindFirstChildWhichIsA("BasePart")
-            if hrp then
-                return hrp
+        if obj:IsA("Model") and obj.Name == "DroppedBandage" then
+            local part = obj:FindFirstChild("HumanoidRootPart") or obj:FindFirstChild("Handle") or obj:FindFirstChildWhichIsA("BasePart")
+            if part then
+                return part
             end
         end
     end
     return nil
 end
 
--- Toggle trong GUI
+-- Toggle Auto Collect Bandage
 Tabs.Item:AddToggle("AutoCollectBandage", {
     Title = "Auto Collect Bandage",
     Default = false
@@ -264,9 +264,10 @@ Tabs.Item:AddToggle("AutoCollectBandage", {
         while AutoCollectBandage do
             task.wait(1)
 
+            -- Nếu đã có rồi thì bỏ qua
             if HasBandage() then continue end
 
-            local bandagePart = FindBandageModel()
+            local bandagePart = FindDroppedBandageModel()
             local root = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
 
             if bandagePart and root then
