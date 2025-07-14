@@ -264,7 +264,7 @@ Tabs.Item:AddToggle("AutoCollectBandage", {
 
     task.spawn(function()
         while AutoCollectBandage do
-            task.wait(1)
+            task.wait(0.1)
 
             if HasBandage() then continue end
 
