@@ -35,6 +35,7 @@ local Tabs = {
     Dev = Window:AddTab({ Title = "About", Icon = "rbxassetid://121302760641013"}),
     Main = Window:AddTab({ Title = "Main", Icon = "rbxassetid://121302760641013" }),
     Teleport = Window:AddTab({ Title = "Teleport", Icon = "rbxassetid://121302760641013" }),
+    Item = Window:AddTab({ Title = "Item", Icon = "rbxassetid://121302760641013" }),
     Player = Window:AddTab({ Title = "Player", Icon = "rbxassetid://121302760641013" }),
     Misc = Window:AddTab({ Title = "Misc", Icon = "rbxassetid://121302760641013" }),
     Settings = Window:AddTab({ Title = "Settings", Icon = "rbxassetid://121302760641013" }),
@@ -229,6 +230,53 @@ Tabs.Teleport:AddButton({
         end)
     end
 })
+
+-- Tabs.Item
+
+local AutoCollectBandage = false
+
+-- Kiểm tra có Bandage chưa
+local function HasBandage()
+    return FindTool("Bandage") ~= nil
+end
+
+-- Tìm model chứa "Bandage"
+local function FindBandageModel()
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        if obj:IsA("Model") and obj.Name:lower():find("bandage") then
+            local hrp = obj:FindFirstChild("HumanoidRootPart") or obj:FindFirstChild("Handle") or obj:FindFirstChildWhichIsA("BasePart")
+            if hrp then
+                return hrp
+            end
+        end
+    end
+    return nil
+end
+
+-- Toggle trong GUI
+Tabs.Item:AddToggle("AutoCollectBandage", {
+    Title = "Auto Collect Bandage",
+    Default = false
+}):OnChanged(function(Value)
+    AutoCollectBandage = Value
+
+    task.spawn(function()
+        while AutoCollectBandage do
+            task.wait(1)
+
+            if HasBandage() then continue end
+
+            local bandagePart = FindBandageModel()
+            local root = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+
+            if bandagePart and root then
+                root.CFrame = bandagePart.CFrame + Vector3.new(0, 2, 0)
+            end
+        end
+    end)
+end)
+
+
 
 -- Tabs.Player
 
