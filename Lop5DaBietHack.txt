@@ -262,6 +262,13 @@ local function FindBandageModel()
     return nil
 end
 
+-- Click chuột trái
+local function ClickMouse()
+    VirtualInput:SendMouseButtonEvent(0, 0, 0, true, game, 0)
+    task.wait(0.05)
+    VirtualInput:SendMouseButtonEvent(0, 0, 0, false, game, 0)
+end
+
 -- Dùng Bandage Drop để tạo bandage nếu đủ cooldown
 local function TryDropBandage()
     local tool = HasBandageDrop()
@@ -270,13 +277,9 @@ local function TryDropBandage()
 
     if tool and humanoid and tick() - lastDropTime >= 20 then
         humanoid:EquipTool(tool)
-        task.wait(0.2)
+        task.wait(0.25) -- 🕒 Đợi sau khi cầm tool
 
-        -- Click để tạo Bandage
-        VirtualInput:SendMouseButtonEvent(0, 0, 0, true, game, 0)
-        task.wait(0.05)
-        VirtualInput:SendMouseButtonEvent(0, 0, 0, false, game, 0)
-
+        ClickMouse() -- ✅ Click chuột trái để tạo Bandage
         lastDropTime = tick()
         return true
     end
