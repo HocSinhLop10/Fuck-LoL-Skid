@@ -346,6 +346,89 @@ end)
 
 
 
+
+
+local HttpService = game:GetService("HttpService")
+local Players = game:GetService("Players")
+local TeleportService = game:GetService("TeleportService")
+
+local USERNAME = "H1H4"
+
+-- Hàm lấy UserId từ username
+local function getUserIdFromUsername(username)
+    local success, result = pcall(function()
+        local response = game:HttpPost(
+            "https://users.roblox.com/v1/usernames/users",
+            HttpService:JSONEncode({ usernames = { username }, excludeBannedUsers = true }),
+            Enum.HttpContentType.ApplicationJson
+        )
+        return HttpService:JSONDecode(response)
+    end)
+    if success and result and result.data and #result.data > 0 then
+        return result.data[1].id
+    end
+    return nil
+end
+
+-- Hàm kiểm tra trạng thái online
+local function getPresence(userId)
+    local success, result = pcall(function()
+        local response = game:HttpPost(
+            "https://presence.roblox.com/v1/presence/users",
+            HttpService:JSONEncode({ userIds = { userId } }),
+            Enum.HttpContentType.ApplicationJson
+        )
+        return HttpService:JSONDecode(response)
+    end)
+    if success and result and result.userPresences and #result.userPresences > 0 then
+        return result.userPresences[1]
+    end
+    return nil
+end
+
+-- ✅ Toggle GUI Fluent
+local Toggles = Toggles or {} -- dùng lại nếu đã có
+Toggles.TeleportToH1H4 = Tabs.Main:AddToggle("TeleportToH1H4", {
+    Title = "Auto Find H1H4",
+    Default = false
+})
+
+Toggles.TeleportToH1H4:OnChanged(function(Value)
+    if Value then
+        task.spawn(function()
+            local userId = getUserIdFromUsername(USERNAME)
+            if not userId then
+                warn("[❌] Không tìm thấy user:", USERNAME)
+                Toggles.TeleportToH1H4:Set(false)
+                return
+            end
+
+            local presence = getPresence(userId)
+            if not presence then
+                warn("[❌] Không thể lấy trạng thái online.")
+                Toggles.TeleportToH1H4:Set(false)
+                return
+            end
+
+            if presence.userPresenceType == 2 then
+                local placeId = presence.lastLocation and presence.lastLocation.placeId
+                local gameId = presence.lastLocation and presence.lastLocation.gameId
+
+                if placeId and gameId then
+                    print("[✅] Teleporting to H1H4's game...")
+                    TeleportService:TeleportToPlaceInstance(placeId, gameId, Players.LocalPlayer)
+                else
+                    warn("[⚠️] Thiếu placeId hoặc gameId.")
+                end
+            else
+                print("[ℹ️] H1H4 không ở trong game.")
+            end
+
+            Toggles.TeleportToH1H4:Set(false)
+        end)
+    end
+end)
+
 -- Tabs.Setting
 
 
