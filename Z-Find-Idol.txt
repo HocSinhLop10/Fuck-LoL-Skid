@@ -352,7 +352,7 @@ local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 local TeleportService = game:GetService("TeleportService")
 
-local USERNAME = "H1H4"
+local USERNAME = "H1h4"
 
 -- Hàm lấy UserId từ username
 local function getUserIdFromUsername(username)
@@ -389,7 +389,7 @@ end
 -- ✅ Toggle GUI Fluent
 local Toggles = Toggles or {} -- dùng lại nếu đã có
 Toggles.TeleportToH1H4 = Tabs.Main:AddToggle("TeleportToH1H4", {
-    Title = "Auto Find H1H4",
+    Title = "Auto Find H1h4",
     Default = false
 })
 
@@ -415,13 +415,13 @@ Toggles.TeleportToH1H4:OnChanged(function(Value)
                 local gameId = presence.lastLocation and presence.lastLocation.gameId
 
                 if placeId and gameId then
-                    print("[✅] Teleporting to H1H4's game...")
+                    print("[✅] Teleporting to H1h4's game...")
                     TeleportService:TeleportToPlaceInstance(placeId, gameId, Players.LocalPlayer)
                 else
                     warn("[⚠️] Thiếu placeId hoặc gameId.")
                 end
             else
-                print("[ℹ️] H1H4 không ở trong game.")
+                print("[ℹ️] H1h4 không ở trong game.")
             end
 
             Toggles.TeleportToH1H4:Set(false)
