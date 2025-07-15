@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Subcribe!!] | Ink Game",
-    SubTitle = "Version 2.8.4",
+    SubTitle = "Version 2.8.5",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -1515,7 +1515,6 @@ end)
 
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
-local RunService = game:GetService("RunService")
 
 local AutoHitboxNPC = false
 local forwardDistance = 6
@@ -1533,7 +1532,7 @@ local function IsValidHitbox(part)
 	return part:IsA("BasePart") and part.Name ~= "HumanoidRootPart"
 end
 
--- Tạo hitbox từ NPC không bị chặn
+-- Tạo hitbox từ NPC không bị chặn (clone full người)
 local function CloneNPCHitboxes()
 	-- Xóa hitbox cũ
 	for _, part in ipairs(ClonedNPCParts) do
@@ -1545,7 +1544,7 @@ local function CloneNPCHitboxes()
 		if npc:IsA("Model") and not Players:GetPlayerFromCharacter(npc) and npc:FindFirstChildOfClass("Humanoid") then
 			local lowerName = npc.Name:lower()
 			if not BlockedNPCNames[lowerName] then
-				for _, part in ipairs(npc:GetChildren()) do
+				for _, part in ipairs(npc:GetDescendants()) do
 					if IsValidHitbox(part) then
 						local clone = part:Clone()
 						clone.Anchored = true
