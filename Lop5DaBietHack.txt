@@ -527,7 +527,7 @@ local function TryHeal()
         root.CFrame = CFrame.new(Vector3.new(pos.X, healFloatY, pos.Z))
     end)
 
-    while humanoid.Health <= 40 and AutoAttack and AutoHeal do
+    while humanoid.Health <= 45 and AutoAttack and AutoHeal do
         local used = false
         for _, toolName in ipairs(healTools) do
             local tool = FindTool(toolName)
@@ -602,9 +602,9 @@ Tabs.Player:AddToggle("AutoAttackToggle", {
             if not humanoid then task.wait(0.1) continue end
 
             -- Hồi máu nếu HP thấp
-            if AutoHeal and humanoid.Health <= 40 then
+            if AutoHeal and humanoid.Health <= 45 then
                 TryHeal()
-                repeat task.wait(0.2) until humanoid.Health > 40 or not AutoAttack
+                repeat task.wait(0.2) until humanoid.Health > 45 or not AutoAttack
             end
 
             if wasHealing then task.wait(0.1) continue end
@@ -655,7 +655,7 @@ end)
 
 --// Toggle tự hồi máu
 Tabs.Player:AddToggle("AutoHealToggle", {
-    Title = "Auto Heal (40 HP)",
+    Title = "Auto Heal (45 HP)",
     Default = true
 }):OnChanged(function(Value)
     AutoHeal = Value
