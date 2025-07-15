@@ -57,7 +57,7 @@ local Options = Fluent.Options
         Title = "Discord",
         Description = "Copy the link to join the discord!",
         Callback = function()
-            setclipboard("https://discord.gg/aA9Qt9Pt")
+            setclipboard("https://discord.gg/a4PsqfK6")
             Fluent:Notify({
                 Title = "Notification",
                 Content = "Successfully copied to the clipboard",
