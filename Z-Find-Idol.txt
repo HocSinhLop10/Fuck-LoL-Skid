@@ -645,7 +645,7 @@ SaveManager:SetIgnoreIndexes({})
 -- a script hub could have themes in a global folder
 -- and game configs in a separate folder per game
 InterfaceManager:SetFolder("Hutao HUB")
-SaveManager:SetFolder("Hutao HUB/Ink Game")
+SaveManager:SetFolder("Hutao HUB/Find You Idol")
 
 InterfaceManager:BuildInterfaceSection(Tabs.Settings)
 SaveManager:BuildConfigSection(Tabs.Settings)
@@ -653,7 +653,7 @@ SaveManager:BuildConfigSection(Tabs.Settings)
 -- Select First Tab By Default
 Window:SelectTab(1)
 
-Fluent:Notify({ Title = "Hutao HUB", Content = "Ink Game script loaded successfully!", Duration = 5 })
+Fluent:Notify({ Title = "Hutao HUB", Content = "Find You Idol script loaded successfully!", Duration = 5 })
 SaveManager:LoadAutoloadConfig()
 
 
