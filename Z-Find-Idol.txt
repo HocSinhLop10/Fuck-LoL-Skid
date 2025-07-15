@@ -1,0 +1,447 @@
+--[[
+
+ _   _    _   _   _____     _       ___     _   _   _   _   ____   
+| | | |  | | | | |_   _|   / \     / _ \   | | | | | | | | | __ )  
+| |_| |  | | | |   | |    / _ \   | | | |  | |_| | | | | | |  _ \  
+|  _  |  | | | |   | |   / ___ \  | |_| |  |  _  | | |_| | | |_) | 
+\_| |_/   \___/    \_/  /_/   \_\  \___/   \_| |_/  \___/  |____/
+
+                        Hutao Hub
+]]
+
+---------------------------------------------------------------------------------
+
+local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
+
+local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/SLK-gaming/Fluent/refs/heads/main/SaveManager.lua.txt"))()
+
+local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/SLK-gaming/Fluent/refs/heads/main/InterfaceManager.lua.txt"))()
+
+local minimizeUI = Enum.KeyCode.RightAlt
+
+-- 🟢 Create Main UI
+local Window = Fluent:CreateWindow({
+    Title = "Hutao Hub [Premium] | Find You Idol",
+    SubTitle = "Version ???",
+    TabWidth = 160,
+    Size = UDim2.fromOffset(480, 360),
+    Acrylic = false,
+    Theme = "Darker",
+    MinimizeKey = minimizeUI
+})
+
+-- Tabs
+local Tabs = {
+    Dev = Window:AddTab({ Title = "About", Icon = "rbxassetid://121302760641013"}),
+    Main = Window:AddTab({ Title = "Main", Icon = "rbxassetid://121302760641013" }),
+    Settings = Window:AddTab({ Title = "Settings", Icon = "rbxassetid://121302760641013" }),
+}  
+
+-- Tab.Dev
+
+local Options = Fluent.Options
+
+
+    Tabs.Dev:AddParagraph({
+        Title = "Note",
+        Content = "Thank you for using the script!"
+    })
+
+    Tabs.Dev:AddSection("↳ Links")
+
+    Tabs.Dev:AddButton({
+        Title = "Discord",
+        Description = "Copy the link to join the discord!",
+        Callback = function()
+            setclipboard("https://discord.gg/aA9Qt9Pt")
+            Fluent:Notify({
+                Title = "Notification",
+                Content = "Successfully copied to the clipboard",
+                SubContent = "", -- Optional
+                Duration = 3 
+            })
+        end
+    })
+
+
+
+    Tabs.Dev:AddButton({
+        Title = "Youtube",
+        Description = "Copy link to Subscribe to Youtube channel!",
+        Callback = function()
+            setclipboard("https://www.youtube.com/@SLKgamingSSR")
+            Fluent:Notify({
+                Title = "Notification",
+                Content = "Successfully copied to the clipboard!",
+                SubContent = "", -- Optional
+                Duration = 3 
+            })
+        end
+    })
+
+
+    Tabs.Dev:AddButton({
+        Title = "Facebook",
+        Description = "Copy link to join facebook group!",
+        Callback = function()
+            setclipboard("https://www.facebook.com/groups/1180845463307087/?ref=share&mibextid=NSMWBT")
+            Fluent:Notify({
+                Title = "Notification",
+                Content = "Successfully copied to the clipboard!",
+                SubContent = "", -- Optional
+                Duration = 3 
+            })
+        end
+    })
+
+
+
+-- Tabs.Main
+
+local HttpService = game:GetService("HttpService")
+local Players = game:GetService("Players")
+local TeleportService = game:GetService("TeleportService")
+
+local USERNAME = "SDMReal7"
+
+-- Hàm lấy UserId từ username
+local function getUserIdFromUsername(username)
+    local success, result = pcall(function()
+        local response = game:HttpPost(
+            "https://users.roblox.com/v1/usernames/users",
+            HttpService:JSONEncode({ usernames = { username }, excludeBannedUsers = true }),
+            Enum.HttpContentType.ApplicationJson
+        )
+        return HttpService:JSONDecode(response)
+    end)
+    if success and result and result.data and #result.data > 0 then
+        return result.data[1].id
+    end
+    return nil
+end
+
+-- Hàm kiểm tra trạng thái online
+local function getPresence(userId)
+    local success, result = pcall(function()
+        local response = game:HttpPost(
+            "https://presence.roblox.com/v1/presence/users",
+            HttpService:JSONEncode({ userIds = { userId } }),
+            Enum.HttpContentType.ApplicationJson
+        )
+        return HttpService:JSONDecode(response)
+    end)
+    if success and result and result.userPresences and #result.userPresences > 0 then
+        return result.userPresences[1]
+    end
+    return nil
+end
+
+-- ✅ Toggle GUI Fluent
+local Toggles = Toggles or {} -- dùng lại nếu đã có
+Toggles.TeleportToSDM = Tabs.Main:AddToggle("TeleportToSDM", {
+    Title = "Auto Find SDMReal7",
+    Default = false
+})
+
+Toggles.TeleportToSDM:OnChanged(function(Value)
+    if Value then
+        task.spawn(function()
+            local userId = getUserIdFromUsername(USERNAME)
+            if not userId then
+                warn("[❌] Không tìm thấy user:", USERNAME)
+                Toggles.TeleportToSDM:Set(false)
+                return
+            end
+
+            local presence = getPresence(userId)
+            if not presence then
+                warn("[❌] Không thể lấy trạng thái online.")
+                Toggles.TeleportToSDM:Set(false)
+                return
+            end
+
+            if presence.userPresenceType == 2 then
+                local placeId = presence.lastLocation and presence.lastLocation.placeId
+                local gameId = presence.lastLocation and presence.lastLocation.gameId
+
+                if placeId and gameId then
+                    print("[✅] Teleporting to SDMReal7's game...")
+                    TeleportService:TeleportToPlaceInstance(placeId, gameId, Players.LocalPlayer)
+                else
+                    warn("[⚠️] Thiếu placeId hoặc gameId.")
+                end
+            else
+                print("[ℹ️] SDMReal7 không ở trong game.")
+            end
+
+            Toggles.TeleportToSDM:Set(false)
+        end)
+    end
+end)
+
+
+local HttpService = game:GetService("HttpService")
+local Players = game:GetService("Players")
+local TeleportService = game:GetService("TeleportService")
+
+local USERNAME = "Herobrine10122412"
+
+-- Hàm lấy UserId từ username
+local function getUserIdFromUsername(username)
+    local success, result = pcall(function()
+        local response = game:HttpPost(
+            "https://users.roblox.com/v1/usernames/users",
+            HttpService:JSONEncode({ usernames = { username }, excludeBannedUsers = true }),
+            Enum.HttpContentType.ApplicationJson
+        )
+        return HttpService:JSONDecode(response)
+    end)
+    if success and result and result.data and #result.data > 0 then
+        return result.data[1].id
+    end
+    return nil
+end
+
+-- Hàm kiểm tra trạng thái online
+local function getPresence(userId)
+    local success, result = pcall(function()
+        local response = game:HttpPost(
+            "https://presence.roblox.com/v1/presence/users",
+            HttpService:JSONEncode({ userIds = { userId } }),
+            Enum.HttpContentType.ApplicationJson
+        )
+        return HttpService:JSONDecode(response)
+    end)
+    if success and result and result.userPresences and #result.userPresences > 0 then
+        return result.userPresences[1]
+    end
+    return nil
+end
+
+-- ✅ Toggle GUI Fluent
+local Toggles = Toggles or {} -- dùng lại nếu đã có
+Toggles.TeleportToMV = Tabs.Main:AddToggle("TeleportToMV", {
+    Title = "Auto Find MV Channel",
+    Default = false
+})
+
+Toggles.TeleportToMV:OnChanged(function(Value)
+    if Value then
+        task.spawn(function()
+            local userId = getUserIdFromUsername(USERNAME)
+            if not userId then
+                warn("[❌] Không tìm thấy user:", USERNAME)
+                Toggles.TeleportToMV:Set(false)
+                return
+            end
+
+            local presence = getPresence(userId)
+            if not presence then
+                warn("[❌] Không thể lấy trạng thái online.")
+                Toggles.TeleportToMV:Set(false)
+                return
+            end
+
+            if presence.userPresenceType == 2 then
+                local placeId = presence.lastLocation and presence.lastLocation.placeId
+                local gameId = presence.lastLocation and presence.lastLocation.gameId
+
+                if placeId and gameId then
+                    print("[✅] Teleporting to Herobrine10122412's game...")
+                    TeleportService:TeleportToPlaceInstance(placeId, gameId, Players.LocalPlayer)
+                else
+                    warn("[⚠️] Thiếu placeId hoặc gameId.")
+                end
+            else
+                print("[ℹ️] Herobrine10122412 không ở trong game.")
+            end
+
+            Toggles.TeleportToMV:Set(false)
+        end)
+    end
+end)
+
+
+
+-- Tabs.Setting
+
+
+local AexecToggle = Tabs.Settings:AddToggle("AexecToggle", {Title = "Auto Execute", Default = false })
+AexecToggle:OnChanged(function(Value)
+    if Value then
+        task.spawn(function()
+            pcall(function()
+                if queue_on_teleport then
+                    local HutaoHubScript1 = [[
+task.wait(3)
+loadstring(game:HttpGet('https://raw.githubusercontent.com/hungquan99/SkullHub/main/loader.lua'))()
+]]
+                    queue_on_teleport(HutaoHubScript1)
+                end
+            end)
+        end)
+        Fluent:Notify({
+            Title = "Hutao HUB",
+            Content = "Auto execute is enabled!",
+            Duration = 5
+        })
+    else
+        Fluent:Notify({
+            Title = "Hutao HUB",
+            Content = "Auto execute is disabled!",
+            Duration = 5
+        })
+    end
+end)
+
+SaveManager:SetLibrary(Fluent)
+InterfaceManager:SetLibrary(Fluent)
+
+-- Ignore keys that are used by ThemeManager.
+-- (we dont want configs to save themes, do we?)
+SaveManager:IgnoreThemeSettings()
+
+-- You can add indexes of elements the save manager should ignore
+SaveManager:SetIgnoreIndexes({})
+
+-- use case for doing it this way:
+-- a script hub could have themes in a global folder
+-- and game configs in a separate folder per game
+InterfaceManager:SetFolder("Hutao HUB")
+SaveManager:SetFolder("Hutao HUB/Ink Game")
+
+InterfaceManager:BuildInterfaceSection(Tabs.Settings)
+SaveManager:BuildConfigSection(Tabs.Settings)
+
+-- Select First Tab By Default
+Window:SelectTab(1)
+
+Fluent:Notify({ Title = "Hutao HUB", Content = "Ink Game script loaded successfully!", Duration = 5 })
+SaveManager:LoadAutoloadConfig()
+
+
+-- 🟢 DRAGGABLE UI BUTTON WITH ENHANCED CLICK AND HOVER ANIMATIONS
+local UserInputService = game:GetService("UserInputService")
+local CoreGui = game:GetService("CoreGui")
+local TweenService = game:GetService("TweenService")
+local VirtualInputManager = game:GetService("VirtualInputManager")
+
+local ExistingUI = CoreGui:FindFirstChild("HutaoHubMinimizeUI")
+if ExistingUI then
+    ExistingUI:Destroy()
+end
+
+-- Create Floating UI
+local DragUI = Instance.new("ScreenGui")
+DragUI.Name = "HutaoHubMinimizeUI"
+DragUI.ResetOnSpawn = false
+DragUI.ZIndexBehavior = Enum.ZIndexBehavior.Sibling -- Ensures highest rendering priority
+DragUI.Parent = CoreGui -- Overrides all other UI elements
+
+-- Create Circular Button (Draggable + Clickable)
+local Button = Instance.new("ImageButton")
+Button.Parent = DragUI
+Button.Size = UDim2.new(0, 50, 0, 50) -- Adjust size if needed
+Button.Position = UDim2.new(0, 10, 1, -85) -- Initial position
+Button.BackgroundColor3 = Color3.fromRGB(30, 30, 30) -- Windows 11 Style
+Button.BackgroundTransparency = 0.3 -- Semi-transparent
+Button.BorderSizePixel = 0
+Button.ClipsDescendants = true
+Button.Image = "rbxassetid://90508203972003" -- Replace with your custom image ID
+Button.ScaleType = Enum.ScaleType.Fit
+Button.Active = true -- Allows drag functionality
+Button.ZIndex = 1000 -- Ensure it stays on top
+
+-- Make UI Circular
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(1, 0) -- Full circle
+UICorner.Parent = Button
+
+-- Tween Info for Animations
+local tweenInfo = TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+
+-- Function to simulate RightShift key press
+local function SimulateKeyPress()
+    VirtualInputManager:SendKeyEvent(true, minimizeUI, false, game)
+    task.wait(0.1)
+    VirtualInputManager:SendKeyEvent(false, minimizeUI, false, game)
+end
+
+-- Click Animation & UI Toggle (Only if NOT dragged too much)
+local isDragging = false
+local dragThreshold = 10 -- Allow small movement without canceling click
+
+Button.MouseButton1Click:Connect(function()
+    if isDragging then return end -- Prevent click after large dragging
+
+    -- Enhanced Click Animation
+    local tween = TweenService:Create(Button, tweenInfo, {
+        BackgroundTransparency = 0.5,
+        Size = UDim2.new(0, 45, 0, 45),
+        Rotation = 5
+    })
+    tween:Play()
+    task.wait(0.1)
+    local tweenBack = TweenService:Create(Button, tweenInfo, {
+        BackgroundTransparency = 0.3,
+        Size = UDim2.new(0, 50, 0, 50),
+        Rotation = 0
+    })
+    tweenBack:Play()
+
+    -- Simulate RightShift to Toggle UI
+    SimulateKeyPress()
+end)
+
+-- Hover Animation
+Button.MouseEnter:Connect(function()
+    TweenService:Create(Button, tweenInfo, {Size = UDim2.new(0, 55, 0, 55)}):Play()
+end)
+
+Button.MouseLeave:Connect(function()
+    TweenService:Create(Button, tweenInfo, {Size = UDim2.new(0, 50, 0, 50)}):Play()
+end)
+
+-- Dragging Logic for PC & Mobile
+local dragging, dragStart, startPos
+
+local function StartDrag(input)
+    isDragging = false -- Reset dragging state
+    dragging = true
+    dragStart = input.Position
+    startPos = Button.Position
+
+    input.Changed:Connect(function()
+        if input.UserInputState == Enum.UserInputState.End then
+            dragging = false
+        end
+    end)
+end
+
+local function OnDrag(input)
+    if dragging then
+        local delta = (input.Position - dragStart).Magnitude
+        if delta > dragThreshold then -- Only mark as dragged if movement exceeds threshold
+            isDragging = true
+        end
+        Button.Position = UDim2.new(
+            startPos.X.Scale,
+            startPos.X.Offset + (input.Position.X - dragStart.X),
+            startPos.Y.Scale,
+            startPos.Y.Offset + (input.Position.Y - dragStart.Y)
+        )
+    end
+end
+
+-- Dragging Support for PC & Mobile (on the same button)
+Button.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        StartDrag(input)
+    end
+end)
+
+Button.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        OnDrag(input)
+    end
+end)      
