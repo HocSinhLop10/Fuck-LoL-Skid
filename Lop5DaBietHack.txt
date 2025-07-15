@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Subcribe!!] | Ink Game",
-    SubTitle = "Version 2.8.5",
+    SubTitle = "Version 2.8.6",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -258,8 +258,10 @@ Tabs.Teleport:AddButton({
 
 
 --// Services
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Remotes = ReplicatedStorage:WaitForChild("Remotes")
+local LocalPlayer = Players.LocalPlayer
 
 local Toggles = {}
 local Connections = {}
@@ -275,7 +277,10 @@ Toggles.AutoSpinPower:OnChanged(function(Value)
         Connections.AutoSpinPower = task.spawn(function()
             while Toggles.AutoSpinPower.Value do
                 pcall(function()
-                    Remotes.UsePowerSpin:FireServer()
+                    local remote = Remotes:FindFirstChild("UsePowerSpin")
+                    if remote then
+                        remote:FireServer()
+                    end
                 end)
                 task.wait(1)
             end
