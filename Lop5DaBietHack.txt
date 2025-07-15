@@ -447,7 +447,7 @@ local weaponTools = { "Fists", "Knife", "Fork", "Bottle" }
 local healTools = {
     "Bandage", "Kimbap", "Onigiri", "Soda",
     "Umbrella Cookie", "Star Cookie", "Triangle Cookie",
-    "Circle Cookie", "MonaLisa Cookie"
+    "Circle Cookie", "MonaLisa Cookie", "SackBoy Cookie"
 }
 
 --// Tìm tool
