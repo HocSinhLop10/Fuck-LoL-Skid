@@ -35,7 +35,6 @@ local Tabs = {
     Dev = Window:AddTab({ Title = "About", Icon = "rbxassetid://121302760641013"}),
     Main = Window:AddTab({ Title = "Main", Icon = "rbxassetid://121302760641013" }),
     Teleport = Window:AddTab({ Title = "Teleport", Icon = "rbxassetid://121302760641013" }),
-    Shop = Window:AddTab({ Title = "Shop", Icon = "rbxassetid://121302760641013" }),
     Item = Window:AddTab({ Title = "Item", Icon = "rbxassetid://121302760641013" }),
     Player = Window:AddTab({ Title = "Player", Icon = "rbxassetid://121302760641013" }),
     Misc = Window:AddTab({ Title = "Misc", Icon = "rbxassetid://121302760641013" }),
@@ -254,43 +253,8 @@ Tabs.Teleport:AddButton({
 
 
 
--- Tabs.Shop
 
 
---// Services
-local Players = game:GetService("Players")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Remotes = ReplicatedStorage:WaitForChild("Remotes")
-local LocalPlayer = Players.LocalPlayer
-
-local Toggles = {}
-local Connections = {}
-
---// Toggle Auto Spin Power
-Toggles.AutoSpinPower = Tabs.Shop:AddToggle("AutoSpinPower", {
-    Title = "Auto Spin Power",
-    Default = false,
-})
-
-Toggles.AutoSpinPower:OnChanged(function(Value)
-    if Value then
-        Connections.AutoSpinPower = task.spawn(function()
-            while Toggles.AutoSpinPower.Value do
-                pcall(function()
-                    local remote = Remotes:FindFirstChild("UsePowerSpin")
-                    if remote then
-                        remote:FireServer()
-                    end
-                end)
-                task.wait(1)
-            end
-        end)
-    else
-        if Connections.AutoSpinPower then
-            task.cancel(Connections.AutoSpinPower)
-        end
-    end
-end)
 
 
 -- Tabs.Item
