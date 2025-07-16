@@ -21,8 +21,8 @@ local minimizeUI = Enum.KeyCode.RightAlt
 
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
-    Title = "Hutao Hub [EXE] | Ink Game",
-    SubTitle = "Version 2.8.8",
+    Title = "Hutao Hub [Subcribe!!] | Ink Game",
+    SubTitle = "Version 2.9.0",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -32,13 +32,13 @@ local Window = Fluent:CreateWindow({
 
 -- Tabs
 local Tabs = {
-    Dev = Window:AddTab({ Title = "About", Icon = "rbxassetid://95014852938474"}),
-    Main = Window:AddTab({ Title = "Main", Icon = "rbxassetid://95014852938474" }),
-    Teleport = Window:AddTab({ Title = "Teleport", Icon = "rbxassetid://95014852938474" }),
-    Item = Window:AddTab({ Title = "Item", Icon = "rbxassetid://95014852938474" }),
-    Player = Window:AddTab({ Title = "Player", Icon = "rbxassetid://95014852938474" }),
-    Misc = Window:AddTab({ Title = "Misc", Icon = "rbxassetid://95014852938474" }),
-    Settings = Window:AddTab({ Title = "Settings", Icon = "rbxassetid://95014852938474" }),
+    Dev = Window:AddTab({ Title = "About", Icon = "rbxassetid://121302760641013"}),
+    Main = Window:AddTab({ Title = "Main", Icon = "rbxassetid://121302760641013" }),
+    Teleport = Window:AddTab({ Title = "Teleport", Icon = "rbxassetid://121302760641013" }),
+    Item = Window:AddTab({ Title = "Item", Icon = "rbxassetid://121302760641013" }),
+    Player = Window:AddTab({ Title = "Player", Icon = "rbxassetid://121302760641013" }),
+    Misc = Window:AddTab({ Title = "Misc", Icon = "rbxassetid://121302760641013" }),
+    Settings = Window:AddTab({ Title = "Settings", Icon = "rbxassetid://121302760641013" }),
 }  
 
 -- Tab.Dev
@@ -1410,7 +1410,7 @@ Button.BackgroundColor3 = Color3.fromRGB(30, 30, 30) -- Windows 11 Style
 Button.BackgroundTransparency = 0.3 -- Semi-transparent
 Button.BorderSizePixel = 0
 Button.ClipsDescendants = true
-Button.Image = "rbxassetid://137731051319764" -- Replace with your custom image ID
+Button.Image = "rbxassetid://90508203972003" -- Replace with your custom image ID
 Button.ScaleType = Enum.ScaleType.Fit
 Button.Active = true -- Allows drag functionality
 Button.ZIndex = 1000 -- Ensure it stays on top
