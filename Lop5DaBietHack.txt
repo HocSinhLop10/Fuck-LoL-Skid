@@ -32,13 +32,13 @@ local Window = Fluent:CreateWindow({
 
 -- Tabs
 local Tabs = {
-    Dev = Window:AddTab({ Title = "About", Icon = "rbxassetid://129184644980833"}),
-    Main = Window:AddTab({ Title = "Main", Icon = "rbxassetid://129184644980833" }),
-    Teleport = Window:AddTab({ Title = "Teleport", Icon = "rbxassetid://129184644980833" }),
-    Item = Window:AddTab({ Title = "Item", Icon = "rbxassetid://129184644980833" }),
-    Player = Window:AddTab({ Title = "Player", Icon = "rbxassetid://129184644980833" }),
-    Misc = Window:AddTab({ Title = "Misc", Icon = "rbxassetid://129184644980833" }),
-    Settings = Window:AddTab({ Title = "Settings", Icon = "rbxassetid://129184644980833" }),
+    Dev = Window:AddTab({ Title = "About", Icon = "rbxassetid://95014852938474"}),
+    Main = Window:AddTab({ Title = "Main", Icon = "rbxassetid://95014852938474" }),
+    Teleport = Window:AddTab({ Title = "Teleport", Icon = "rbxassetid://95014852938474" }),
+    Item = Window:AddTab({ Title = "Item", Icon = "rbxassetid://95014852938474" }),
+    Player = Window:AddTab({ Title = "Player", Icon = "rbxassetid://95014852938474" }),
+    Misc = Window:AddTab({ Title = "Misc", Icon = "rbxassetid://95014852938474" }),
+    Settings = Window:AddTab({ Title = "Settings", Icon = "rbxassetid://95014852938474" }),
 }  
 
 -- Tab.Dev
@@ -1410,7 +1410,7 @@ Button.BackgroundColor3 = Color3.fromRGB(30, 30, 30) -- Windows 11 Style
 Button.BackgroundTransparency = 0.3 -- Semi-transparent
 Button.BorderSizePixel = 0
 Button.ClipsDescendants = true
-Button.Image = "rbxassetid://74218649706975" -- Replace with your custom image ID
+Button.Image = "rbxassetid://90909772997156" -- Replace with your custom image ID
 Button.ScaleType = Enum.ScaleType.Fit
 Button.Active = true -- Allows drag functionality
 Button.ZIndex = 1000 -- Ensure it stays on top
