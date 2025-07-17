@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Subcribe!!] | Ink Game",
-    SubTitle = "Version 2.9.0",
+    SubTitle = "Version 2.9.4",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -510,6 +510,14 @@ local function UseActivationTool()
     end
 end
 
+--// Kiểm tra có cầm Tool cụ thể không
+local function HasToolEquipped(toolName)
+    local char = LocalPlayer.Character
+    if not char then return false end
+    local tool = char:FindFirstChildOfClass("Tool")
+    return tool and tool.Name == toolName
+end
+
 --// Hồi máu nếu yếu
 local function TryHeal()
     local char = LocalPlayer.Character
@@ -565,17 +573,28 @@ local function GetTargetPlayer()
     local myPos = char and char:FindFirstChild("HumanoidRootPart") and char.HumanoidRootPart.Position
     if not myPos then return nil end
 
+    local hasKnifeEquipped = HasToolEquipped("Knife")
+
     local candidates = {}
     for _, player in ipairs(Players:GetPlayers()) do
         if player ~= LocalPlayer and not VipPlayers[player.Name] then
             local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
             local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
             if humanoid and humanoid.Health > 0 and root then
-                table.insert(candidates, {
-                    Player = player,
-                    Health = humanoid.Health,
-                    Distance = (root.Position - myPos).Magnitude
-                })
+                local hasKnife = false
+                for _, tool in ipairs(player.Character:GetChildren()) do
+                    if tool:IsA("Tool") and tool.Name == "Knife" then
+                        hasKnife = true
+                        break
+                    end
+                end
+                if not hasKnifeEquipped or (hasKnifeEquipped and not hasKnife) then
+                    table.insert(candidates, {
+                        Player = player,
+                        Health = humanoid.Health,
+                        Distance = (root.Position - myPos).Magnitude
+                    })
+                end
             end
         end
     end
@@ -607,7 +626,6 @@ Tabs.Player:AddToggle("AutoAttackToggle", {
             local humanoid = char and char:FindFirstChildOfClass("Humanoid")
             if not humanoid then task.wait(0.1) continue end
 
-            -- Hồi máu nếu HP thấp
             if AutoHeal and humanoid.Health <= 45 then
                 TryHeal()
                 repeat task.wait(0.2) until humanoid.Health > 45 or not AutoAttack
@@ -622,7 +640,6 @@ Tabs.Player:AddToggle("AutoAttackToggle", {
             local targetRoot = Target.Character and Target.Character:FindFirstChild("HumanoidRootPart")
             if not root or not targetRoot then continue end
 
-            -- Khi đổi mục tiêu
             if not hasActivatedOnStart or Target ~= LastTarget then
                 hasActivatedOnStart = true
                 LastTarget = Target
@@ -630,7 +647,6 @@ Tabs.Player:AddToggle("AutoAttackToggle", {
                 EnsureWeaponEquipped()
             end
 
-            -- Khoảng cách sau lưng
             local enemyIsMoving = Target.Character:FindFirstChild("Humanoid") and Target.Character.Humanoid.MoveDirection.Magnitude > 0
             local backDistance = enemyIsMoving and 0.75 or 1.5
             local behind = targetRoot.Position - targetRoot.CFrame.LookVector * backDistance
@@ -638,7 +654,6 @@ Tabs.Player:AddToggle("AutoAttackToggle", {
 
             root.CFrame = CFrame.new(behind, look)
 
-            -- Tấn công
             if tick() - lastClick >= 0.5 then
                 VirtualInput:SendMouseButtonEvent(0, 0, 0, true, game, 0)
                 task.wait(0.05)
