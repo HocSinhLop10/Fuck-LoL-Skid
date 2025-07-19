@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Subcribe!!] | Ink Game",
-    SubTitle = "Version 2.9.6",
+    SubTitle = "Version 2.9.5",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -649,14 +649,11 @@ Tabs.Player:AddToggle("AutoAttackToggle", {
                 EnsureWeaponEquipped()
             end
 
-            -- Teleport ra sau lưng đối phương chính xác hơn, tránh lệch khi địch di chuyển
-            local direction = (targetRoot.CFrame.LookVector).Unit
-            local targetPos = targetRoot.Position - direction * 2.5
-            if (root.Position - targetPos).Magnitude > 30 then
-                root.CFrame = CFrame.new(targetPos, targetRoot.Position)
-            else
-                root.CFrame = CFrame.new(targetPos, targetRoot.Position + direction * 10)
-            end
+            local direction = targetRoot.CFrame.LookVector.Unit
+            local offset = direction * -2.5
+            local targetPos = targetRoot.Position + offset
+
+            root.CFrame = CFrame.new(targetPos, targetRoot.Position + direction * 5)
 
             VirtualInput:SendMouseButtonEvent(0, 0, 0, true, game, 0)
             task.wait(0.02)
@@ -684,6 +681,7 @@ Tabs.Player:AddToggle("AutoHealToggle", {
 end)
 
 -- AutoHeal hoạt động riêng nếu không bật AutoAttack
+-- và không Teleport khi chỉ hồi máu
 task.spawn(function()
     while true do
         task.wait(0.2)
@@ -696,6 +694,7 @@ task.spawn(function()
         end
     end
 end)
+
 
 
 
