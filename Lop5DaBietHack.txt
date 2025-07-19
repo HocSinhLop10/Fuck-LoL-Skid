@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Subcribe!!] | Ink Game",
-    SubTitle = "Version 2.9.8",
+    SubTitle = "Version 2.9.9",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -502,7 +502,7 @@ end
 local function UseActivationTool()
     for _, toolName in ipairs(activationTools) do
         if EquipTool(toolName) then
-            task.wait(0.1)
+            task.wait(0.05)
             VirtualInput:SendMouseButtonEvent(0, 0, 0, true, game, 0)
             task.wait(0.02)
             VirtualInput:SendMouseButtonEvent(0, 0, 0, false, game, 0)
@@ -528,7 +528,6 @@ local function TryHeal()
     if wasHealing then return true end
     wasHealing = true
 
-    -- Chỉ float lên cao nếu đang bật AutoAttack
     if AutoAttack and not healFloatY then
         healFloatY = root.Position.Y + 50
     end
@@ -551,10 +550,11 @@ local function TryHeal()
             local tool = FindTool(toolName)
             if tool then
                 EquipTool(toolName)
-                VirtualInput:SendMouseButtonEvent(0, 0, 0, true, game, 0)
                 task.wait(0.05)
+                VirtualInput:SendMouseButtonEvent(0, 0, 0, true, game, 0)
+                task.wait(0.02)
                 VirtualInput:SendMouseButtonEvent(0, 0, 0, false, game, 0)
-                task.wait(2.5)
+                task.wait(1.5) -- giảm delay hồi máu
                 used = true
                 break
             end
@@ -633,13 +633,13 @@ Tabs.Player:AddToggle("AutoAttackToggle", {
 
             if AutoHeal and humanoid.Health <= 45 then
                 TryHeal()
-                repeat task.wait(0.1) until humanoid.Health > 45 or not AutoAttack
+                repeat task.wait(0.05) until humanoid.Health > 45 or not AutoAttack
             end
 
-            if wasHealing then task.wait(0.05) continue end
+            if wasHealing then task.wait(0.02) continue end
 
             local Target = GetTargetPlayer()
-            if not Target then task.wait(0.05) continue end
+            if not Target then task.wait(0.02) continue end
 
             local root = char:FindFirstChild("HumanoidRootPart")
             local targetRoot = Target.Character and Target.Character:FindFirstChild("HumanoidRootPart")
@@ -659,10 +659,10 @@ Tabs.Player:AddToggle("AutoAttackToggle", {
             root.CFrame = CFrame.new(targetPos, targetRoot.Position + direction * 5)
 
             VirtualInput:SendMouseButtonEvent(0, 0, 0, true, game, 0)
-            task.wait(0.02)
+            task.wait(0.01)
             VirtualInput:SendMouseButtonEvent(0, 0, 0, false, game, 0)
 
-            task.wait(0.1)
+            task.wait(0.05) -- teleport nhanh hơn
         end
     end)
 end)
@@ -686,7 +686,7 @@ end)
 -- AutoHeal hoạt động riêng nếu không bật AutoAttack
 task.spawn(function()
     while true do
-        task.wait(0.2)
+        task.wait(0.1) -- tăng tốc check máu
         if AutoHeal and not AutoAttack then
             local char = LocalPlayer.Character
             local humanoid = char and char:FindFirstChildOfClass("Humanoid")
