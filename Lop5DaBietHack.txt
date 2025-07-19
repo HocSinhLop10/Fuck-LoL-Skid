@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Subcribe!!] | Ink Game",
-    SubTitle = "Version 2.9.7",
+    SubTitle = "Version 2.9.8",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -528,7 +528,8 @@ local function TryHeal()
     if wasHealing then return true end
     wasHealing = true
 
-    if not healFloatY then
+    -- Chỉ float lên cao nếu đang bật AutoAttack
+    if AutoAttack and not healFloatY then
         healFloatY = root.Position.Y + 50
     end
 
@@ -538,8 +539,10 @@ local function TryHeal()
             floatConn:Disconnect()
             return
         end
-        local pos = root.Position
-        root.CFrame = CFrame.new(Vector3.new(pos.X, healFloatY, pos.Z))
+        if healFloatY then
+            local pos = root.Position
+            root.CFrame = CFrame.new(Vector3.new(pos.X, healFloatY, pos.Z))
+        end
     end)
 
     while humanoid.Health <= 45 and AutoHeal do
@@ -681,7 +684,6 @@ Tabs.Player:AddToggle("AutoHealToggle", {
 end)
 
 -- AutoHeal hoạt động riêng nếu không bật AutoAttack
--- và không Teleport khi chỉ hồi máu
 task.spawn(function()
     while true do
         task.wait(0.2)
