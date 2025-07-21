@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Subcribe!!] | Ink Game",
-    SubTitle = "Version 2.9.9",
+    SubTitle = "Version 3.0.0",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -207,6 +207,16 @@ Tabs.Teleport:AddButton({
         pcall(function()
             -- Tải và chạy script từ link
             loadstring(game:HttpGet("https://raw.githubusercontent.com/SLK-gaming/Skid/refs/heads/main/TPtoDalgona.lua"))()
+        end)
+    end
+})
+
+Tabs.Teleport:AddButton({
+    Title = "TP to Tug of War",
+    Callback = function()
+        pcall(function()
+            -- Tải và chạy script từ link
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/SLK-gaming/Skid/refs/heads/main/TPtoTugOfWar.lua"))()
         end)
     end
 })
