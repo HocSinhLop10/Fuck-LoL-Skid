@@ -348,7 +348,7 @@ local save_manager = loadstring(game:HttpGet(repo .. 'Gui%20Lib%20%5BSaveManager
 better_drawing:Init(update)
 
 local window = library:CreateWindow({
-    Title = "@23899348291 (Tweeks) Unblock Me Cmon | Made By @kylosilly On Discord",
+    Title = "Hutao Hub [Free] | Version 2.0.0 | Credits: SLK gaming",
     Center = true,
     AutoShow = true,
     TabPadding = 8,
@@ -361,7 +361,7 @@ local tabs = {
     shop = window:AddTab("Shop"),
     misc = window:AddTab("Misc"),
     ["ui settings"] = window:AddTab("UI Settings")
-}
+}   
 
 local plant_group = tabs.main:AddLeftGroupbox("Plant Settings")
 local pet_group = tabs.main:AddRightGroupbox("Pet/Egg Settings")
