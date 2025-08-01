@@ -299,6 +299,122 @@ end)
 
 
 
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local UIS = game:GetService("UserInputService")
+
+local player = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+
+-- State
+local flying = false
+local flySpeed = 50
+local bodyVelocity, bodyGyro, renderConn
+
+-- Function: Start Flying
+local function startFlying()
+	local character = player.Character or player.CharacterAdded:Wait()
+	local humanoid = character:WaitForChild("Humanoid")
+	local HRP = character:WaitForChild("HumanoidRootPart")
+
+	local seat = humanoid.SeatPart
+	local attachPart = seat or HRP
+
+	-- Body movers
+	bodyVelocity = Instance.new("BodyVelocity")
+	bodyVelocity.MaxForce = Vector3.new(1e5, 1e5, 1e5)
+	bodyVelocity.Velocity = Vector3.zero
+	bodyVelocity.Parent = attachPart
+
+	bodyGyro = Instance.new("BodyGyro")
+	bodyGyro.MaxTorque = Vector3.new(1e5, 1e5, 1e5)
+	bodyGyro.CFrame = attachPart.CFrame
+	bodyGyro.Parent = attachPart
+
+	humanoid:ChangeState(Enum.HumanoidStateType.Physics)
+
+	-- Movement logic
+	renderConn = RunService.RenderStepped:Connect(function()
+		if attachPart and Camera then
+			local camCF = Camera.CFrame
+			local moveDir = humanoid.MoveDirection
+
+			local moveVec = Vector3.zero
+
+			if moveDir.Magnitude > 0 then
+				local forward = camCF.LookVector
+				local flatForward = Vector3.new(forward.X, 0, forward.Z).Unit
+				local verticalInfluence = forward.Unit.Y
+
+				local movingForward = flatForward:Dot(moveDir.Unit) > 0.1
+				local movingBackward = flatForward:Dot(moveDir.Unit) < -0.1
+
+				local yVelocity = 0
+				if movingForward then
+					yVelocity = verticalInfluence
+				elseif movingBackward then
+					yVelocity = -verticalInfluence
+				end
+
+				moveVec = Vector3.new(moveDir.X, yVelocity, moveDir.Z).Unit
+			end
+
+			bodyVelocity.Velocity = moveVec * flySpeed
+			bodyGyro.CFrame = camCF
+		end
+	end)
+
+	flying = true
+end
+
+-- Function: Stop Flying
+local function stopFlying()
+	flying = false
+
+	if renderConn then renderConn:Disconnect() renderConn = nil end
+	if bodyVelocity then bodyVelocity:Destroy() bodyVelocity = nil end
+	if bodyGyro then bodyGyro:Destroy() bodyGyro = nil end
+
+	local character = player.Character
+	if character then
+		local humanoid = character:FindFirstChildOfClass("Humanoid")
+		if humanoid then
+			humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
+		end
+	end
+end
+
+-- Auto handle respawn
+Players.LocalPlayer.CharacterAdded:Connect(function()
+	if flying then
+		task.wait(1)
+		startFlying()
+	end
+end)
+
+-- UI Buttons (thay cho Tabs.Player)
+KillingCheats:CreateToggle("Fly (Mobile + PC)", function(value)
+	if value then
+		startFlying()
+	else
+		stopFlying()
+	end
+end)
+
+KillingCheats:CreateTextbox("Fly Speed", function(text)
+	local num = tonumber(text)
+	if num and num > 0 then
+		flySpeed = num
+	else
+		warn("Invalid fly speed:", text)
+	end
+end)
+
+
+
+
+
 
 --// Biến trạng thái
 local noclipEnabled = false
