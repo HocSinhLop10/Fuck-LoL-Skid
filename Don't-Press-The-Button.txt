@@ -394,7 +394,7 @@ Players.LocalPlayer.CharacterAdded:Connect(function()
 end)
 
 -- UI Buttons (thay cho Tabs.Player)
-KillingCheats:CreateToggle("Fly (Mobile + PC)", function(value)
+Player:CreateToggle("Fly (Mobile + PC)", function(value)
 	if value then
 		startFlying()
 	else
@@ -402,7 +402,7 @@ KillingCheats:CreateToggle("Fly (Mobile + PC)", function(value)
 	end
 end)
 
-KillingCheats:CreateTextbox("Fly Speed", function(text)
+Player:CreateTextbox("Fly Speed", function(text)
 	local num = tonumber(text)
 	if num and num > 0 then
 		flySpeed = num
