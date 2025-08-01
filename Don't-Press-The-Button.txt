@@ -347,6 +347,110 @@ end)
 
 -- Esp
 
+--// Services
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+
+-- ESP Container
+local drawings = {}
+local espConnection
+
+-- Tạo ESP cho Player
+local function createESP(player)
+    if player == LocalPlayer then return end
+    if drawings[player] then return end
+
+    local text = Drawing.new("Text")
+    text.Size = 14
+    text.Center = true
+    text.Outline = true
+    text.Visible = false
+
+    drawings[player] = text
+end
+
+-- Xoá ESP
+local function removeESP(player)
+    if drawings[player] then
+        drawings[player]:Remove()
+        drawings[player] = nil
+    end
+end
+
+-- Bắt đầu ESP
+local function startESP()
+    for _, player in ipairs(Players:GetPlayers()) do
+        createESP(player)
+    end
+
+    Players.PlayerAdded:Connect(createESP)
+    Players.PlayerRemoving:Connect(removeESP)
+
+    espConnection = RunService.RenderStepped:Connect(function()
+        for player, text in pairs(drawings) do
+            local character = player.Character
+            local hrp = character and character:FindFirstChild("HumanoidRootPart")
+            local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+
+            if hrp and humanoid and humanoid.Health > 0 then
+                local pos, visible = Camera:WorldToViewportPoint(hrp.Position + Vector3.new(0, 2.5, 0))
+                local distance = (hrp.Position - Camera.CFrame.Position).Magnitude
+                text.Text = string.format("%s [%.0fm]", player.Name, distance)
+
+                -- Kiểm tra nếu player có Knife
+                local hasKnife = false
+                local backpack = player:FindFirstChildOfClass("Backpack")
+                local characterTools = character:GetChildren()
+
+                if backpack and backpack:FindFirstChild("Knife") then
+                    hasKnife = true
+                else
+                    for _, tool in ipairs(characterTools) do
+                        if tool:IsA("Tool") and tool.Name == "Knife" then
+                            hasKnife = true
+                            break
+                        end
+                    end
+                end
+
+                -- Màu sắc theo Knife
+                text.Color = hasKnife and Color3.fromRGB(255, 0, 0) or Color3.fromRGB(0, 255, 255)
+                text.Position = Vector2.new(pos.X, pos.Y)
+                text.Visible = visible
+            else
+                text.Visible = false
+            end
+        end
+    end)
+end
+
+-- Dừng ESP
+local function stopESP()
+    if espConnection then
+        espConnection:Disconnect()
+        espConnection = nil
+    end
+
+    for _, text in pairs(drawings) do
+        text:Remove()
+    end
+    drawings = {}
+end
+
+-- Nút gui đẹp, nhỏ gọn
+Esp:CreateToggle("ESP Player", function(value)
+    if value then
+        startESP()
+    else
+        stopESP()
+    end
+end)
+
+
+
+
 if not game:IsLoaded() then game.Loaded:Wait() end
 
 local RunService = game:GetService("RunService")
@@ -464,45 +568,58 @@ end)
 
 
 
---// ESP Diamond
+--// Services
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local Camera = workspace.CurrentCamera
 local lp = Players.LocalPlayer
 
+--// Variables
 local diamondESPEnabled = false
 local drawings = {}
 
+--// Toggle ESP Button
 Esp:CreateToggle("ESP Diamond", function(value)
     diamondESPEnabled = value
     print("ESP Diamond:", value)
 
+    -- Clear all drawings when toggle is off
     if not value then
-        -- Xóa tất cả ESP khi tắt
         for _, drawing in ipairs(drawings) do
-            if drawing.Text then drawing.Text:Remove() end
+            if drawing.Text then
+                pcall(function()
+                    drawing.Text:Remove()
+                end)
+            end
         end
         drawings = {}
     end
 end)
 
+--// ESP Update Loop
 RunService.RenderStepped:Connect(function()
     if not diamondESPEnabled then return end
 
-    -- Xóa ESP cũ
+    -- Clear previous drawings
     for _, drawing in ipairs(drawings) do
-        if drawing.Text then drawing.Text:Remove() end
+        if drawing.Text then
+            pcall(function()
+                drawing.Text:Remove()
+            end)
+        end
     end
     drawings = {}
 
+    -- Scan all models in workspace
     for _, model in ipairs(workspace:GetDescendants()) do
         if model:IsA("Model") and model.Name:lower():find("diamond") then
             local part = model:FindFirstChildWhichIsA("BasePart")
-            if part and part:IsDescendantOf(workspace) and part:IsA("BasePart") then
-                local screenPos, onScreen = workspace.CurrentCamera:WorldToViewportPoint(part.Position)
+            if part then
+                local pos, onScreen = Camera:WorldToViewportPoint(part.Position)
                 if onScreen then
                     local text = Drawing.new("Text")
                     text.Text = model.Name
-                    text.Position = Vector2.new(screenPos.X, screenPos.Y)
+                    text.Position = Vector2.new(pos.X, pos.Y)
                     text.Size = 16
                     text.Color = Color3.fromRGB(0, 255, 255)
                     text.Center = true
