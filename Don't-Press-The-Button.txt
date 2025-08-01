@@ -73,6 +73,65 @@ end)
 
 
 
+
+--// Services
+local Players = game:GetService("Players")
+local lp = Players.LocalPlayer
+
+--// Toggle điều khiển
+local autoTeleport = false
+local currentIndex = 1
+
+--// Hàm lấy toàn bộ Fireworks đang tồn tại và còn hiển thị
+local function getVisibleFireworks()
+	local fireworks = {}
+	for _, model in ipairs(workspace:GetDescendants()) do
+		if model:IsA("Model") and model.Name == "Fireworks" then
+			local part = model:FindFirstChildWhichIsA("BasePart")
+			if part and part.Transparency < 1 and part:IsDescendantOf(workspace) then
+				table.insert(fireworks, part)
+			end
+		end
+	end
+	return fireworks
+end
+
+--// Tích hợp vào Toggle Start Trade
+KillingCheats:CreateToggle("Find Fireworks", function(value)
+	autoTeleport = value
+	print("Find Fireworks:", value)
+	currentIndex = 1
+end)
+
+--// Vòng lặp teleport luân phiên qua các Fireworks
+task.spawn(function()
+	while true do
+		if autoTeleport then
+			local root = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
+			if root then
+				local fireworks = getVisibleFireworks()
+
+				if #fireworks > 0 then
+					if currentIndex > #fireworks then
+						currentIndex = 1
+					end
+
+					local target = fireworks[currentIndex]
+					if target then
+						root.CFrame = target.CFrame + Vector3.new(0, 3, 0)
+						currentIndex += 1
+					end
+				end
+			end
+		end
+		task.wait(0.1) -- thời gian giữa các lần dịch chuyển
+	end
+end)
+
+
+
+
+
 --// Services
 local Players = game:GetService("Players")
 local lp = Players.LocalPlayer
