@@ -1,4 +1,3 @@
-
 local Library = loadstring(Game:HttpGet("https://raw.githubusercontent.com/bloodball/-back-ups-for-libs/main/wizard"))()
 
 local PhantomForcesWindow = Library:NewWindow("Don't Press The Button")
@@ -6,6 +5,8 @@ local PhantomForcesWindow = Library:NewWindow("Don't Press The Button")
 local KillingCheats = PhantomForcesWindow:NewSection("Main")
 
 local Player = PhantomForcesWindow:NewSection("Player")
+
+local Esp = PhantomForcesWindow:NewSection("Esp")
 
 -- Button --
 
@@ -187,7 +188,66 @@ task.spawn(function()
 end)
 
 
+--// Services
+local Players = game:GetService("Players")
+local lp = Players.LocalPlayer
 
+--// Toggle điều khiển
+local autoTeleport = false
+local currentIndex = 1
+
+--// Danh sách tên model cần teleport đến
+local targetModelNames = { "Candy" }
+
+--// Hàm lấy toàn bộ model đúng tên đang tồn tại và hiển thị
+local function getVisibleCandy()
+	local allCandy = {}
+	for _, model in ipairs(workspace:GetDescendants()) do
+		if model:IsA("Model") then
+			for _, name in ipairs(targetModelNames) do
+				if model.Name == name then
+					local part = model:FindFirstChildWhichIsA("BasePart")
+					if part and part.Transparency < 1 and part:IsDescendantOf(workspace) then
+						table.insert(allCandy, part)
+					end
+				end
+			end
+		end
+	end
+	return allCandy
+end
+
+--// Tích hợp Toggle Fluent
+KillingCheats:CreateToggle("Find All Candy", function(value)
+	autoTeleport = value
+	print("Auto Find Candy:", value)
+	currentIndex = 1
+end)
+
+--// Vòng lặp dịch chuyển luân phiên giữa tất cả coin đang hiện
+task.spawn(function()
+	while true do
+		if autoTeleport then
+			local root = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
+			if root then
+				local Candy = getVisibleCandy()
+
+				if #Candy > 0 then
+					if currentIndex > #Candy then
+						currentIndex = 1
+					end
+
+					local target = Candy[currentIndex]
+					if target then
+						root.CFrame = target.CFrame + Vector3.new(0, 3, 0)
+						currentIndex += 1
+					end
+				end
+			end
+		end
+		task.wait(0.1) -- delay giữa mỗi lần teleport
+	end
+end)
 
 
 -- Player
@@ -283,3 +343,181 @@ game:GetService("UserInputService").JumpRequest:Connect(function()
         end
     end
 end)
+
+
+-- Esp
+
+if not game:IsLoaded() then game.Loaded:Wait() end
+
+local RunService = game:GetService("RunService")
+local Camera = workspace.CurrentCamera
+local drawings = {}
+local espEnabled = false
+
+-- Lọc các model KHÔNG phải NPC (không có Humanoid)
+local function isValidModel(model)
+	return model:IsA("Model")
+		and model:FindFirstChildWhichIsA("BasePart")
+		and not model:FindFirstChildOfClass("Humanoid")
+end
+
+-- Lấy vị trí trung tâm model từ BasePart
+local function getModelPosition(model)
+	local parts = {}
+	for _, part in pairs(model:GetDescendants()) do
+		if part:IsA("BasePart") then
+			table.insert(parts, part.Position)
+		end
+	end
+	if #parts == 0 then return nil end
+
+	local avg = Vector3.new(0, 0, 0)
+	for _, pos in pairs(parts) do
+		avg += pos
+	end
+	return avg / #parts
+end
+
+-- Tạo ESP Text
+local function createESP(model)
+	if drawings[model] then return end
+
+	local text = Drawing.new("Text")
+	text.Visible = true
+	text.Size = 13
+	text.Center = true
+	text.Outline = true
+	text.Font = 2
+	text.Color = Color3.fromRGB(255, 255, 255)
+
+	drawings[model] = text
+end
+
+-- Xoá ESP khi model bị xoá
+local function removeESP(model)
+	if drawings[model] then
+		drawings[model]:Remove()
+		drawings[model] = nil
+	end
+end
+
+-- Dò tất cả các model tĩnh
+local function scanModels()
+	for _, model in ipairs(workspace:GetDescendants()) do
+		if isValidModel(model) then
+			createESP(model)
+		end
+	end
+end
+
+-- Render ESP mỗi frame nếu bật
+RunService.RenderStepped:Connect(function()
+	if not espEnabled then
+		for model, esp in pairs(drawings) do
+			esp.Visible = false
+		end
+		return
+	end
+
+	for model, esp in pairs(drawings) do
+		if model and model.Parent and isValidModel(model) then
+			local pos = getModelPosition(model)
+			if pos then
+				local screenPos, onScreen = Camera:WorldToViewportPoint(pos)
+				if onScreen then
+					esp.Position = Vector2.new(screenPos.X, screenPos.Y)
+					esp.Text = model.Name
+					esp.Visible = true
+				else
+					esp.Visible = false
+				end
+			else
+				esp.Visible = false
+			end
+		else
+			removeESP(model)
+		end
+	end
+end)
+
+-- Quét lại model mỗi 5 giây nếu bật
+task.spawn(function()
+	while true do
+		if espEnabled then
+			scanModels()
+		end
+		task.wait(5)
+	end
+end)
+
+-- 🟩 Toggle ESP Model dùng GUI của bạn
+Esp:CreateToggle("ESP Model", function(value)
+	espEnabled = value
+	if not value then
+		for model, esp in pairs(drawings) do
+			esp.Visible = false
+		end
+	end
+end)
+
+
+
+
+
+--// ESP Diamond
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local lp = Players.LocalPlayer
+
+local diamondESPEnabled = false
+local drawings = {}
+
+Esp:CreateToggle("ESP Diamond", function(value)
+    diamondESPEnabled = value
+    print("ESP Diamond:", value)
+
+    if not value then
+        -- Xóa tất cả ESP khi tắt
+        for _, drawing in ipairs(drawings) do
+            if drawing.Text then drawing.Text:Remove() end
+        end
+        drawings = {}
+    end
+end)
+
+RunService.RenderStepped:Connect(function()
+    if not diamondESPEnabled then return end
+
+    -- Xóa ESP cũ
+    for _, drawing in ipairs(drawings) do
+        if drawing.Text then drawing.Text:Remove() end
+    end
+    drawings = {}
+
+    for _, model in ipairs(workspace:GetDescendants()) do
+        if model:IsA("Model") and model.Name:lower():find("diamond") then
+            local part = model:FindFirstChildWhichIsA("BasePart")
+            if part and part:IsDescendantOf(workspace) and part:IsA("BasePart") then
+                local screenPos, onScreen = workspace.CurrentCamera:WorldToViewportPoint(part.Position)
+                if onScreen then
+                    local text = Drawing.new("Text")
+                    text.Text = model.Name
+                    text.Position = Vector2.new(screenPos.X, screenPos.Y)
+                    text.Size = 16
+                    text.Color = Color3.fromRGB(0, 255, 255)
+                    text.Center = true
+                    text.Outline = true
+                    text.Visible = true
+
+                    table.insert(drawings, {Text = text})
+                end
+            end
+        end
+    end
+end)
+
+
+
+
+
+
