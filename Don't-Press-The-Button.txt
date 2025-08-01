@@ -1,0 +1,226 @@
+
+local Library = loadstring(Game:HttpGet("https://raw.githubusercontent.com/bloodball/-back-ups-for-libs/main/wizard"))()
+
+local PhantomForcesWindow = Library:NewWindow("Don't Press The Button")
+
+local KillingCheats = PhantomForcesWindow:NewSection("Main")
+
+local Player = PhantomForcesWindow:NewSection("Player")
+
+-- Button --
+
+--// Services
+local Players = game:GetService("Players")
+local lp = Players.LocalPlayer
+
+--// Toggle điều khiển
+local autoTeleport = false
+local currentIndex = 1
+
+--// Danh sách tên model cần teleport đến
+local targetModelNames = { "SpinningCoin", "Coin" }
+
+--// Hàm lấy toàn bộ model đúng tên đang tồn tại và hiển thị
+local function getVisibleCoins()
+	local allCoins = {}
+	for _, model in ipairs(workspace:GetDescendants()) do
+		if model:IsA("Model") then
+			for _, name in ipairs(targetModelNames) do
+				if model.Name == name then
+					local part = model:FindFirstChildWhichIsA("BasePart")
+					if part and part.Transparency < 1 and part:IsDescendantOf(workspace) then
+						table.insert(allCoins, part)
+					end
+				end
+			end
+		end
+	end
+	return allCoins
+end
+
+--// Tích hợp Toggle Fluent
+KillingCheats:CreateToggle("Auto Farm Coin", function(value)
+	autoTeleport = value
+	print("Auto Farm Coin:", value)
+	currentIndex = 1
+end)
+
+--// Vòng lặp dịch chuyển luân phiên giữa tất cả coin đang hiện
+task.spawn(function()
+	while true do
+		if autoTeleport then
+			local root = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
+			if root then
+				local coins = getVisibleCoins()
+
+				if #coins > 0 then
+					if currentIndex > #coins then
+						currentIndex = 1
+					end
+
+					local target = coins[currentIndex]
+					if target then
+						root.CFrame = target.CFrame + Vector3.new(0, 3, 0)
+						currentIndex += 1
+					end
+				end
+			end
+		end
+		task.wait(0.1) -- delay giữa mỗi lần teleport
+	end
+end)
+
+
+
+
+--// Services
+local Players = game:GetService("Players")
+local lp = Players.LocalPlayer
+
+--// Toggle điều khiển
+local autoTeleport = false
+local currentIndex = 1
+
+--// Hàm lấy toàn bộ Bucket đang tồn tại và còn hiển thị
+local function getVisibleBuckets()
+	local buckets = {}
+	for _, model in ipairs(workspace:GetDescendants()) do
+		if model:IsA("Model") and model.Name == "Bucket" then
+			local part = model:FindFirstChildWhichIsA("BasePart")
+			if part and part.Transparency < 1 and part:IsDescendantOf(workspace) then
+				table.insert(buckets, part)
+			end
+		end
+	end
+	return buckets
+end
+
+--// Tích hợp vào Toggle Start Trade
+KillingCheats:CreateToggle("Find Bucket", function(value)
+	autoTeleport = value
+	print("Find Bucket:", value)
+	currentIndex = 1
+end)
+
+--// Vòng lặp teleport luân phiên qua các Bucket
+task.spawn(function()
+	while true do
+		if autoTeleport then
+			local root = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
+			if root then
+				local buckets = getVisibleBuckets()
+
+				if #buckets > 0 then
+					if currentIndex > #buckets then
+						currentIndex = 1
+					end
+
+					local target = buckets[currentIndex]
+					if target then
+						root.CFrame = target.CFrame + Vector3.new(0, 3, 0)
+						currentIndex += 1
+					end
+				end
+			end
+		end
+		task.wait(0.1)
+	end
+end)
+
+
+
+
+
+-- Player
+
+--// Services
+local Players = game:GetService("Players")
+local lp = Players.LocalPlayer
+
+--// Biến điều khiển
+local speedEnabled = false
+local speedValue = 16 -- mặc định
+
+--// Toggle bật/tắt tăng tốc
+Player:CreateToggle("Walk Speed", function(value)
+	speedEnabled = value
+	print("Walk Speed Enabled:", value)
+
+	local char = lp.Character
+	if char and char:FindFirstChild("Humanoid") then
+		char.Humanoid.WalkSpeed = value and speedValue or 16
+	end
+end)
+
+--// TextBox nhập tốc độ thủ công (thay vì slider)
+Player:CreateTextbox("Speed (1 - 300)", function(text)
+	local number = tonumber(text)
+	if number and number >= 1 and number <= 300 then
+		speedValue = number
+		print("Speed set to:", speedValue)
+
+		if speedEnabled then
+			local char = lp.Character
+			if char and char:FindFirstChild("Humanoid") then
+				char.Humanoid.WalkSpeed = speedValue
+			end
+		end
+	else
+		warn("Invalid speed input! Must be a number between 1 and 300.")
+	end
+end)
+
+--// Cập nhật lại khi nhân vật respawn
+lp.CharacterAdded:Connect(function(char)
+	char:WaitForChild("Humanoid")
+	task.wait(0.1)
+	char.Humanoid.WalkSpeed = speedEnabled and speedValue or 16
+end)
+
+
+
+
+
+--// Biến trạng thái
+local noclipEnabled = false
+
+--// Toggle Noclip
+Player:CreateToggle("Noclip", function(value)
+    noclipEnabled = value
+    print("Noclip Enabled:", value)
+end)
+
+--// Hàm chính để duy trì Noclip nếu được bật
+game:GetService("RunService").Stepped:Connect(function()
+    if noclipEnabled then
+        local character = game:GetService("Players").LocalPlayer.Character
+        if character then
+            for _, part in pairs(character:GetDescendants()) do
+                if part:IsA("BasePart") and part.CanCollide == true then
+                    part.CanCollide = false
+                end
+            end
+        end
+    end
+end)
+
+
+
+
+
+--// Infinite Jump Toggle
+Player:CreateToggle("Infinite Jump", function(state)
+    getgenv().InfiniteJump = state
+    print("Infinite Jump Enabled:", state)
+end)
+
+--// Infinite Jump Handler
+game:GetService("UserInputService").JumpRequest:Connect(function()
+    if getgenv().InfiniteJump then
+        local lp = game:GetService("Players").LocalPlayer
+        local char = lp.Character
+        if char and char:FindFirstChild("Humanoid") then
+            char.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+        end
+    end
+end)
