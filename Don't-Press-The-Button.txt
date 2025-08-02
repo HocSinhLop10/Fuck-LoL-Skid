@@ -8,6 +8,8 @@ local Player = PhantomForcesWindow:NewSection("Player")
 
 local Esp = PhantomForcesWindow:NewSection("Esp")
 
+local Misc = PhantomForcesWindow:NewSection("Misc")
+
 -- Button --
 
 --// Services
@@ -835,7 +837,63 @@ RunService.RenderStepped:Connect(function()
 end)
 
 
+-- Misc
 
+local UIS = game:GetService("UserInputService")
+local workspace = game:GetService("Workspace")
+
+local skipHoldConnection -- để giữ kết nối DescendantAdded
+
+-- Hàm chỉnh thời gian giữ
+local function skipHoldPrompt(prompt)
+    if prompt and prompt:IsA("ProximityPrompt") and prompt.HoldDuration > 0 then
+        if prompt:GetAttribute("OriginalHold") == nil then
+            prompt:SetAttribute("OriginalHold", prompt.HoldDuration)
+        end
+        prompt.HoldDuration = 0
+    end
+end
+
+-- Hàm bật Skip Hold
+local function enableSkipHold()
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        if obj:IsA("ProximityPrompt") then
+            skipHoldPrompt(obj)
+        end
+    end
+
+    skipHoldConnection = workspace.DescendantAdded:Connect(function(obj)
+        task.wait(0.1)
+        skipHoldPrompt(obj)
+    end)
+end
+
+-- Hàm tắt Skip Hold
+local function disableSkipHold()
+    if skipHoldConnection then
+        skipHoldConnection:Disconnect()
+        skipHoldConnection = nil
+    end
+
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        if obj:IsA("ProximityPrompt") then
+            local originalHold = obj:GetAttribute("OriginalHold")
+            if originalHold then
+                obj.HoldDuration = originalHold
+                obj:SetAttribute("OriginalHold", nil)
+            end
+        end
+    end
+end
+
+-- 🔘 Tạo Toggle bằng Fluent GUI bạn dùng
+KillingCheats:CreateToggle("Bypass Hold Prompt", function(value)
+    if value then
+        enableSkipHold()
+    else
+        disableSkipHold()
+    end
+end)
 
 
 
