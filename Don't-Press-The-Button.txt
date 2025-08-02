@@ -887,7 +887,7 @@ local function disableSkipHold()
 end
 
 -- 🔘 Tạo Toggle bằng Fluent GUI bạn dùng
-KillingCheats:CreateToggle("Bypass Hold Prompt", function(value)
+Misc:CreateToggle("Bypass Hold Prompt", function(value)
     if value then
         enableSkipHold()
     else
