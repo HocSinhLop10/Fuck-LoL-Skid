@@ -319,63 +319,43 @@ end)
 
 
 
-
---// Services
-local Players = game:GetService("Players")
-local lp = Players.LocalPlayer
-
---// Toggle điều khiển
+--// Settings
+local teleportDelay = 0.3
 local autoTeleport = false
-local currentIndex = 1
 
---// Hàm lấy toàn bộ part/model có tên chứa "UsedPresent.MeshPart"
-local function getAllTargets()
-	local targets = {}
-
-	for _, descendant in ipairs(workspace:GetDescendants()) do
-		if descendant:IsA("BasePart") and string.find(descendant.Name, "UsedPresent.MeshPart") then
-			table.insert(targets, descendant)
-		elseif descendant:IsA("Model") and string.find(descendant.Name, "UsedPresent.MeshPart") then
-			local part = descendant:FindFirstChildWhichIsA("BasePart")
-			if part then
-				table.insert(targets, part)
-			end
-		end
-	end
-
-	return targets
+--// Get all 'Block' parts inside Workspace.Map98.Pads
+local function getAllBlocks()
+    local blocks = {}
+    local padFolder = workspace:FindFirstChild("Map98") and workspace.Map98:FindFirstChild("Pads")
+    if padFolder then
+        for _, v in ipairs(padFolder:GetDescendants()) do
+            if v:IsA("BasePart") and v.Name == "Block" then
+                table.insert(blocks, v)
+            end
+        end
+    end
+    return blocks
 end
 
---// Tích hợp Toggle Fluent
-KillingCheats:CreateToggle("Get Christmas gift", function(value)
-	autoTeleport = value
-	print("Auto Teleport:", value)
-	currentIndex = 1
+--// Auto teleport logic
+task.spawn(function()
+    while true do
+        if autoTeleport and root then
+            local blocks = getAllBlocks()
+            for _, part in ipairs(blocks) do
+                if not autoTeleport then break end
+                root.CFrame = part.CFrame + Vector3.new(0, 0, 0)
+                task.wait(teleportDelay)
+            end
+        end
+        task.wait(1)
+    end
 end)
 
---// Vòng lặp dịch chuyển
-task.spawn(function()
-	while true do
-		if autoTeleport then
-			local root = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
-			if root then
-				local targets = getAllTargets()
-
-				if #targets > 0 then
-					if currentIndex > #targets then
-						currentIndex = 1
-					end
-
-					local target = targets[currentIndex]
-					if target then
-						root.CFrame = target.CFrame + Vector3.new(0, 3, 0)
-						currentIndex += 1
-					end
-				end
-			end
-		end
-		task.wait(0.1)
-	end
+--// Toggle: Auto Swing
+KillingCheats:CreateToggle("Tp to Block", function(value)
+    autoTeleport = value
+    print("[Tp to Block] Enabled:", value)
 end)
 
 
