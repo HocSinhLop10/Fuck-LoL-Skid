@@ -252,6 +252,134 @@ task.spawn(function()
 end)
 
 
+
+
+
+--// Services
+local Players = game:GetService("Players")
+local lp = Players.LocalPlayer
+
+--// Toggle điều khiển
+local autoTeleport = false
+local currentIndex = 1
+
+--// Danh sách tên model cần teleport đến
+local targetModelNames = { "Bloxy" }
+
+--// Hàm lấy toàn bộ model đúng tên đang tồn tại và hiển thị
+local function getVisibleBloxy()
+	local allBloxy = {}
+	for _, model in ipairs(workspace:GetDescendants()) do
+		if model:IsA("Model") then
+			for _, name in ipairs(targetModelNames) do
+				if model.Name == name then
+					local part = model:FindFirstChildWhichIsA("BasePart")
+					if part and part.Transparency < 1 and part:IsDescendantOf(workspace) then
+						table.insert(allBloxy, part)
+					end
+				end
+			end
+		end
+	end
+	return allBloxy
+end
+
+--// Tích hợp Toggle Fluent
+KillingCheats:CreateToggle("Find All Bloxy", function(value)
+	autoTeleport = value
+	print("Auto Find Bloxy:", value)
+	currentIndex = 1
+end)
+
+--// Vòng lặp dịch chuyển luân phiên giữa tất cả coin đang hiện
+task.spawn(function()
+	while true do
+		if autoTeleport then
+			local root = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
+			if root then
+				local Bloxy = getVisibleBloxy()
+
+				if #Bloxy > 0 then
+					if currentIndex > #Bloxy then
+						currentIndex = 1
+					end
+
+					local target = Bloxy[currentIndex]
+					if target then
+						root.CFrame = target.CFrame + Vector3.new(0, 3, 0)
+						currentIndex += 1
+					end
+				end
+			end
+		end
+		task.wait(0.1) -- delay giữa mỗi lần teleport
+	end
+end)
+
+
+
+
+
+--// Services
+local Players = game:GetService("Players")
+local lp = Players.LocalPlayer
+
+--// Toggle điều khiển
+local autoTeleport = false
+local currentIndex = 1
+
+--// Hàm lấy toàn bộ part/model có tên chứa "UsedPresent.MeshPart"
+local function getAllTargets()
+	local targets = {}
+
+	for _, descendant in ipairs(workspace:GetDescendants()) do
+		if descendant:IsA("BasePart") and string.find(descendant.Name, "UsedPresent.MeshPart") then
+			table.insert(targets, descendant)
+		elseif descendant:IsA("Model") and string.find(descendant.Name, "UsedPresent.MeshPart") then
+			local part = descendant:FindFirstChildWhichIsA("BasePart")
+			if part then
+				table.insert(targets, part)
+			end
+		end
+	end
+
+	return targets
+end
+
+--// Tích hợp Toggle Fluent
+KillingCheats:CreateToggle("Get Christmas gift", function(value)
+	autoTeleport = value
+	print("Auto Teleport:", value)
+	currentIndex = 1
+end)
+
+--// Vòng lặp dịch chuyển
+task.spawn(function()
+	while true do
+		if autoTeleport then
+			local root = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
+			if root then
+				local targets = getAllTargets()
+
+				if #targets > 0 then
+					if currentIndex > #targets then
+						currentIndex = 1
+					end
+
+					local target = targets[currentIndex]
+					if target then
+						root.CFrame = target.CFrame + Vector3.new(0, 3, 0)
+						currentIndex += 1
+					end
+				end
+			end
+		end
+		task.wait(0.1)
+	end
+end)
+
+
+
 -- Player
 
 --// Services
