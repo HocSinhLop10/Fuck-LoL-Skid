@@ -300,7 +300,6 @@ end)
 
 
 local Players = game:GetService("Players")
-local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
 local UIS = game:GetService("UserInputService")
 
@@ -310,58 +309,69 @@ local Camera = workspace.CurrentCamera
 -- State
 local flying = false
 local flySpeed = 50
-local bodyVelocity, bodyGyro, renderConn
+local renderConn
+
+-- Function: Attach Body Movers
+local function attachBodyMovers(character)
+	local humanoid = character:WaitForChild("Humanoid")
+	local HRP = character:WaitForChild("HumanoidRootPart")
+	
+	-- Clean old
+	if HRP:FindFirstChild("BodyVelocity") then HRP.BodyVelocity:Destroy() end
+	if HRP:FindFirstChild("BodyGyro") then HRP.BodyGyro:Destroy() end
+
+	local bv = Instance.new("BodyVelocity")
+	bv.MaxForce = Vector3.new(1e6, 1e6, 1e6)
+	bv.Velocity = Vector3.zero
+	bv.Name = "BodyVelocity"
+	bv.Parent = HRP
+
+	local bg = Instance.new("BodyGyro")
+	bg.MaxTorque = Vector3.new(1e6, 1e6, 1e6)
+	bg.CFrame = HRP.CFrame
+	bg.Name = "BodyGyro"
+	bg.Parent = HRP
+
+	humanoid:ChangeState(Enum.HumanoidStateType.Physics)
+
+	return bv, bg
+end
 
 -- Function: Start Flying
 local function startFlying()
 	local character = player.Character or player.CharacterAdded:Wait()
 	local humanoid = character:WaitForChild("Humanoid")
+
+	if humanoid.Health <= 0 then return end
+
 	local HRP = character:WaitForChild("HumanoidRootPart")
+	local bv, bg = attachBodyMovers(character)
 
-	local seat = humanoid.SeatPart
-	local attachPart = seat or HRP
-
-	-- Body movers
-	bodyVelocity = Instance.new("BodyVelocity")
-	bodyVelocity.MaxForce = Vector3.new(1e5, 1e5, 1e5)
-	bodyVelocity.Velocity = Vector3.zero
-	bodyVelocity.Parent = attachPart
-
-	bodyGyro = Instance.new("BodyGyro")
-	bodyGyro.MaxTorque = Vector3.new(1e5, 1e5, 1e5)
-	bodyGyro.CFrame = attachPart.CFrame
-	bodyGyro.Parent = attachPart
-
-	humanoid:ChangeState(Enum.HumanoidStateType.Physics)
-
-	-- Movement logic
+	-- Start render loop
 	renderConn = RunService.RenderStepped:Connect(function()
-		if attachPart and Camera then
-			local camCF = Camera.CFrame
-			local moveDir = humanoid.MoveDirection
+		if not flying or humanoid.Health <= 0 then return end
+		local moveDir = humanoid.MoveDirection
+		local camCF = Camera.CFrame
+		local moveVec = Vector3.zero
 
-			local moveVec = Vector3.zero
+		if moveDir.Magnitude > 0 then
+			local forward = camCF.LookVector
+			local flatForward = Vector3.new(forward.X, 0, forward.Z).Unit
+			local verticalInfluence = forward.Unit.Y
 
-			if moveDir.Magnitude > 0 then
-				local forward = camCF.LookVector
-				local flatForward = Vector3.new(forward.X, 0, forward.Z).Unit
-				local verticalInfluence = forward.Unit.Y
+			local movingForward = flatForward:Dot(moveDir.Unit) > 0.1
+			local movingBackward = flatForward:Dot(moveDir.Unit) < -0.1
 
-				local movingForward = flatForward:Dot(moveDir.Unit) > 0.1
-				local movingBackward = flatForward:Dot(moveDir.Unit) < -0.1
+			local yVelocity = 0
+			if movingForward then yVelocity = verticalInfluence
+			elseif movingBackward then yVelocity = -verticalInfluence end
 
-				local yVelocity = 0
-				if movingForward then
-					yVelocity = verticalInfluence
-				elseif movingBackward then
-					yVelocity = -verticalInfluence
-				end
+			moveVec = Vector3.new(moveDir.X, yVelocity, moveDir.Z).Unit
+		end
 
-				moveVec = Vector3.new(moveDir.X, yVelocity, moveDir.Z).Unit
-			end
-
-			bodyVelocity.Velocity = moveVec * flySpeed
-			bodyGyro.CFrame = camCF
+		if bv and bg then
+			bv.Velocity = moveVec * flySpeed
+			bg.CFrame = camCF
 		end
 	end)
 
@@ -371,13 +381,16 @@ end
 -- Function: Stop Flying
 local function stopFlying()
 	flying = false
-
 	if renderConn then renderConn:Disconnect() renderConn = nil end
-	if bodyVelocity then bodyVelocity:Destroy() bodyVelocity = nil end
-	if bodyGyro then bodyGyro:Destroy() bodyGyro = nil end
 
 	local character = player.Character
 	if character then
+		local HRP = character:FindFirstChild("HumanoidRootPart")
+		if HRP then
+			if HRP:FindFirstChild("BodyVelocity") then HRP.BodyVelocity:Destroy() end
+			if HRP:FindFirstChild("BodyGyro") then HRP.BodyGyro:Destroy() end
+		end
+
 		local humanoid = character:FindFirstChildOfClass("Humanoid")
 		if humanoid then
 			humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
@@ -385,15 +398,15 @@ local function stopFlying()
 	end
 end
 
--- Auto handle respawn
-Players.LocalPlayer.CharacterAdded:Connect(function()
+-- Handle respawn (ensure re-attach body movers if flying)
+player.CharacterAdded:Connect(function()
+	task.wait(0.5)
 	if flying then
-		task.wait(1)
 		startFlying()
 	end
 end)
 
--- UI Buttons (thay cho Tabs.Player)
+-- UI Button
 Player:CreateToggle("Fly (Mobile + PC)", function(value)
 	if value then
 		startFlying()
@@ -410,7 +423,6 @@ Player:CreateTextbox("Fly Speed", function(text)
 		warn("Invalid fly speed:", text)
 	end
 end)
-
 
 
 
@@ -681,6 +693,79 @@ Esp:CreateToggle("ESP Model", function(value)
 end)
 
 
+
+--// Dịch vụ
+local RunService = game:GetService("RunService")
+local Camera = workspace.CurrentCamera
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+local enableESP = false
+local drawings = {}
+
+--// GUI Toggle
+Esp:CreateToggle("ESP All Map Parts", function(state)
+    enableESP = state
+    print("ESP All Map Parts:", state)
+
+    if not state then
+        for _, draw in ipairs(drawings) do
+            draw:Remove()
+        end
+        drawings = {}
+    end
+end)
+
+--// Kiểm tra object có phải là Part hiển thị
+local function isDrawablePart(obj)
+    -- Loại bỏ part thuộc về Player
+    local plrChar = obj:FindFirstAncestorOfClass("Model")
+    if plrChar and Players:GetPlayerFromCharacter(plrChar) then
+        return false
+    end
+
+    return obj:IsA("BasePart")
+        and obj.Transparency < 1
+        and obj:IsDescendantOf(workspace)
+        and obj.Name ~= ""
+end
+
+--// Render ESP
+RunService.RenderStepped:Connect(function()
+    if not enableESP then return end
+
+    -- Clear ESP trước mỗi frame
+    for _, draw in ipairs(drawings) do
+        draw:Remove()
+    end
+    drawings = {}
+
+    -- Vị trí nhân vật
+    local character = LocalPlayer.Character
+    local root = character and character:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        if isDrawablePart(obj) then
+            local distance = (obj.Position - root.Position).Magnitude
+            if distance <= 25 then -- Chỉ vẽ khi trong bán kính 25m
+                local pos, visible = Camera:WorldToViewportPoint(obj.Position)
+                if visible then
+                    local text = Drawing.new("Text")
+                    text.Text = obj:GetFullName()
+                    text.Position = Vector2.new(pos.X, pos.Y)
+                    text.Size = 14
+                    text.Color = Color3.fromRGB(255, 255, 0)
+                    text.Center = true
+                    text.Outline = true
+                    text.Visible = true
+
+                    table.insert(drawings, text)
+                end
+            end
+        end
+    end
+end)
 
 
 
