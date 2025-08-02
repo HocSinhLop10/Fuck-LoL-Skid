@@ -1,0 +1,32 @@
+
+local Library = loadstring(Game:HttpGet("https://raw.githubusercontent.com/bloodball/-back-ups-for-libs/main/wizard"))()
+
+local PhantomForcesWindow = Library:NewWindow("Grow A Garden")
+
+local Main = PhantomForcesWindow:NewSection("Main")
+
+
+
+Main:CreateToggle("Start Trade", function(value)
+print(value)
+end)
+
+
+Main:CreateToggle("Freeze Trade", function(value)
+print(value)
+end)
+
+
+Main:CreateToggle("Auto Add Pet", function(value)
+print(value)
+end)
+
+
+Main:CreateToggle("Auto Add Fruit", function(value)
+print(value)
+end)
+
+
+Main:CreateToggle("Auto Add Gear", function(value)
+print(value)
+end)
