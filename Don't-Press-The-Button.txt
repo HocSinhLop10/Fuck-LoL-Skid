@@ -12,6 +12,12 @@ local Misc = PhantomForcesWindow:NewSection("Misc")
 
 -- Button --
 
+KillingCheats:CreateButton("Button Shot", function()
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/SLK-gaming/Skid-/refs/heads/main/ShotButton.lua"))()
+end)
+
+
+
 --// Services
 local Players = game:GetService("Players")
 local lp = Players.LocalPlayer
@@ -63,7 +69,7 @@ task.spawn(function()
 
 					local target = coins[currentIndex]
 					if target then
-						root.CFrame = target.CFrame + Vector3.new(0, 3, 0)
+						root.CFrame = target.CFrame + Vector3.new(0, 0, 0)
 						currentIndex += 1
 					end
 				end
