@@ -12,8 +12,59 @@ local Misc = PhantomForcesWindow:NewSection("Misc")
 
 -- Button --
 
-KillingCheats:CreateButton("Button Shot", function()
-    loadstring(game:HttpGet("https://raw.githubusercontent.com/SLK-gaming/Skid-/refs/heads/main/ShotButton.lua"))()
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local VirtualInputManager = game:GetService("VirtualInputManager")
+local player = Players.LocalPlayer
+
+-- Tạo GUI
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "CenterClickGUI"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = player:WaitForChild("PlayerGui")
+
+-- Tạo tâm bắn ở giữa màn hình
+local crosshair = Instance.new("Frame")
+crosshair.Size = UDim2.new(0, 12, 0, 12)
+crosshair.Position = UDim2.new(0.5, -6, 0.5, -6)
+crosshair.AnchorPoint = Vector2.new(0.5, 0.5)
+crosshair.BackgroundColor3 = Color3.new(1, 1, 1)
+crosshair.BackgroundTransparency = 0
+crosshair.BorderSizePixel = 0
+crosshair.Parent = screenGui
+
+local circle = Instance.new("UICorner")
+circle.CornerRadius = UDim.new(1, 0)
+circle.Parent = crosshair
+
+-- Toggle kích hoạt
+local shootClickEnabled = false
+
+-- Hàm mô phỏng click giữa màn hình
+local function simulateClickCenter()
+	if not shootClickEnabled then return end
+
+	local viewportSize = workspace.CurrentCamera.ViewportSize
+	local center = Vector2.new(viewportSize.X / 2, viewportSize.Y / 2)
+
+	VirtualInputManager:SendMouseButtonEvent(center.X, center.Y, 0, true, game, 0)
+	task.wait(0.05)
+	VirtualInputManager:SendMouseButtonEvent(center.X, center.Y, 0, false, game, 0)
+end
+
+-- Bắt tất cả click hoặc chạm màn hình
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+	if gameProcessed or not shootClickEnabled then return end
+
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		simulateClickCenter()
+	end
+end)
+
+-- Nút bật/tắt từ GUI
+KillingCheats:CreateToggle("Shoot Click", function(value)
+	shootClickEnabled = value
+	print("Shoot Click Enabled:", value)
 end)
 
 
@@ -247,7 +298,7 @@ task.spawn(function()
 
 					local target = Candy[currentIndex]
 					if target then
-						root.CFrame = target.CFrame + Vector3.new(0, 3, 0)
+						root.CFrame = target.CFrame + Vector3.new(0, 0, 0)
 						currentIndex += 1
 					end
 				end
@@ -312,7 +363,7 @@ task.spawn(function()
 
 					local target = Bloxy[currentIndex]
 					if target then
-						root.CFrame = target.CFrame + Vector3.new(0, 3, 0)
+						root.CFrame = target.CFrame + Vector3.new(0, 0, 0)
 						currentIndex += 1
 					end
 				end
@@ -323,46 +374,6 @@ task.spawn(function()
 end)
 
 
-
-
---// Settings
-local teleportDelay = 0.3
-local autoTeleport = false
-
---// Get all 'Block' parts inside Workspace.Map98.Pads
-local function getAllBlocks()
-    local blocks = {}
-    local padFolder = workspace:FindFirstChild("Map98") and workspace.Map98:FindFirstChild("Pads")
-    if padFolder then
-        for _, v in ipairs(padFolder:GetDescendants()) do
-            if v:IsA("BasePart") and v.Name == "Block" then
-                table.insert(blocks, v)
-            end
-        end
-    end
-    return blocks
-end
-
---// Auto teleport logic
-task.spawn(function()
-    while true do
-        if autoTeleport and root then
-            local blocks = getAllBlocks()
-            for _, part in ipairs(blocks) do
-                if not autoTeleport then break end
-                root.CFrame = part.CFrame + Vector3.new(0, 0, 0)
-                task.wait(teleportDelay)
-            end
-        end
-        task.wait(1)
-    end
-end)
-
---// Toggle: Auto Swing
-KillingCheats:CreateToggle("Tp to Block", function(value)
-    autoTeleport = value
-    print("[Tp to Block] Enabled:", value)
-end)
 
 
 
@@ -693,7 +704,86 @@ Esp:CreateToggle("ESP Player", function(value)
 end)
 
 
+--// Services
+local RunService = game:GetService("RunService")
+local Camera = workspace.CurrentCamera
 
+-- ESP Container
+local drawings = {}
+local espConnection
+
+-- Đối tượng cần ESP
+local targetPart = workspace:FindFirstChild("Map118") and workspace.Map118:FindFirstChild("Eggs")
+    and workspace.Map118.Eggs:FindFirstChild("Egg12") and workspace.Map118.Eggs.Egg12:FindFirstChild("MeshPart")
+
+-- Tạo ESP cho Part
+local function createESP()
+    if not targetPart or drawings["Egg"] then return end
+
+    local text = Drawing.new("Text")
+    text.Size = 14
+    text.Center = true
+    text.Outline = true
+    text.Color = Color3.fromRGB(255, 255, 0)
+    text.Text = "Egg12"
+    text.Visible = false
+
+    drawings["Egg"] = {
+        Part = targetPart,
+        Text = text
+    }
+end
+
+-- Xoá ESP
+local function removeESP()
+    if drawings["Egg"] then
+        drawings["Egg"].Text:Remove()
+        drawings["Egg"] = nil
+    end
+end
+
+-- Bắt đầu ESP
+local function startESP()
+    createESP()
+
+    espConnection = RunService.RenderStepped:Connect(function()
+        local entry = drawings["Egg"]
+        if not entry or not entry.Part then return end
+
+        local part = entry.Part
+        local text = entry.Text
+
+        if part and part:IsDescendantOf(workspace) then
+            local pos, visible = Camera:WorldToViewportPoint(part.Position)
+            local distance = (part.Position - Camera.CFrame.Position).Magnitude
+
+            text.Text = string.format("Egg12 [%.0fm]", distance)
+            text.Position = Vector2.new(pos.X, pos.Y)
+            text.Visible = visible
+        else
+            text.Visible = false
+        end
+    end)
+end
+
+-- Dừng ESP
+local function stopESP()
+    if espConnection then
+        espConnection:Disconnect()
+        espConnection = nil
+    end
+
+    removeESP()
+end
+
+-- Nút GUI để bật/tắt ESP
+Esp:CreateToggle("ESP Egg", function(value)
+    if value then
+        startESP()
+    else
+        stopESP()
+    end
+end)
 
 if not game:IsLoaded() then game.Loaded:Wait() end
 
@@ -883,72 +973,6 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
-
-
---// Services
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local Camera = workspace.CurrentCamera
-local lp = Players.LocalPlayer
-
---// Variables
-local diamondESPEnabled = false
-local drawings = {}
-
---// Toggle ESP Button
-Esp:CreateToggle("ESP Diamond", function(value)
-    diamondESPEnabled = value
-    print("ESP Diamond:", value)
-
-    -- Clear all drawings when toggle is off
-    if not value then
-        for _, drawing in ipairs(drawings) do
-            if drawing.Text then
-                pcall(function()
-                    drawing.Text:Remove()
-                end)
-            end
-        end
-        drawings = {}
-    end
-end)
-
---// ESP Update Loop
-RunService.RenderStepped:Connect(function()
-    if not diamondESPEnabled then return end
-
-    -- Clear previous drawings
-    for _, drawing in ipairs(drawings) do
-        if drawing.Text then
-            pcall(function()
-                drawing.Text:Remove()
-            end)
-        end
-    end
-    drawings = {}
-
-    -- Scan all models in workspace
-    for _, model in ipairs(workspace:GetDescendants()) do
-        if model:IsA("Model") and model.Name:lower():find("diamond") then
-            local part = model:FindFirstChildWhichIsA("BasePart")
-            if part then
-                local pos, onScreen = Camera:WorldToViewportPoint(part.Position)
-                if onScreen then
-                    local text = Drawing.new("Text")
-                    text.Text = model.Name
-                    text.Position = Vector2.new(pos.X, pos.Y)
-                    text.Size = 16
-                    text.Color = Color3.fromRGB(0, 255, 255)
-                    text.Center = true
-                    text.Outline = true
-                    text.Visible = true
-
-                    table.insert(drawings, {Text = text})
-                end
-            end
-        end
-    end
-end)
 
 
 -- Misc
