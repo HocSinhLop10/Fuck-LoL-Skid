@@ -113,3 +113,10 @@ Misc:CreateButton("Server Hop", function()
     -- Gọi hàm để bắt đầu Server Hop
     Teleport()
 end)
+
+
+
+-- Grow a Garden PlaceId là: 126884695634066
+if game.PlaceId == 126884695634066 then
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/HocSinhLop10/Skid/refs/heads/main/hahehuhi.lua"))()
+end
