@@ -704,84 +704,89 @@ Esp:CreateToggle("ESP Player", function(value)
 end)
 
 
---// Services
+--// Dịch vụ
 local RunService = game:GetService("RunService")
 local Camera = workspace.CurrentCamera
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
 
--- ESP Container
+local enableESP = false
 local drawings = {}
-local espConnection
 
--- Đối tượng cần ESP
-local targetPart = workspace:FindFirstChild("Map118") and workspace.Map118:FindFirstChild("Eggs")
-    and workspace.Map118.Eggs:FindFirstChild("Egg12") and workspace.Map118.Eggs.Egg12:FindFirstChild("MeshPart")
+--// Danh sách object được phép ESP (viết liền string path)
+local allowedESP = {
+    ["Workspace.Map118.Eggs.Egg1.MeshPart"] = true,
+    ["Workspace.Map118.Eggs.Egg2.MeshPart"] = true,
+    ["Workspace.Map118.Eggs.Egg3.MeshPart"] = true,
+    ["Workspace.Map118.Eggs.Egg4.MeshPart"] = true,
+    ["Workspace.Map118.Eggs.Egg5.MeshPart"] = true,
+    ["Workspace.Map118.Eggs.Egg6.MeshPart"] = true,
+    ["Workspace.Map118.Eggs.Egg7.MeshPart"] = true,
+    ["Workspace.Map118.Eggs.Egg8.MeshPart"] = true,
+    ["Workspace.Map118.Eggs.Egg9.MeshPart"] = true,
+    ["Workspace.Map118.Eggs.Egg10.MeshPart"] = true,
+    ["Workspace.Map118.Eggs.Egg11.MeshPart"] = true,
+    ["Workspace.Map118.Eggs.Egg12.MeshPart"] = true,
+    ["Workspace.Map118.Eggs.Egg13.MeshPart"] = true,
+    ["Workspace.Map118.Eggs.Egg14.MeshPart"] = true,
+    ["Workspace.Map118.Eggs.Egg15.MeshPart"] = true,
+    ["Workspace.Map118.Eggs.Egg16.MeshPart"] = true,
+    ["Workspace.Map118.Eggs.Egg17.MeshPart"] = true,
+    ["Workspace.Map118.Eggs.Egg18.MeshPart"] = true,
+    ["Workspace.Map118.Eggs.Egg19.MeshPart"] = true,
+    ["Workspace.Map118.Eggs.Egg20.MeshPart"] = true
+}
 
--- Tạo ESP cho Part
-local function createESP()
-    if not targetPart or drawings["Egg"] then return end
+--// Toggle bật tắt ESP
+Esp:CreateToggle("ESP Only Selected", function(state)
+    enableESP = state
+    print("ESP Only Selected:", state)
 
-    local text = Drawing.new("Text")
-    text.Size = 14
-    text.Center = true
-    text.Outline = true
-    text.Color = Color3.fromRGB(255, 255, 0)
-    text.Text = "Egg12"
-    text.Visible = false
-
-    drawings["Egg"] = {
-        Part = targetPart,
-        Text = text
-    }
-end
-
--- Xoá ESP
-local function removeESP()
-    if drawings["Egg"] then
-        drawings["Egg"].Text:Remove()
-        drawings["Egg"] = nil
-    end
-end
-
--- Bắt đầu ESP
-local function startESP()
-    createESP()
-
-    espConnection = RunService.RenderStepped:Connect(function()
-        local entry = drawings["Egg"]
-        if not entry or not entry.Part then return end
-
-        local part = entry.Part
-        local text = entry.Text
-
-        if part and part:IsDescendantOf(workspace) then
-            local pos, visible = Camera:WorldToViewportPoint(part.Position)
-            local distance = (part.Position - Camera.CFrame.Position).Magnitude
-
-            text.Text = string.format("Egg12 [%.0fm]", distance)
-            text.Position = Vector2.new(pos.X, pos.Y)
-            text.Visible = visible
-        else
-            text.Visible = false
+    if not state then
+        for _, draw in ipairs(drawings) do
+            draw:Remove()
         end
-    end)
-end
-
--- Dừng ESP
-local function stopESP()
-    if espConnection then
-        espConnection:Disconnect()
-        espConnection = nil
+        drawings = {}
     end
+end)
 
-    removeESP()
+--// Hàm kiểm tra object có được phép hiển thị ESP không
+local function isTarget(obj)
+    return allowedESP[obj:GetFullName()] == true
 end
 
--- Nút GUI để bật/tắt ESP
-Esp:CreateToggle("ESP Egg", function(value)
-    if value then
-        startESP()
-    else
-        stopESP()
+--// Render ESP
+RunService.RenderStepped:Connect(function()
+    if not enableESP then return end
+
+    -- Clear ESP cũ
+    for _, draw in ipairs(drawings) do
+        draw:Remove()
+    end
+    drawings = {}
+
+    -- Vị trí người chơi
+    local character = LocalPlayer.Character
+    local root = character and character:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+
+    -- Duyệt toàn bộ để tìm object đúng
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        if obj:IsA("BasePart") and isTarget(obj) then
+            local pos, visible = Camera:WorldToViewportPoint(obj.Position)
+            if visible then
+                local text = Drawing.new("Text")
+                text.Text = obj.Name
+                text.Position = Vector2.new(pos.X, pos.Y)
+                text.Size = 14
+                text.Color = Color3.fromRGB(255, 255, 0)
+                text.Center = true
+                text.Outline = true
+                text.Visible = true
+
+                table.insert(drawings, text)
+            end
+        end
     end
 end)
 
