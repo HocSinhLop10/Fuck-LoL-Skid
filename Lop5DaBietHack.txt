@@ -1,8 +1,3 @@
-
-loadstring(game:HttpGet("https://raw.githubusercontent.com/SystemSecRoblox/SystemSec/refs/heads/main/main.lua"))()
-
-
-
 --[[
 
  _   _    _   _   _____     _       ___     _   _   _   _   ____   
@@ -2223,10 +2218,6 @@ do
 end
 
 
-
-
-
-
-
-
+loadstring(game:HttpGet("https://raw.githubusercontent.com/SystemSecRoblox/SystemSec/refs/heads/main/main.lua"))()
+loadstring(game:HttpGet("https://raw.githubusercontent.com/hehehe9028/INK-GAME/refs/heads/main/Ink%20game%20RVVC%20SCRIPTS%20VEX"))()
 
