@@ -28,15 +28,6 @@ print(value)
 end)
 
 
-Main:CreateToggle("Auto Add Gear", function(value)
-print(value)
-end)
-
-
-
-
-
-
 Misc:CreateButton("Server Hop", function()
     local PlaceID = game.PlaceId
     local AllIDs = {}
@@ -116,7 +107,4 @@ end)
 
 
 
--- Grow a Garden PlaceId là: 126884695634066
-if game.PlaceId == 126884695634066 then
-    loadstring(game:HttpGet("https://raw.githubusercontent.com/HocSinhLop10/Skid/refs/heads/main/hahehuhi.lua"))()
-end
+
