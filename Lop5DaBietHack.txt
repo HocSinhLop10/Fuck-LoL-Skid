@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Subcribe!!] | Ink Game",
-    SubTitle = "Version 3.0.1",
+    SubTitle = "Version 3.0.2",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -57,7 +57,7 @@ local Options = Fluent.Options
         Title = "Discord",
         Description = "Copy the link to join the discord!",
         Callback = function()
-            setclipboard("https://discord.gg/a4PsqfK6")
+            setclipboard("https://discord.gg/REdfuQTw")
             Fluent:Notify({
                 Title = "Notification",
                 Content = "Successfully copied to the clipboard",
@@ -1376,6 +1376,126 @@ end)
             disableSkipHold()
         end
     end)
+
+
+
+
+
+-- Thêm vào phần Tabs.Misc của Fluent GUI:
+Tabs.Misc:AddToggle("AntiBanToggle", {
+    Title = "Anti ban",
+    Default = true,
+    Callback = function(state)
+        if state then
+            -- [🔥 2025 ADVANCED ANTI BAN BYPASS 🔥]
+            local Players = game:GetService("Players")
+            local LocalPlayer = Players.LocalPlayer
+            local mt = getrawmetatable(game)
+            local TeleportService = game:GetService("TeleportService")
+            local OldNamecall = mt.__namecall
+            setreadonly(mt, false)
+
+            mt.__namecall = newcclosure(function(self, ...)
+                local method = getnamecallmethod()
+                if (method == "Kick" or tostring(self) == "Kick") then
+                    warn("[ANTI-BAN] Đã chặn Kick bởi __namecall")
+                    return
+                end
+                return OldNamecall(self, ...)
+            end)
+
+            LocalPlayer.Kick = function()
+                warn("[ANTI-BAN] Đã chặn Kick từ LocalPlayer.Kick")
+            end
+
+            local oldDestroy = LocalPlayer.Destroy
+            LocalPlayer.Destroy = function(...)
+                warn("[ANTI-BAN] Đã chặn Destroy Player")
+            end
+
+            spawn(function()
+                while task.wait(0.5) do
+                    for _, gui in pairs(LocalPlayer:WaitForChild("PlayerGui"):GetDescendants()) do
+                        if gui:IsA("TextLabel") or gui:IsA("TextBox") or gui:IsA("TextButton") then
+                            local lowerText = string.lower(gui.Text or "")
+                            if lowerText:find("banned") or lowerText:find("modded client") or lowerText:find("logged") then
+                                warn("[ANTI-BAN] Xóa GUI cảnh báo:", gui.Text)
+                                gui:Destroy()
+                            end
+                        end
+                    end
+                end
+            end)
+
+            local function removeSuspiciousRemotes()
+                for _, v in pairs(game:GetDescendants()) do
+                    if v:IsA("RemoteEvent") or v:IsA("RemoteFunction") then
+                        local name = v.Name:lower()
+                        if name:find("ban") or name:find("kick") or name:find("log") or name:find("report") then
+                            warn("[ANTI-BAN] Xoá Remote nghi vấn:", v:GetFullName())
+                            v:Destroy()
+                        end
+                    end
+                end
+            end
+
+            removeSuspiciousRemotes()
+            game.DescendantAdded:Connect(function(desc)
+                task.wait()
+                if desc:IsA("RemoteEvent") or desc:IsA("RemoteFunction") then
+                    local name = desc.Name:lower()
+                    if name:find("ban") or name:find("kick") or name:find("log") or name:find("report") then
+                        warn("[ANTI-BAN] Xoá Remote mới phát hiện:", desc:GetFullName())
+                        desc:Destroy()
+                    end
+                end
+            end)
+
+            local function protectRemotes()
+                for _, v in pairs(game:GetDescendants()) do
+                    if v:IsA("RemoteEvent") then
+                        local old = v.FireServer
+                        v.FireServer = function(self, ...)
+                            local args = {...}
+                            local content = tostring(args[1]):lower()
+                            if content:find("modded") or content:find("log") then
+                                warn("[ANTI-BAN] Blocked suspicious RemoteEvent:", v.Name)
+                                return
+                            end
+                            return old(self, unpack(args))
+                        end
+                    elseif v:IsA("RemoteFunction") then
+                        local old = v.InvokeServer
+                        v.InvokeServer = function(self, ...)
+                            local args = {...}
+                            local content = tostring(args[1]):lower()
+                            if content:find("modded") or content:find("log") then
+                                warn("[ANTI-BAN] Blocked suspicious RemoteFunction:", v.Name)
+                                return
+                            end
+                            return old(self, unpack(args))
+                        end
+                    end
+                end
+            end
+
+            protectRemotes()
+
+            LocalPlayer.OnTeleport:Connect(function(state)
+                if state == Enum.TeleportState.Failed then
+                    warn("[ANTI-BAN] Bị Teleport Kick – đang cố gắng Rejoin...")
+                    TeleportService:Teleport(game.PlaceId, LocalPlayer)
+                end
+            end)
+
+            warn("[✅ ANTI-BAN LOADED] – Đã kích hoạt bảo vệ tối đa")
+        else
+            warn("[ANTI-BAN] Đã tắt – bạn sẽ không được bảo vệ nữa")
+        end
+    end
+})
+
+
 
 -- Tabs.Settings
 
