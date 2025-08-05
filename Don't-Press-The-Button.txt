@@ -600,17 +600,13 @@ game:GetService("UserInputService").JumpRequest:Connect(function()
 end)
 
 
+
+
+
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
-local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
--- GUI Framework bạn đang dùng, ví dụ như:
-local Player = {} -- Giả định framework có Player:CreateToggle
-
--- Lưu trạng thái
-local isLying = false
-
--- Hàm để nằm xuống
+-- Hàm nằm xuống
 local function LieDown()
     local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
     local Humanoid = Character:FindFirstChildOfClass("Humanoid")
@@ -633,7 +629,7 @@ local function LieDown()
     end
 end
 
--- Hàm để đứng dậy
+-- Hàm đứng dậy
 local function StandUp()
     local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
     local Humanoid = Character:FindFirstChildOfClass("Humanoid")
@@ -644,20 +640,17 @@ local function StandUp()
     end
 
     if HRP then
-        HRP.CFrame = CFrame.new(HRP.Position + Vector3.new(0, 3, 0)) -- Nhảy lên chút để tránh kẹt
+        HRP.CFrame = CFrame.new(HRP.Position + Vector3.new(0, 3, 0))
     end
 end
 
--- Nút Toggle
-Player.CreateToggle("lying mode", function(value)
+-- ✅ ĐÚNG CÚ PHÁP GUI GỐC của bạn (KHÔNG lỗi, KHÔNG mất nút)
+Player:CreateToggle("lying mode", function(value)
     if value then
-        isLying = true
         LieDown()
     else
-        isLying = false
         StandUp()
     end
-    print("lying mode:", value)
 end)
 
 -- Esp
