@@ -1,1921 +1,1385 @@
---[[
-
- _   _    _   _   _____     _       ___     _   _   _   _   ____   
-| | | |  | | | | |_   _|   / \     / _ \   | | | | | | | | | __ )  
-| |_| |  | | | |   | |    / _ \   | | | |  | |_| | | | | | |  _ \  
-|  _  |  | | | |   | |   / ___ \  | |_| |  |  _  | | |_| | | |_) | 
-\_| |_/   \___/    \_/  /_/   \_\  \___/   \_| |_/  \___/  |____/
-
-                        Hutao Hub
-]]
-
----------------------------------------------------------------------------------
-
-local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
-
-local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/SLK-gaming/Fluent/refs/heads/main/SaveManager.lua.txt"))()
-
-local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/SLK-gaming/Fluent/refs/heads/main/InterfaceManager.lua.txt"))()
-
-local minimizeUI = Enum.KeyCode.RightAlt
-
--- 🟢 Create Main UI
-local Window = Fluent:CreateWindow({
-    Title = "Hutao Hub [Subcribe!!] | Ink Game",
-    SubTitle = "Version 3.0.2",
-    TabWidth = 160,
-    Size = UDim2.fromOffset(480, 360),
-    Acrylic = false,
-    Theme = "Darker",
-    MinimizeKey = minimizeUI
-})
-
--- Tabs
-local Tabs = {
-    Dev = Window:AddTab({ Title = "About", Icon = "rbxassetid://121302760641013"}),
-    Main = Window:AddTab({ Title = "Main", Icon = "rbxassetid://121302760641013" }),
-    Teleport = Window:AddTab({ Title = "Teleport", Icon = "rbxassetid://121302760641013" }),
-    Item = Window:AddTab({ Title = "Item", Icon = "rbxassetid://121302760641013" }),
-    Player = Window:AddTab({ Title = "Player", Icon = "rbxassetid://121302760641013" }),
-    Misc = Window:AddTab({ Title = "Misc", Icon = "rbxassetid://121302760641013" }),
-    Settings = Window:AddTab({ Title = "Settings", Icon = "rbxassetid://121302760641013" }),
-}  
-
--- Tab.Dev
-
-local Options = Fluent.Options
-
-
-    Tabs.Dev:AddParagraph({
-        Title = "Note",
-        Content = "Thank you for using the script!"
-    })
-
-    Tabs.Dev:AddSection("↳ Links")
-
-    Tabs.Dev:AddButton({
-        Title = "Discord",
-        Description = "Copy the link to join the discord!",
-        Callback = function()
-            setclipboard("https://discord.gg/REdfuQTw")
-            Fluent:Notify({
-                Title = "Notification",
-                Content = "Successfully copied to the clipboard",
-                SubContent = "", -- Optional
-                Duration = 3 
-            })
-        end
-    })
-
-
-
-    Tabs.Dev:AddButton({
-        Title = "Youtube",
-        Description = "Copy link to Subscribe to Youtube channel!",
-        Callback = function()
-            setclipboard("https://www.youtube.com/@SLKgamingSSR")
-            Fluent:Notify({
-                Title = "Notification",
-                Content = "Successfully copied to the clipboard!",
-                SubContent = "", -- Optional
-                Duration = 3 
-            })
-        end
-    })
-
-
-    Tabs.Dev:AddButton({
-        Title = "Facebook",
-        Description = "Copy link to join facebook group!",
-        Callback = function()
-            setclipboard("https://www.facebook.com/groups/1180845463307087/?ref=share&mibextid=NSMWBT")
-            Fluent:Notify({
-                Title = "Notification",
-                Content = "Successfully copied to the clipboard!",
-                SubContent = "", -- Optional
-                Duration = 3 
-            })
-        end
-    })
-
-
--- Tabs.Teleport
-
-    Tabs.Teleport:AddSection("↳ Player")
-
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
-
-local selectedPlayer = nil
-local teleporting = false
-local playerList = {}
-
--- Dropdown placeholder, sẽ cập nhật sau
-local dropdown
-
--- Hàm cập nhật danh sách player (trừ chính mình)
-local function updatePlayerList()
-    playerList = {}
-    for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer then
-            table.insert(playerList, player.Name)
-        end
-    end
-
-    -- Nếu dropdown đã tạo thì cập nhật lại danh sách
-    if dropdown then
-        dropdown:SetValues(playerList)
-        if #playerList > 0 then
-            selectedPlayer = playerList[1]
-            dropdown:SetValue(playerList[1])
-        else
-            selectedPlayer = nil
-            dropdown:SetValue("None")
-        end
-    end
+if not game:IsLoaded() then
+    game.Loaded:Wait()
 end
 
--- ✅ Cập nhật danh sách ngay khi mở GUI
-updatePlayerList()
+getgenv().TranslationCounter = "English" -- MẶC ĐỊNH CHỌN TIẾNG ANH NGAY TỪ ĐẦU
 
--- 🔄 Tự động cập nhật lại sau mỗi 5 phút
-task.spawn(function()
-    while true do
-        task.wait(300)
-        updatePlayerList()
+Translations = loadstring(game:HttpGet("https://raw.githubusercontent.com/Articles-Hub/ROBLOXScript/refs/heads/main/Translation/Translation.lua"))()
+loadstring(game:HttpGet("https://pastefy.app/yavAjgX3/raw"))()
+
+repeat task.wait() until TranslationCounter
+
+if game.CoreGui:FindFirstChild("Country") then
+    game.CoreGui:FindFirstChild("Country"):Destroy()
+end
+
+wait(0.3)
+
+local Player = game.Players.LocalPlayer
+game:GetService("UserInputService").JumpRequest:connect(function()
+    if _G.InfiniteJump == true then
+        game.Players.LocalPlayer.Character:FindFirstChildOfClass("Humanoid"):ChangeState("Jumping")
     end
 end)
 
--- Tạo Dropdown sau khi có danh sách player
-dropdown = Tabs.Teleport:AddDropdown("PlayerListDropdown", {
-    Title = "Select Player",
-    Values = playerList,
-    Multi = false,
-    Default = playerList[1] or "None"
-})
-
-dropdown:OnChanged(function(value)
-    selectedPlayer = value
+game.Players.LocalPlayer.Character:FindFirstChild("Humanoid"):GetPropertyChangedSignal("WalkSpeed"):Connect(function()
+    if _G.AutoSpeed == true then
+        if game.Players.LocalPlayer.Character:FindFirstChild("Humanoid") then
+            game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = _G.Speed or 50
+        end
+    end
 end)
 
--- Toggle bật/tắt teleport liên tục
-Tabs.Teleport:AddToggle("AutoTP", {
-    Title = "TP to Player",
-    Default = false
-}):OnChanged(function(enabled)
-    teleporting = enabled
+function CheckWall(Target)
+    local Direction = (Target.Position - game.Workspace.CurrentCamera.CFrame.Position).unit * (Target.Position - game.Workspace.CurrentCamera.CFrame.Position).Magnitude
+    local RaycastParams = RaycastParams.new()
+    RaycastParams.FilterDescendantsInstances = {game.Players.LocalPlayer.Character, game.Workspace.CurrentCamera}
+    RaycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+    local Result = game.Workspace:Raycast(game.Workspace.CurrentCamera.CFrame.Position, Direction, RaycastParams)
+    return Result == nil or Result.Instance:IsDescendantOf(Target)
+end
 
-    task.spawn(function()
-        while teleporting do
-            if selectedPlayer then
-                local targetPlayer = Players:FindFirstChild(selectedPlayer)
-                if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                    LocalPlayer.Character:PivotTo(targetPlayer.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, -3)) -- Teleport phía sau người chơi
-                end
-            end
-            task.wait(1)
+function PartLagDe(g)
+    for i, v in pairs(_G.PartLag) do
+        if g.Name:find(v) then
+            g:Destroy()
         end
-    end)
+    end
+end
+
+workspace.DescendantAdded:Connect(function(v)
+    if _G.AntiLag == true then
+        if v:IsA("ForceField") or v:IsA("Sparkles") or v:IsA("Smoke") or v:IsA("Fire") or v:IsA("Beam") then
+            v:Destroy()
+        end
+        if v:IsA("BasePart") then
+            v.Material = "Plastic"
+            v.Reflectance = 0
+            v.BackSurface = "SmoothNoOutlines"
+            v.BottomSurface = "SmoothNoOutlines"
+            v.FrontSurface = "SmoothNoOutlines"
+            v.LeftSurface = "SmoothNoOutlines"
+            v.RightSurface = "SmoothNoOutlines"
+            v.TopSurface = "SmoothNoOutlines"
+        elseif v:IsA("Decal") then
+            v.Transparency = 1
+        elseif v:IsA("ParticleEmitter") or v:IsA("Trail") then
+            v.Lifetime = NumberRange.new(0)
+        end
+    end
 end)
 
-    Tabs.Teleport:AddSection("↳ Games")
+local Name = "Ink Game"
 
-
-Tabs.Teleport:AddButton({
-    Title = "TP to Lobby",
-    Callback = function()
-        pcall(function()
-            -- Tải và chạy script từ link
-            loadstring(game:HttpGet("https://raw.githubusercontent.com/SLK-gaming/Skid/refs/heads/main/TPtoLobby.lua"))()
-        end)
+function Translation(Section, Text)
+    if TranslationCounter == "English" then
+        return Text
     end
-})
-
-Tabs.Teleport:AddButton({
-    Title = "TP to Red Light",
-    Callback = function()
-        pcall(function()
-            -- Tải và chạy script từ link
-            loadstring(game:HttpGet("https://raw.githubusercontent.com/SLK-gaming/Skid/refs/heads/main/TPtoRedLight.lua"))()
-        end)
-    end
-})
-
-Tabs.Teleport:AddButton({
-    Title = "TP to Dalgona",
-    Callback = function()
-        pcall(function()
-            -- Tải và chạy script từ link
-            loadstring(game:HttpGet("https://raw.githubusercontent.com/SLK-gaming/Skid/refs/heads/main/TPtoDalgona.lua"))()
-        end)
-    end
-})
-
-Tabs.Teleport:AddButton({
-    Title = "TP to Tug of War",
-    Callback = function()
-        pcall(function()
-            -- Tải và chạy script từ link
-            loadstring(game:HttpGet("https://raw.githubusercontent.com/SLK-gaming/Skid/refs/heads/main/TPtoTugOfWar.lua"))()
-        end)
-    end
-})
-
-Tabs.Teleport:AddButton({
-    Title = "TP to Hide & Seek",
-    Callback = function()
-        pcall(function()
-            -- Tải và chạy script từ link
-            loadstring(game:HttpGet("https://raw.githubusercontent.com/SLK-gaming/Skid/refs/heads/main/TPtoHideAndSeek.lua"))()
-        end)
-    end
-})
-
-Tabs.Teleport:AddButton({
-    Title = "TP to Jump Rope",
-    Callback = function()
-        pcall(function()
-            -- Tải và chạy script từ link
-            loadstring(game:HttpGet("https://raw.githubusercontent.com/SLK-gaming/Skid/refs/heads/main/TPtoJumpRope.lua"))()
-        end)
-    end
-})
-
-Tabs.Teleport:AddButton({
-    Title = "TP to Glass Bridge",
-    Callback = function()
-        pcall(function()
-            -- Tải và chạy script từ link
-            loadstring(game:HttpGet("https://raw.githubusercontent.com/SLK-gaming/Skid/refs/heads/main/TPtoGlassbridge"))()
-        end)
-    end
-})
-
-Tabs.Teleport:AddButton({
-    Title = "TP to Mingle",
-    Callback = function()
-        pcall(function()
-            -- Tải và chạy script từ link
-            loadstring(game:HttpGet("https://raw.githubusercontent.com/SLK-gaming/Skid/refs/heads/main/TPtoMingle.lua"))()
-        end)
-    end
-})
-
-Tabs.Teleport:AddButton({
-    Title = "TP to End Game",
-    Callback = function()
-        pcall(function()
-            -- Tải và chạy script từ link
-            loadstring(game:HttpGet("https://raw.githubusercontent.com/SLK-gaming/Skid/refs/heads/main/TPtoEndGame.lua"))()
-        end)
-    end
-})
-
-
-
-
-
-
-
--- Tabs.Item
-
-local AutoCollectBandage = false
-
--- Kiểm tra có Bandage chưa (chỉ tính trong backpack)
-local function HasBandage()
-    local backpack = LocalPlayer:FindFirstChildOfClass("Backpack")
-    return backpack and backpack:FindFirstChild("Bandage") ~= nil
-end
-
--- Tìm model DroppedBandage và trả về một BasePart để teleport
-local function FindBandageModel()
-    for _, obj in ipairs(workspace:GetDescendants()) do
-        if obj:IsA("Model") and obj.Name == "DroppedBandage" then
-            for _, part in ipairs(obj:GetChildren()) do
-                if part:IsA("BasePart") then
-                    return part
-                end
-            end
-        end
-    end
-    return nil
-end
-
--- Toggle GUI
-Tabs.Item:AddToggle("AutoCollectBandage", {
-    Title = "Auto Collect Bandage",
-    Default = false
-}):OnChanged(function(Value)
-    AutoCollectBandage = Value
-
-    task.spawn(function()
-        while AutoCollectBandage do
-            task.wait(0.1)
-
-            if HasBandage() then continue end
-
-            local bandagePart = FindBandageModel()
-            local root = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-
-            if bandagePart and root then
-                root.CFrame = bandagePart.CFrame + Vector3.new(0, 2, 0)
-                task.wait(0.1) -- Đợi để nhặt
-            end
-        end
-    end)
-end)
-
-
-
--- Tabs.Player
-
-
--- Giả sử bạn đã có Fluent GUI, phần này chỉ thêm Toggle ESP Player
-
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local LocalPlayer = Players.LocalPlayer
-local Camera = workspace.CurrentCamera
-
--- ESP Container
-local drawings = {}
-local espConnection
-
--- Tạo ESP cho Player
-local function createESP(player)
-    if player == LocalPlayer then return end
-    if drawings[player] then return end
-
-    local text = Drawing.new("Text")
-    text.Size = 14
-    text.Center = true
-    text.Outline = true
-    text.Visible = false
-
-    drawings[player] = text
-end
-
--- Xoá ESP
-local function removeESP(player)
-    if drawings[player] then
-        drawings[player]:Remove()
-        drawings[player] = nil
-    end
-end
-
--- Bắt đầu ESP
-local function startESP()
-    for _, player in ipairs(Players:GetPlayers()) do
-        createESP(player)
-    end
-
-    Players.PlayerAdded:Connect(createESP)
-    Players.PlayerRemoving:Connect(removeESP)
-
-    espConnection = RunService.RenderStepped:Connect(function()
-        for player, text in pairs(drawings) do
-            local character = player.Character
-            local hrp = character and character:FindFirstChild("HumanoidRootPart")
-            local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-
-            if hrp and humanoid and humanoid.Health > 0 then
-                local pos, visible = Camera:WorldToViewportPoint(hrp.Position + Vector3.new(0, 2.5, 0))
-                local distance = (hrp.Position - Camera.CFrame.Position).Magnitude
-                text.Text = string.format("%s [%.0fm]", player.Name, distance)
-
-                -- 🔁 Kiểm tra nếu player có tool tên là "Knife"
-                local hasKnife = false
-                local backpack = player:FindFirstChildOfClass("Backpack")
-                local characterTools = character:GetChildren()
-
-                -- Kiểm tra cả Backpack và tool đang cầm trên tay
-                if backpack and backpack:FindFirstChild("Knife") then
-                    hasKnife = true
-                else
-                    for _, tool in ipairs(characterTools) do
-                        if tool:IsA("Tool") and tool.Name == "Knife" then
-                            hasKnife = true
-                            break
-                        end
-                    end
-                end
-
-                -- 🔁 Màu: Đỏ nếu có Knife, xanh nếu không
-                if hasKnife then
-                    text.Color = Color3.fromRGB(255, 0, 0) -- Red
-                else
-                    text.Color = Color3.fromRGB(0, 255, 255) -- Cyan
-                end
-
-                text.Position = Vector2.new(pos.X, pos.Y)
-                text.Visible = visible
-            else
-                text.Visible = false
-            end
-        end
-    end)
-end
-
--- Dừng ESP
-local function stopESP()
-    if espConnection then
-        espConnection:Disconnect()
-        espConnection = nil
-    end
-
-    for _, text in pairs(drawings) do
-        text:Remove()
-    end
-    drawings = {}
-end
-
--- ✅ Tích hợp Fluent GUI Toggle trong Tabs.Player
-Tabs.Player:AddToggle("ESPPlayerToggle", {
-    Title = "ESP Player",
-    Default = false,
-}):OnChanged(function(enabled)
-    if enabled then
-        startESP()
+    local lang = Translations[TranslationCounter]
+    if lang and lang[Name] and lang[Name][Section] and lang[Name][Section][Text] then
+        return lang[Name][Section][Text]
     else
-        stopESP()
+        return Text
     end
-end)
+end
 
+---- Script ----
 
+local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/Articles-Hub/ROBLOXScript/refs/heads/main/Library/LinoriaLib/Test.lua"))()
+local ThemeManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/Articles-Hub/ROBLOXScript/refs/heads/main/Library/LinoriaLib/addons/ThemeManagerCopy.lua"))()
+local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/Articles-Hub/ROBLOXScript/refs/heads/main/Library/LinoriaLib/addons/SaveManagerCopy.lua"))()
+local Options = Library.Options
+local Toggles = Library.Toggles
 
+function Notification(Message, Time)
+if _G.ChooseNotify == "Obsidian" then
+Library:Notify(Message, Time or 5)
+elseif _G.ChooseNotify == "Roblox" then
+game:GetService("StarterGui"):SetCore("SendNotification",{Title = "Error",Text = Message,Icon = "rbxassetid://7733658504",Duration = Time or 5})
+end
+if _G.NotificationSound then
+        local sound = Instance.new("Sound", workspace)
+            sound.SoundId = "rbxassetid://4590662766"
+            sound.Volume = _G.VolumeTime or 2
+            sound.PlayOnRemove = true
+            sound:Destroy()
+        end
+    end
 
+Library:SetDPIScale(85)
 
--- Auto Kill V2
+local Window = Library:CreateWindow({
+    Title = "Ink Game",
+    Center = true,
+    AutoShow = true,
+    Resizable = true,
+    Footer = "Hutao Hub [Free] Version 3.5.0",
+	Icon = 121302760641013,
+	AutoLock = true,
+    ShowCustomCursor = true,
+    NotifySide = "Right",
+    TabPadding = 2,
+    MenuFadeTime = 0
+})
 
---// Services
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
-local VirtualInput = game:GetService("VirtualInputManager")
-local RunService = game:GetService("RunService")
-
---// Biến điều khiển
-local AutoAttack = false
-local LastTarget = nil
-local hasActivatedOnStart = false
-local PreferWeak = true
-local AutoHeal = true
-local wasHealing = false
-local healFloatY = nil
-
---// Player VIP
-local VipPlayers = {
-    ["Hu1a0_Hu9"] = true,
-    ["SudonButbad"] = true
+Tabs = {
+	Tab = Window:AddTab((Translation("Tab", "Main")), "rbxassetid://7734053426"),
+	Tab1 = Window:AddTab((Translation("Tab", "Misc")), "rbxassetid://4370318685"),
+	["UI Settings"] = Window:AddTab((Translation("Tab", "UI Settings")), "rbxassetid://7733955511")
 }
 
---// Tools
-local activationTools = { "Power Hold", "Push", "Pocket Sand", "Trip" }
-local weaponTools = { "Fists", "Knife", "Fork", "Bottle" }
-local healTools = {
-    "Bandage", "Kimbap", "Onigiri", "Soda",
-    "Umbrella Cookie", "Star Cookie", "Triangle Cookie",
-    "Circle Cookie", "MonaLisa Cookie", "SackBoy Cookie"
-}
+local MainTab = "Main"
+local GreenGroup = Tabs.Tab:AddLeftGroupbox(Translation(MainTab, "Green Light, Red Light"))
 
---// Tìm tool
-local function FindTool(name)
-    local backpack = LocalPlayer:FindFirstChildOfClass("Backpack")
-    local char = LocalPlayer.Character
-    if backpack then
-        for _, tool in ipairs(backpack:GetChildren()) do
-            if tool:IsA("Tool") and tool.Name == name then return tool end
-        end
-    end
-    if char then
-        for _, tool in ipairs(char:GetChildren()) do
-            if tool:IsA("Tool") and tool.Name == name then return tool end
-        end
-    end
-    return nil
+GreenGroup:AddButton(Translation(MainTab, "Green Light, Red Light"), function()
+if workspace:FindFirstChild("RedLightGreenLight") and workspace.RedLightGreenLight:FindFirstChild("sand") and workspace.RedLightGreenLight.sand:FindFirstChild("crossedover") then
+local pos = workspace.RedLightGreenLight.sand.crossedover.Position + Vector3.new(0, 5, 0)
+Player.Character.HumanoidRootPart.CFrame = CFrame.new(pos, pos + Vector3.new(0, 0, -1))
 end
-
---// Equip tool
-local function EquipTool(toolName)
-    local tool = FindTool(toolName)
-    local humanoid = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-    if tool and humanoid then
-        humanoid:EquipTool(tool)
-        return true
-    end
-    return false
-end
-
---// Equip vũ khí chính nếu chưa cầm
-local function EnsureWeaponEquipped()
-    local char = LocalPlayer.Character
-    if not char then return end
-    for _, toolName in ipairs(weaponTools) do
-        local tool = FindTool(toolName)
-        if tool and tool.Parent == char then return end
-    end
-    for _, toolName in ipairs(weaponTools) do
-        if EquipTool(toolName) then break end
-    end
-end
-
---// Dùng tool kích hoạt
-local function UseActivationTool()
-    for _, toolName in ipairs(activationTools) do
-        if EquipTool(toolName) then
-            task.wait(0.05)
-            VirtualInput:SendMouseButtonEvent(0, 0, 0, true, game, 0)
-            task.wait(0.02)
-            VirtualInput:SendMouseButtonEvent(0, 0, 0, false, game, 0)
-            return
-        end
-    end
-end
-
---// Kiểm tra có cầm Tool cụ thể không
-local function HasToolEquipped(toolName)
-    local char = LocalPlayer.Character
-    if not char then return false end
-    local tool = char:FindFirstChildOfClass("Tool")
-    return tool and tool.Name == toolName
-end
-
---// Hồi máu nếu yếu
-local function TryHeal()
-    local char = LocalPlayer.Character
-    local root = char and char:FindFirstChild("HumanoidRootPart")
-    local humanoid = char and char:FindFirstChildOfClass("Humanoid")
-    if not root or not humanoid then return false end
-    if wasHealing then return true end
-    wasHealing = true
-
-    if AutoAttack and not healFloatY then
-        healFloatY = root.Position.Y + 50
-    end
-
-    local floatConn
-    floatConn = RunService.Heartbeat:Connect(function()
-        if not AutoHeal or not wasHealing then
-            floatConn:Disconnect()
-            return
-        end
-        if healFloatY then
-            local pos = root.Position
-            root.CFrame = CFrame.new(Vector3.new(pos.X, healFloatY, pos.Z))
-        end
-    end)
-
-    while humanoid.Health <= 45 and AutoHeal do
-        local used = false
-        for _, toolName in ipairs(healTools) do
-            local tool = FindTool(toolName)
-            if tool then
-                EquipTool(toolName)
-                task.wait(0.05)
-                VirtualInput:SendMouseButtonEvent(0, 0, 0, true, game, 0)
-                task.wait(0.02)
-                VirtualInput:SendMouseButtonEvent(0, 0, 0, false, game, 0)
-                task.wait(1.5) -- giảm delay hồi máu
-                used = true
-                break
-            end
-        end
-        if not used then break end
-    end
-
-    task.delay(0.1, function()
-        wasHealing = false
-        healFloatY = nil
-        if AutoAttack then
-            EnsureWeaponEquipped()
-        end
-    end)
-
-    return true
-end
-
---// Tìm target
-local function GetTargetPlayer()
-    local char = LocalPlayer.Character
-    local myPos = char and char:FindFirstChild("HumanoidRootPart") and char.HumanoidRootPart.Position
-    if not myPos then return nil end
-
-    local hasKnifeEquipped = HasToolEquipped("Knife")
-
-    local candidates = {}
-    for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and not VipPlayers[player.Name] then
-            local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
-            local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-            if humanoid and humanoid.Health > 0 and root then
-                local hasKnife = false
-                for _, tool in ipairs(player.Character:GetChildren()) do
-                    if tool:IsA("Tool") and tool.Name == "Knife" then
-                        hasKnife = true
-                        break
-                    end
-                end
-                if not hasKnifeEquipped or (hasKnifeEquipped and not hasKnife) then
-                    table.insert(candidates, {
-                        Player = player,
-                        Health = humanoid.Health,
-                        Distance = (root.Position - myPos).Magnitude
-                    })
-                end
-            end
-        end
-    end
-
-    table.sort(candidates, function(a, b)
-        if PreferWeak then
-            return a.Health == b.Health and a.Distance < b.Distance or a.Health < b.Health
-        else
-            return a.Distance < b.Distance
-        end
-    end)
-
-    return candidates[1] and candidates[1].Player
-end
-
---// Toggle AutoAttack
-Tabs.Player:AddToggle("AutoAttackToggle", {
-    Title = "Auto Kill Player",
-    Default = false
-}):OnChanged(function(Value)
-    AutoAttack = Value
-    LastTarget = nil
-    hasActivatedOnStart = false
-
-    task.spawn(function()
-        while AutoAttack do
-            local char = LocalPlayer.Character
-            local humanoid = char and char:FindFirstChildOfClass("Humanoid")
-            if not humanoid then task.wait(0.05) continue end
-
-            if AutoHeal and humanoid.Health <= 45 then
-                TryHeal()
-                repeat task.wait(0.05) until humanoid.Health > 45 or not AutoAttack
-            end
-
-            if wasHealing then task.wait(0.02) continue end
-
-            local Target = GetTargetPlayer()
-            if not Target then task.wait(0.02) continue end
-
-            local root = char:FindFirstChild("HumanoidRootPart")
-            local targetRoot = Target.Character and Target.Character:FindFirstChild("HumanoidRootPart")
-            if not root or not targetRoot then continue end
-
-            if not hasActivatedOnStart or Target ~= LastTarget then
-                hasActivatedOnStart = true
-                LastTarget = Target
-                UseActivationTool()
-                EnsureWeaponEquipped()
-            end
-
-            local direction = targetRoot.CFrame.LookVector.Unit
-            local offset = direction * -2.5
-            local targetPos = targetRoot.Position + offset
-
-            root.CFrame = CFrame.new(targetPos, targetRoot.Position + direction * 5)
-
-            VirtualInput:SendMouseButtonEvent(0, 0, 0, true, game, 0)
-            task.wait(0.01)
-            VirtualInput:SendMouseButtonEvent(0, 0, 0, false, game, 0)
-
-            task.wait(0.05) -- teleport nhanh hơn
-        end
-    end)
 end)
 
---// Toggle ưu tiên máu yếu
-Tabs.Player:AddToggle("PreferWeakToggle", {
-    Title = "Prefer Low Health",
-    Default = true
-}):OnChanged(function(Value)
-    PreferWeak = Value
+GreenGroup:AddButton(Translation(MainTab, "Help Player To End"), function()
+if Loading then return end
+Loading = true
+for _, v in pairs(game.Players:GetPlayers()) do
+if v.Character:FindFirstChild("HumanoidRootPart") and v.Character.HumanoidRootPart:FindFirstChild("CarryPrompt") and v.Character.HumanoidRootPart.CarryPrompt.Enabled == true then
+if v.Character:FindFirstChild("SafeRedLightGreenLight") == nil then
+Player.Character.HumanoidRootPart.CFrame = v.Character.HumanoidRootPart.CFrame
+wait(0.3)
+repeat task.wait(0.1)
+fireproximityprompt(v.Character.HumanoidRootPart:FindFirstChild("CarryPrompt"))
+until v.Character.HumanoidRootPart.CarryPrompt.Enabled == false
+wait(0.5)
+if workspace:FindFirstChild("RedLightGreenLight") and workspace.RedLightGreenLight:FindFirstChild("sand") and workspace.RedLightGreenLight.sand:FindFirstChild("crossedover") then
+local pos = workspace.RedLightGreenLight.sand.crossedover.Position + Vector3.new(0, 5, 0)
+Player.Character.HumanoidRootPart.CFrame = CFrame.new(pos, pos + Vector3.new(0, 0, -1))
+end
+wait(0.4)
+game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("ClickedButton"):FireServer({tryingtoleave = true})
+break
+end
+end
+end
+Loading = false
 end)
 
---// Toggle Auto Heal
-Tabs.Player:AddToggle("AutoHealToggle", {
-    Title = "Auto Heal (45 HP)",
-    Default = true
-}):OnChanged(function(Value)
-    AutoHeal = Value
-end)
-
--- AutoHeal hoạt động riêng nếu không bật AutoAttack
-task.spawn(function()
-    while true do
-        task.wait(0.1) -- tăng tốc check máu
-        if AutoHeal and not AutoAttack then
-            local char = LocalPlayer.Character
-            local humanoid = char and char:FindFirstChildOfClass("Humanoid")
-            if humanoid and humanoid.Health <= 45 then
-                TryHeal()
-            end
-        end
+GreenGroup:AddToggle("Auto Help Player", {
+    Text = Translation(MainTab, "Auto Help Player"),
+    Default = false, 
+    Callback = function(Value) 
+_G.AutoHelpPlayer = Value
+while _G.AutoHelpPlayer do
+for _, v in pairs(game.Players:GetPlayers()) do
+if v.Character:FindFirstChild("HumanoidRootPart") and v.Character.HumanoidRootPart:FindFirstChild("CarryPrompt") and v.Character.HumanoidRootPart.CarryPrompt.Enabled == true then
+if v.Character:FindFirstChild("SafeRedLightGreenLight") == nil then
+Player.Character.HumanoidRootPart.CFrame = v.Character.HumanoidRootPart.CFrame
+wait(0.3)
+repeat task.wait(0.1)
+fireproximityprompt(v.Character.HumanoidRootPart:FindFirstChild("CarryPrompt"))
+until v.Character.HumanoidRootPart.CarryPrompt.Enabled == false
+wait(0.5)
+if workspace:FindFirstChild("RedLightGreenLight") then
+Player.Character.HumanoidRootPart.CFrame = CFrame.new(-75, 1025, 143)
+end
+wait(0.4)
+game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("ClickedButton"):FireServer({tryingtoleave = true})
+break
+end
+end
+end
+task.wait()
+end
     end
-end)
-
-
-
-
-
-    Tabs.Player:AddSection("↳ Flying")
-
-local Players = game:GetService("Players")
-local TweenService = game:GetService("TweenService")
-local RunService = game:GetService("RunService")
-local UIS = game:GetService("UserInputService")
-
-local player = Players.LocalPlayer
-local Camera = workspace.CurrentCamera
-
--- State
-local flying = false
-local flySpeed = 50
-local bodyVelocity, bodyGyro, renderConn
-
--- Function: Start Flying
-local function startFlying()
-	local character = player.Character or player.CharacterAdded:Wait()
-	local humanoid = character:WaitForChild("Humanoid")
-	local HRP = character:WaitForChild("HumanoidRootPart")
-
-	local seat = humanoid.SeatPart
-	local attachPart = seat or HRP
-
-	-- Body movers
-	bodyVelocity = Instance.new("BodyVelocity")
-	bodyVelocity.MaxForce = Vector3.new(1e5, 1e5, 1e5)
-	bodyVelocity.Velocity = Vector3.zero
-	bodyVelocity.Parent = attachPart
-
-	bodyGyro = Instance.new("BodyGyro")
-	bodyGyro.MaxTorque = Vector3.new(1e5, 1e5, 1e5)
-	bodyGyro.CFrame = attachPart.CFrame
-	bodyGyro.Parent = attachPart
-
-	humanoid:ChangeState(Enum.HumanoidStateType.Physics)
-
-	-- Movement logic
-	renderConn = RunService.RenderStepped:Connect(function()
-		if attachPart and Camera then
-			local camCF = Camera.CFrame
-			local moveDir = humanoid.MoveDirection
-
-			local moveVec = Vector3.zero
-
-			if moveDir.Magnitude > 0 then
-				-- Dựng vector bay theo hướng nhìn
-				local forward = camCF.LookVector
-				local flatForward = Vector3.new(forward.X, 0, forward.Z).Unit
-				local verticalInfluence = forward.Unit.Y
-
-				-- Xác định xem đang đi tiến hay lùi
-				local movingForward = flatForward:Dot(moveDir.Unit) > 0.1
-				local movingBackward = flatForward:Dot(moveDir.Unit) < -0.1
-
-				local yVelocity = 0
-
-				-- Nếu đang đi tiến hoặc lùi, áp dụng hướng nhìn để tăng giảm độ cao
-				if movingForward then
-					yVelocity = verticalInfluence
-				elseif movingBackward then
-					yVelocity = -verticalInfluence
-				end
-
-				-- Kết hợp chuyển động ngang + dọc
-				moveVec = Vector3.new(moveDir.X, yVelocity, moveDir.Z).Unit
-			end
-
-			bodyVelocity.Velocity = moveVec * flySpeed
-			bodyGyro.CFrame = camCF
-		end
-	end)
-
-	flying = true
-end
-
--- Function: Stop Flying
-local function stopFlying()
-	flying = false
-
-	if renderConn then renderConn:Disconnect() renderConn = nil end
-	if bodyVelocity then bodyVelocity:Destroy() bodyVelocity = nil end
-	if bodyGyro then bodyGyro:Destroy() bodyGyro = nil end
-
-	-- Fix: Khôi phục trạng thái nhân vật
-	local character = player.Character
-	if character then
-		local humanoid = character:FindFirstChildOfClass("Humanoid")
-		if humanoid then
-			humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
-		end
-	end
-end
-
--- Auto handle respawn
-Players.LocalPlayer.CharacterAdded:Connect(function()
-	if flying then
-		task.wait(1)
-		startFlying()
-	end
-end)
-
--- UI Toggle
-local FlyToggle = Tabs.Player:AddToggle("FlyToggle", {
-	Title = "Fly (Mobile + PC)",
-	Description = "Fly Supper OP For Newbie!",
-	Default = false
 })
 
-FlyToggle:OnChanged(function(Value)
-	if Value then
-		startFlying()
-	else
-		stopFlying()
-	end
+GreenGroup:AddButton(Translation(MainTab, "Troll Player"), function()
+if Loading1 then return end
+Loading1 = true
+for _, v in pairs(game.Players:GetPlayers()) do
+if v.Character:FindFirstChild("HumanoidRootPart") and v.Character.HumanoidRootPart:FindFirstChild("CarryPrompt") and v.Character.HumanoidRootPart.CarryPrompt.Enabled == true then
+if v.Character:FindFirstChild("SafeRedLightGreenLight") == nil then
+Player.Character.HumanoidRootPart.CFrame = v.Character.HumanoidRootPart.CFrame
+wait(0.3)
+repeat task.wait(0.1)
+fireproximityprompt(v.Character.HumanoidRootPart:FindFirstChild("CarryPrompt"))
+until v.Character.HumanoidRootPart.CarryPrompt.Enabled == false
+wait(0.5)
+if workspace:FindFirstChild("RedLightGreenLight") then
+Player.Character.HumanoidRootPart.CFrame = CFrame.new(-84, 1023, -537)
+end
+wait(0.4)
+game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("ClickedButton"):FireServer({tryingtoleave = true})
+break
+end
+end
+end
+Loading1 = false
 end)
 
--- Speed slider
-Tabs.Player:AddSlider("FlySpeedSlider", {
-	Title = "Fly Speed",
-	Description = "Adjust fly speed",
-	Default = 50,
-	Min = 10,
-	Max = 300,
-	Rounding = 0,
-	Callback = function(Value)
-		flySpeed = Value
-	end
-})
-
-
-    Tabs.Player:AddSection("↳ Walk Speed")
-
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local LocalPlayer = Players.LocalPlayer
-
-local speedValue = 16 -- Mặc định
-local running = false
-
--- Tạo Slider tốc độ trong Tabs.Player
-local speedSlider = Tabs.Player:AddSlider("SpeedSlider", {
-    Title = "Adjust speed",
-    Default = 16,
-    Min = 1,
-    Max = 300,
-    Rounding = 0,
-})
-
--- Lắng nghe khi Slider thay đổi
-speedSlider:OnChanged(function(value)
-    speedValue = value
-end)
-
--- Tạo Toggle tăng tốc độ liên tục
-local speedToggle = Tabs.Player:AddToggle("SpeedToggle", {
-    Title = "Walk Speed",
-    Default = false,
-})
-
--- Lắng nghe khi Toggle thay đổi
-speedToggle:OnChanged(function(enabled)
-    running = enabled
-
-    if enabled then
-        -- Luồng chạy liên tục tăng tốc
-        task.spawn(function()
-            while running and task.wait(0.1) do
-                local character = LocalPlayer.Character
-                if character then
-                    local humanoid = character:FindFirstChildOfClass("Humanoid")
-                    if humanoid then
-                        humanoid.WalkSpeed = speedValue
-                    end
-                end
-            end
-        end)
-    else
-        -- Khi tắt: trả về tốc độ mặc định
-        local character = LocalPlayer.Character
-        if character then
-            local humanoid = character:FindFirstChildOfClass("Humanoid")
-            if humanoid then
-                humanoid.WalkSpeed = 16
-            end
-        end
-    end
-end)
-
-
-    Tabs.Player:AddSection("↳ Noclip")
-
-
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local LocalPlayer = Players.LocalPlayer
-
-local Maid = {} -- Giả lập Maid nếu bạn chưa có
-Maid.__index = Maid
-
-function Maid.new()
-    return setmetatable({_tasks = {}}, Maid)
+GreenGroup:AddToggle("Auto Troll Player", {
+    Text = Translation(MainTab, "Auto Troll Player"),
+    Default = false, 
+    Callback = function(Value) 
+_G.AutoTrollPlayer = Value
+while _G.AutoTrollPlayer do
+for _, v in pairs(game.Players:GetPlayers()) do
+if v.Character:FindFirstChild("HumanoidRootPart") and v.Character.HumanoidRootPart:FindFirstChild("CarryPrompt") and v.Character.HumanoidRootPart.CarryPrompt.Enabled == true then
+if v.Character:FindFirstChild("SafeRedLightGreenLight") == nil then
+Player.Character.HumanoidRootPart.CFrame = v.Character.HumanoidRootPart.CFrame
+wait(0.3)
+repeat task.wait(0.1)
+fireproximityprompt(v.Character.HumanoidRootPart:FindFirstChild("CarryPrompt"))
+until v.Character.HumanoidRootPart.CarryPrompt.Enabled == false
+wait(0.5)
+if workspace:FindFirstChild("RedLightGreenLight") then
+Player.Character.HumanoidRootPart.CFrame = CFrame.new(-84, 1023, -537)
 end
-
-function Maid:GiveTask(task)
-    table.insert(self._tasks, task)
+wait(0.4)
+game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("ClickedButton"):FireServer({tryingtoleave = true})
+break
 end
-
-function Maid:DoCleaning()
-    for _, task in ipairs(self._tasks) do
-        if typeof(task) == "RBXScriptConnection" then
-            task:Disconnect()
-        elseif typeof(task) == "function" then
-            task()
-        end
-    end
-    self._tasks = {}
 end
-
--- Tạo Toggle Noclip
-local noclipToggle = Tabs.Player:AddToggle("NoclipToggle", {
-    Title = "Noclip Pro",
-    Default = false,
-})
-
--- Setup hệ thống Noclip
-local CharacterMaid = Maid.new()
-local NoclippedBaseParts = {}
-local CachedBaseParts = {}
-
-local function OnCharacterAdded(character)
-    CharacterMaid:DoCleaning()
-    CachedBaseParts = {}
-    local humanoid = character:WaitForChild("Humanoid")
-
-    -- Cache tất cả BasePart
-    for _, obj in ipairs(character:GetDescendants()) do
-        if obj:IsA("BasePart") then
-            table.insert(CachedBaseParts, obj)
-        end
-    end
-
-    -- Cache mới nếu có BasePart mới
-    CharacterMaid:GiveTask(character.DescendantAdded:Connect(function(desc)
-        if desc:IsA("BasePart") then
-            table.insert(CachedBaseParts, desc)
-        end
-    end))
-
-    -- Vòng lặp chính cho Noclip
-    CharacterMaid:GiveTask(RunService.Stepped:Connect(function()
-        if not noclipToggle.Value then
-            for part in pairs(NoclippedBaseParts) do
-                NoclippedBaseParts[part] = nil
-                part.CanCollide = true
-            end
-            return
-        end
-
-        for _, part in ipairs(CachedBaseParts) do
-            if part:IsA("BasePart") and part.CanCollide then
-                NoclippedBaseParts[part] = true
-                part.CanCollide = false
-            end
-        end
-    end))
-
-    -- Khi character bị xóa, khôi phục CanCollide
-    CharacterMaid:GiveTask(function()
-        for part in pairs(NoclippedBaseParts) do
-            part.CanCollide = true
-        end
-        NoclippedBaseParts = {}
-    end)
 end
-
--- Gắn vào nhân vật mới
-LocalPlayer.CharacterAdded:Connect(OnCharacterAdded)
-if LocalPlayer.Character then
-    task.spawn(OnCharacterAdded, LocalPlayer.Character)
+task.wait()
 end
-
-
-
-    Tabs.Player:AddSection("↳ Troller")
-
-Tabs.Player:AddButton({
-    Title = "Cool Sus Tool",
-    Callback = function()
-        pcall(function()
-            -- Tải và chạy script từ link
-            loadstring(game:HttpGet("https://raw.githubusercontent.com/SLK-gaming/OMG/refs/heads/main/Sus.txt"))()
-        end)
     end
 })
 
 
--- Tabs.Misc
+local DalgonaGroup = Tabs.Tab:AddRightGroupbox(Translation(MainTab, "Dalgona"))
 
-local Lighting = game:GetService("Lighting")
-local RunService = game:GetService("RunService")
-
--- ✅ FullBright Settings
-local fullBrightEnabled = false
-local fullBrightLoop
-
-local function applyFullBright()
-    if not fullBrightEnabled then return end
-
-    Lighting.Ambient = Color3.fromRGB(200, 200, 200) -- sáng nhẹ
-    Lighting.Brightness = 4 -- giảm độ sáng từ 10 → 4
-    Lighting.GlobalShadows = false
-end
-
-local function enableFullBright()
-    if fullBrightLoop then fullBrightLoop:Disconnect() end
-    applyFullBright()
-    fullBrightLoop = Lighting:GetPropertyChangedSignal("ClockTime"):Connect(applyFullBright)
-end
-
-local function disableFullBright()
-    if fullBrightLoop then
-        fullBrightLoop:Disconnect()
-        fullBrightLoop = nil
-    end
-
-    Lighting.Ambient = Color3.fromRGB(128, 128, 128)
-    Lighting.Brightness = 1
-    Lighting.GlobalShadows = true
-end
-
--- ✅ Toggle: FullBright
-local FbToggle = Tabs.Misc:AddToggle("FbToggle", {
-    Title = "Auto Full Bright",
-    Default = false
-})
-FbToggle:OnChanged(function(Value)
-    fullBrightEnabled = Value
-    if fullBrightEnabled then
-        enableFullBright()
-    else
-        disableFullBright()
-    end
-end)
-
--- ✅ Remove Fog Settings
-local fogEnabled = false
-local fogLoop
-
-local function removeFog()
-    Lighting.FogStart = 0
-    Lighting.FogEnd = 1000000
-
-    local atmosphere = Lighting:FindFirstChild("Atmosphere")
-    if atmosphere then
-        atmosphere.Density = 0
-        atmosphere.Offset = 0
-        atmosphere.Haze = 0
-        atmosphere.Color = Color3.new(1, 1, 1)
-    end
-end
-
-local function restoreFog()
-    Lighting.FogStart = 200
-    Lighting.FogEnd = 1000
-
-    local atmosphere = Lighting:FindFirstChild("Atmosphere")
-    if atmosphere then
-        atmosphere.Density = 0.3
-        atmosphere.Offset = 0
-        atmosphere.Haze = 0.5
-        atmosphere.Color = Color3.fromRGB(200, 200, 200)
-    end
-end
-
--- ✅ Toggle: Remove Fog
-local FogToggle = Tabs.Misc:AddToggle("FogToggle", {
-    Title = "Remove Fog",
-    Default = false
-})
-FogToggle:OnChanged(function(Value)
-    fogEnabled = Value
-    if fogEnabled then
-        removeFog()
-        fogLoop = RunService.Heartbeat:Connect(removeFog)
-    else
-        if fogLoop then fogLoop:Disconnect() fogLoop = nil end
-        restoreFog()
-    end
-end)
-
-
-    Tabs.Misc:AddSection("↳ Visual")
-
--- FPS + Ping Drawing Setup
-local showFPS = true
-local showPing = true
-
-local fpsText = Drawing.new("Text")
-fpsText.Size = 16
-fpsText.Position = Vector2.new(workspace.CurrentCamera.ViewportSize.X - 100, 10)
-fpsText.Color = Color3.fromRGB(0, 255, 0)
-fpsText.Center = false
-fpsText.Outline = true
-fpsText.Visible = showFPS
-
-local msText = Drawing.new("Text")
-msText.Size = 16
-msText.Position = Vector2.new(workspace.CurrentCamera.ViewportSize.X - 100, 30)
-msText.Color = Color3.fromRGB(0, 255, 0)
-msText.Center = false
-msText.Outline = true
-msText.Visible = showPing
-
-local fpsCounter = 0
-local fpsLastUpdate = tick()
-
-RunService.RenderStepped:Connect(function()
-    fpsCounter += 1
-    if tick() - fpsLastUpdate >= 1 then
-        -- Update FPS
-        if showFPS then
-            fpsText.Text = "FPS: " .. tostring(fpsCounter)
-            fpsText.Visible = true
-        else
-            fpsText.Visible = false
-        end
-
-        -- Update Ping
-        if showPing then
-            local pingStat = game:GetService("Stats").Network.ServerStatsItem["Data Ping"]
-            local ping = pingStat and math.floor(pingStat:GetValue()) or 0
-            msText.Text = "Ping: " .. ping .. " ms"
-
-            if ping <= 60 then
-                msText.Color = Color3.fromRGB(0, 255, 0)
-            elseif ping <= 120 then
-                msText.Color = Color3.fromRGB(255, 165, 0)
-            else
-                msText.Color = Color3.fromRGB(255, 0, 0)
-            end
-
-            msText.Visible = true
-        else
-            msText.Visible = false
-        end
-
-        fpsCounter = 0
-        fpsLastUpdate = tick()
-    end
-end)
-
--- ✅ Fluent GUI Toggles chuẩn
-local fpsToggle = Tabs.Misc:AddToggle("ShowFPSToggle", {
-    Title = "Show FPS",
-    Default = true
-})
-fpsToggle:OnChanged(function(val)
-    showFPS = val
-    fpsText.Visible = val
-end)
-
-local pingToggle = Tabs.Misc:AddToggle("ShowPingToggle", {
-    Title = "Show Ping",
-    Default = true
-})
-pingToggle:OnChanged(function(val)
-    showPing = val
-    msText.Visible = val
-end)
-
-
-
-
-
-local ViewPosition = false
-local coordGui = nil
-
--- Tạo GUI để hiển thị tọa độ
-local function CreateCoordGui()
-    local ScreenGui = Instance.new("ScreenGui")
-    ScreenGui.Name = "CoordDisplay"
-    ScreenGui.ResetOnSpawn = false
-    ScreenGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
-
-    local Frame = Instance.new("Frame")
-    Frame.Name = "CoordFrame"
-    Frame.Size = UDim2.new(0, 250, 0, 60)
-    Frame.Position = UDim2.new(1, -260, 1, -100)
-    Frame.AnchorPoint = Vector2.new(0, 1)
-    Frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-    Frame.BackgroundTransparency = 0.2
-    Frame.BorderSizePixel = 0
-    Frame.Parent = ScreenGui
-
-    local UICorner = Instance.new("UICorner", Frame)
-    UICorner.CornerRadius = UDim.new(0, 8)
-
-    local TextLabel = Instance.new("TextLabel")
-    TextLabel.Name = "CoordLabel"
-    TextLabel.Size = UDim2.new(1, 0, 1, 0)
-    TextLabel.Position = UDim2.new(0, 0, 0, 0)
-    TextLabel.BackgroundTransparency = 1
-    TextLabel.Font = Enum.Font.GothamBold
-    TextLabel.TextSize = 14
-    TextLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-    TextLabel.Text = "X: 0 | Y: 0 | Z: 0"
-    TextLabel.TextWrapped = true
-    TextLabel.Parent = Frame
-
-    coordGui = ScreenGui
-end
-
--- Cập nhật tọa độ mỗi giây
-local function UpdateCoordsLoop()
-    task.spawn(function()
-        while ViewPosition do
-            task.wait(1)
-            local char = game.Players.LocalPlayer.Character
-            local root = char and char:FindFirstChild("HumanoidRootPart")
-            if root and coordGui then
-                local label = coordGui:FindFirstChild("CoordFrame") and coordGui.CoordFrame:FindFirstChild("CoordLabel")
-                if label then
-                    local pos = root.Position
-                    label.Text = string.format("X: %.1f | Y: %.1f | Z: %.1f", pos.X, pos.Y, pos.Z)
-                end
+DalgonaGroup:AddButton(Translation(MainTab, "Complete Dalgona"), function()
+local DalgonaClientModule = game.ReplicatedStorage.Modules.Games.DalgonaClient
+for i, v in pairs(getreg()) do
+    if typeof(v) == "function" and islclosure(v) then
+        if getfenv(v).script == DalgonaClientModule then
+            if getinfo(v).nups == 73 then
+                setupvalue(v, 31, 9e9)
             end
         end
-    end)
-end
-
--- Toggle
-Tabs.Misc:AddToggle("ViewPositionToggle", {
-    Title = "Show Coordinates",
-    Default = false
-}):OnChanged(function(Value)
-    ViewPosition = Value
-
-    if Value then
-        if not coordGui then
-            CreateCoordGui()
-        end
-        UpdateCoordsLoop()
-    else
-        if coordGui then
-            coordGui:Destroy()
-            coordGui = nil
-        end
     end
+end
 end)
 
+local TugwarGroup = Tabs.Tab:AddLeftGroupbox(Translation(MainTab, "Tug Of War / Hide & Seek"))
 
-
-    Tabs.Misc:AddSection("↳ FPS")
-
-local CollectionService = game:GetService("CollectionService")
-
-local EffectsToggle = Tabs.Misc:AddToggle("EffectsDisablerToggle", {
-    Title = "Fix Lag PRO",
-    Default = false
+TugwarGroup:AddToggle("AutoTug of War", {
+    Text = Translation(MainTab, "Auto Tug of War"),
+    Default = false, 
+    Callback = function(Value) 
+_G.TugOfWar = Value
+while _G.TugOfWar do
+game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("TemporaryReachedBindable"):FireServer({GameQTE = true})
+task.wait()
+end
+    end
 })
 
-local running = false
-local tagName = "EffectDisabledByScript"
-
-EffectsToggle:OnChanged(function(Value)
-    running = Value
-
-    if Value then
-        task.spawn(function()
-            while running do
-                for _, v in ipairs(game:GetDescendants()) do
-                    if not CollectionService:HasTag(v, tagName) then
-                        if v:IsA("Part") or v:IsA("Union") or v:IsA("BasePart") then
-                            v.Material = Enum.Material.SmoothPlastic
-                            CollectionService:AddTag(v, tagName)
-
-                        elseif v:IsA("ParticleEmitter") or v:IsA("Smoke") or v:IsA("Explosion") or v:IsA("Sparkles") or v:IsA("Fire") then
-                            v.Enabled = false
-                            CollectionService:AddTag(v, tagName)
-
-                        elseif v:IsA("BloomEffect") or v:IsA("BlurEffect") or v:IsA("DepthOfFieldEffect") or v:IsA("SunRaysEffect") then
-                            v.Enabled = false
-                            CollectionService:AddTag(v, tagName)
-
-                        elseif v:IsA("Decal") or v:IsA("Texture") then
-                            v.Texture = ""
-                            CollectionService:AddTag(v, tagName)
-
-                        elseif v:IsA("Sky") then
-                            v:Destroy()
-                        end
-                    end
-                end
-                task.wait(30)
-            end
-        end)
-    end
-end)
-
-
-
-    Tabs.Misc:AddSection("↳ Bypass")
-
-    local UIS = game:GetService("UserInputService")
-    local SkipHoldToggle = Tabs.Misc:AddToggle("SkipHoldToggle", {Title = "Fast Help Player", Default = false})
-
-    local function skipHoldPrompt(prompt)
-        if prompt and prompt:IsA("ProximityPrompt") and prompt.HoldDuration > 0 then
-            -- Store original HoldDuration if not already stored
-            if prompt:GetAttribute("OriginalHold") == nil then
-                prompt:SetAttribute("OriginalHold", prompt.HoldDuration)
-            end
-            prompt.HoldDuration = 0 -- Remove hold time
-        end
-    end
-
-    local function enableSkipHold()
-        for _, obj in ipairs(workspace:GetDescendants()) do
-            if obj:IsA("ProximityPrompt") then
-                skipHoldPrompt(obj)
-            end
-        end
-
-        -- Ensure new prompts also get modified
-        local connection
-        connection = workspace.DescendantAdded:Connect(function(obj)
-            task.wait(0.1) -- Prevent errors
-            if SkipHoldToggle.Value then
-                skipHoldPrompt(obj)
-            else
-                connection:Disconnect() -- Stop listening if disabled
-            end
-        end)
-    end
-
-    local function disableSkipHold()
-        for _, obj in ipairs(workspace:GetDescendants()) do
-            if obj:IsA("ProximityPrompt") then
-                local originalHold = obj:GetAttribute("OriginalHold")
-                if originalHold then
-                    obj.HoldDuration = originalHold -- Restore original HoldDuration
-                    obj:SetAttribute("OriginalHold", nil) -- Remove stored attribute
-                end
-            end
-        end
-    end
-
-    SkipHoldToggle:OnChanged(function()
-        if SkipHoldToggle.Value then
-            enableSkipHold()
-        else
-            disableSkipHold()
-        end
-    end)
-
-
-
-
-
--- Tabs.Settings
-
-
-local AexecToggle = Tabs.Settings:AddToggle("AexecToggle", {Title = "Auto Execute", Default = false })
-AexecToggle:OnChanged(function(Value)
-    if Value then
-        task.spawn(function()
-            pcall(function()
-                if queue_on_teleport then
-                    local HutaoHubScript1 = [[
-task.wait(3)
-loadstring(game:HttpGet('https://raw.githubusercontent.com/hungquan99/SkullHub/main/loader.lua'))()
-]]
-                    queue_on_teleport(HutaoHubScript1)
-                end
-            end)
-        end)
-        Fluent:Notify({
-            Title = "Hutao HUB",
-            Content = "Auto execute is enabled!",
-            Duration = 5
-        })
-    else
-        Fluent:Notify({
-            Title = "Hutao HUB",
-            Content = "Auto execute is disabled!",
-            Duration = 5
-        })
-    end
-end)
-
-SaveManager:SetLibrary(Fluent)
-InterfaceManager:SetLibrary(Fluent)
-
--- Ignore keys that are used by ThemeManager.
--- (we dont want configs to save themes, do we?)
-SaveManager:IgnoreThemeSettings()
-
--- You can add indexes of elements the save manager should ignore
-SaveManager:SetIgnoreIndexes({})
-
--- use case for doing it this way:
--- a script hub could have themes in a global folder
--- and game configs in a separate folder per game
-InterfaceManager:SetFolder("Hutao HUB")
-SaveManager:SetFolder("Hutao HUB/Ink Game")
-
-InterfaceManager:BuildInterfaceSection(Tabs.Settings)
-SaveManager:BuildConfigSection(Tabs.Settings)
-
--- Select First Tab By Default
-Window:SelectTab(1)
-
-Fluent:Notify({ Title = "Hutao HUB", Content = "Ink Game script loaded successfully!", Duration = 5 })
-SaveManager:LoadAutoloadConfig()
-
-
--- 🟢 DRAGGABLE UI BUTTON WITH ENHANCED CLICK AND HOVER ANIMATIONS
-local UserInputService = game:GetService("UserInputService")
-local CoreGui = game:GetService("CoreGui")
-local TweenService = game:GetService("TweenService")
-local VirtualInputManager = game:GetService("VirtualInputManager")
-
-local ExistingUI = CoreGui:FindFirstChild("HutaoHubMinimizeUI")
-if ExistingUI then
-    ExistingUI:Destroy()
-end
-
--- Create Floating UI
-local DragUI = Instance.new("ScreenGui")
-DragUI.Name = "HutaoHubMinimizeUI"
-DragUI.ResetOnSpawn = false
-DragUI.ZIndexBehavior = Enum.ZIndexBehavior.Sibling -- Ensures highest rendering priority
-DragUI.Parent = CoreGui -- Overrides all other UI elements
-
--- Create Circular Button (Draggable + Clickable)
-local Button = Instance.new("ImageButton")
-Button.Parent = DragUI
-Button.Size = UDim2.new(0, 50, 0, 50) -- Adjust size if needed
-Button.Position = UDim2.new(0, 10, 1, -85) -- Initial position
-Button.BackgroundColor3 = Color3.fromRGB(30, 30, 30) -- Windows 11 Style
-Button.BackgroundTransparency = 0.3 -- Semi-transparent
-Button.BorderSizePixel = 0
-Button.ClipsDescendants = true
-Button.Image = "rbxassetid://90508203972003" -- Replace with your custom image ID
-Button.ScaleType = Enum.ScaleType.Fit
-Button.Active = true -- Allows drag functionality
-Button.ZIndex = 1000 -- Ensure it stays on top
-
--- Make UI Circular
-local UICorner = Instance.new("UICorner")
-UICorner.CornerRadius = UDim.new(1, 0) -- Full circle
-UICorner.Parent = Button
-
--- Tween Info for Animations
-local tweenInfo = TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-
--- Function to simulate RightShift key press
-local function SimulateKeyPress()
-    VirtualInputManager:SendKeyEvent(true, minimizeUI, false, game)
-    task.wait(0.1)
-    VirtualInputManager:SendKeyEvent(false, minimizeUI, false, game)
-end
-
--- Click Animation & UI Toggle (Only if NOT dragged too much)
-local isDragging = false
-local dragThreshold = 10 -- Allow small movement without canceling click
-
-Button.MouseButton1Click:Connect(function()
-    if isDragging then return end -- Prevent click after large dragging
-
-    -- Enhanced Click Animation
-    local tween = TweenService:Create(Button, tweenInfo, {
-        BackgroundTransparency = 0.5,
-        Size = UDim2.new(0, 45, 0, 45),
-        Rotation = 5
-    })
-    tween:Play()
-    task.wait(0.1)
-    local tweenBack = TweenService:Create(Button, tweenInfo, {
-        BackgroundTransparency = 0.3,
-        Size = UDim2.new(0, 50, 0, 50),
-        Rotation = 0
-    })
-    tweenBack:Play()
-
-    -- Simulate RightShift to Toggle UI
-    SimulateKeyPress()
-end)
-
--- Hover Animation
-Button.MouseEnter:Connect(function()
-    TweenService:Create(Button, tweenInfo, {Size = UDim2.new(0, 55, 0, 55)}):Play()
-end)
-
-Button.MouseLeave:Connect(function()
-    TweenService:Create(Button, tweenInfo, {Size = UDim2.new(0, 50, 0, 50)}):Play()
-end)
-
--- Dragging Logic for PC & Mobile
-local dragging, dragStart, startPos
-
-local function StartDrag(input)
-    isDragging = false -- Reset dragging state
-    dragging = true
-    dragStart = input.Position
-    startPos = Button.Position
-
-    input.Changed:Connect(function()
-        if input.UserInputState == Enum.UserInputState.End then
-            dragging = false
-        end
-    end)
-end
-
-local function OnDrag(input)
-    if dragging then
-        local delta = (input.Position - dragStart).Magnitude
-        if delta > dragThreshold then -- Only mark as dragged if movement exceeds threshold
-            isDragging = true
-        end
-        Button.Position = UDim2.new(
-            startPos.X.Scale,
-            startPos.X.Offset + (input.Position.X - dragStart.X),
-            startPos.Y.Scale,
-            startPos.Y.Offset + (input.Position.Y - dragStart.Y)
-        )
-    end
-end
-
--- Dragging Support for PC & Mobile (on the same button)
-Button.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        StartDrag(input)
-    end
-end)
-
-Button.InputChanged:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-        OnDrag(input)
-    end
-end)      
-
-
-
-
-
-
-
-
--- Tab.Main
-
-
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
-
-local AutoHitboxNPC = false
-local forwardDistance = 6
-local ClonedNPCParts = {}
-
--- Danh sách NPC bị chặn hitbox (chữ thường)
-local BlockedNPCNames = {
-	["adjute"] = true,
-	["frontman"] = true,
-	["badpreload"] = true
-}
-
--- Kiểm tra part hợp lệ
-local function IsValidHitbox(part)
-	return part:IsA("BasePart") and part.Name ~= "HumanoidRootPart"
-end
-
--- Tạo hitbox từ NPC không bị chặn (clone full người)
-local function CloneNPCHitboxes()
-	-- Xóa hitbox cũ
-	for _, part in ipairs(ClonedNPCParts) do
-		if part and part.Parent then part:Destroy() end
-	end
-	table.clear(ClonedNPCParts)
-
-	for _, npc in ipairs(workspace:GetDescendants()) do
-		if npc:IsA("Model") and not Players:GetPlayerFromCharacter(npc) and npc:FindFirstChildOfClass("Humanoid") then
-			local lowerName = npc.Name:lower()
-			if not BlockedNPCNames[lowerName] then
-				for _, part in ipairs(npc:GetDescendants()) do
-					if IsValidHitbox(part) then
-						local clone = part:Clone()
-						clone.Anchored = true
-						clone.CanCollide = false
-						clone.Transparency = 1 -- Ẩn hoàn toàn
-						clone.Material = Enum.Material.SmoothPlastic
-						clone.Size = part.Size * 3
-						clone.Name = "[NPC_Hitbox]"
-						clone.Parent = workspace
-						table.insert(ClonedNPCParts, clone)
+TugwarGroup:AddDivider()
+
+TugwarGroup:AddToggle("Esp DoorExit", {
+    Text = Translation(MainTab, "Esp Door Exit"),
+    Default = false, 
+    Callback = function(Value) 
+_G.DoorExit = Value
+if _G.DoorExit == false then
+if workspace:FindFirstChild("HideAndSeekMap") then
+	for i, v in pairs(workspace:FindFirstChild("HideAndSeekMap"):GetChildren()) do
+		if v.Name == "NEWFIXEDDOORS" then
+			for k, m in pairs(v:GetChildren()) do
+				if m.Name:find("Floor") and m:FindFirstChild("EXITDOORS") then
+					for _, a in pairs(m:FindFirstChild("EXITDOORS"):GetChildren()) do
+						if a:IsA("Model") and a:FindFirstChild("DoorRoot") then
+							for _, z in pairs(a:FindFirstChild("DoorRoot"):GetChildren()) do
+								if z.Name:find("Esp_") then
+									z:Destroy()
+								end
+							end
+						end
 					end
 				end
 			end
 		end
 	end
 end
+end
+while _G.DoorExit do
+if workspace:FindFirstChild("HideAndSeekMap") then
+for i, v in pairs(workspace:FindFirstChild("HideAndSeekMap"):GetChildren()) do
+if v.Name == "NEWFIXEDDOORS" then
+for k, m in pairs(v:GetChildren()) do
+if m.Name:find("Floor") and m:FindFirstChild("EXITDOORS") then
+for _, a in pairs(m:FindFirstChild("EXITDOORS"):GetChildren()) do
+if a:IsA("Model") and a:FindFirstChild("DoorRoot") then
+if a.DoorRoot:FindFirstChild("Esp_Highlight") then
+	a.DoorRoot:FindFirstChild("Esp_Highlight").FillColor = Colorlight or Color3.fromRGB(255, 255, 255)
+	a.DoorRoot:FindFirstChild("Esp_Highlight").OutlineColor = Colorlight or Color3.fromRGB(255, 255, 255)
+end
+if _G.EspHighlight == true and a.DoorRoot:FindFirstChild("Esp_Highlight") == nil then
+	local Highlight = Instance.new("Highlight")
+	Highlight.Name = "Esp_Highlight"
+	Highlight.FillColor = Color3.fromRGB(255, 255, 255) 
+	Highlight.OutlineColor = Color3.fromRGB(255, 255, 255) 
+	Highlight.FillTransparency = 0.5
+	Highlight.OutlineTransparency = 0
+	Highlight.Adornee = a
+	Highlight.Parent = a.DoorRoot
+	elseif _G.EspHighlight == false and a.DoorRoot:FindFirstChild("Esp_Highlight") then
+	a.DoorRoot:FindFirstChild("Esp_Highlight"):Destroy()
+end
+if a.DoorRoot:FindFirstChild("Esp_Gui") and a.DoorRoot["Esp_Gui"]:FindFirstChild("TextLabel") then
+	a.DoorRoot["Esp_Gui"]:FindFirstChild("TextLabel").Text = 
+	        (_G.EspName == true and "Door Exit" or "")..
+            (_G.EspDistance == true and "\nDistance ("..string.format("%.1f", (game.Players.LocalPlayer.Character.HumanoidRootPart.Position - a.DoorRoot.Position).Magnitude).."m)" or "")
+    a.DoorRoot["Esp_Gui"]:FindFirstChild("TextLabel").TextSize = _G.EspGuiTextSize or 15
+    a.DoorRoot["Esp_Gui"]:FindFirstChild("TextLabel").TextColor3 = _G.EspGuiTextColor or Color3.new(255, 255, 255)
+end
+if _G.EspGui == true and a.DoorRoot:FindFirstChild("Esp_Gui") == nil then
+	GuiPlayerEsp = Instance.new("BillboardGui", a.DoorRoot)
+	GuiPlayerEsp.Adornee = a.DoorRoot
+	GuiPlayerEsp.Name = "Esp_Gui"
+	GuiPlayerEsp.Size = UDim2.new(0, 100, 0, 150)
+	GuiPlayerEsp.AlwaysOnTop = true
+	GuiPlayerEsp.StudsOffset = Vector3.new(0, 3, 0)
+	GuiPlayerEspText = Instance.new("TextLabel", GuiPlayerEsp)
+	GuiPlayerEspText.BackgroundTransparency = 1
+	GuiPlayerEspText.Font = Enum.Font.Code
+	GuiPlayerEspText.Size = UDim2.new(0, 100, 0, 100)
+	GuiPlayerEspText.TextSize = 15
+	GuiPlayerEspText.TextColor3 = Color3.new(0,0,0) 
+	GuiPlayerEspText.TextStrokeTransparency = 0.5
+	GuiPlayerEspText.Text = ""
+	local UIStroke = Instance.new("UIStroke")
+	UIStroke.Color = Color3.new(0, 0, 0)
+	UIStroke.Thickness = 1.5
+	UIStroke.Parent = GuiPlayerEspText
+	elseif _G.EspGui == false and a.DoorRoot:FindFirstChild("Esp_Gui") then
+	a.DoorRoot:FindFirstChild("Esp_Gui"):Destroy()
+end
+end
+end
+end
+end
+end
+end
+end
+task.wait()
+end
+    end
+})
 
--- Di chuyển toàn bộ hitbox vào cùng một chỗ trước mặt player
-local function UpdateHitboxPositions()
-	local root = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-	if not root then return end
+TugwarGroup:AddToggle("Esp Key", {
+    Text = Translation(MainTab, "Esp Key"),
+    Default = false, 
+    Callback = function(Value) 
+_G.DoorKey = Value
+if _G.DoorKey == false then
+for _, a in pairs(workspace.Effects:GetChildren()) do
+if a.Name:find("DroppedKey") and a:FindFirstChild("Handle") then
+for _, v in pairs(a:FindFirstChild("Handle"):GetChildren()) do
+if v.Name:find("Esp_") then
+v:Destroy()
+end
+end
+end
+end
+end
+while _G.DoorKey do
+for _, a in pairs(workspace.Effects:GetChildren()) do
+if a.Name:find("DroppedKey") and a:FindFirstChild("Handle") then 
+if a.Handle:FindFirstChild("Esp_Highlight") then
+	a.Handle:FindFirstChild("Esp_Highlight").FillColor = Colorlight or Color3.fromRGB(255, 255, 255)
+	a.Handle:FindFirstChild("Esp_Highlight").OutlineColor = Colorlight or Color3.fromRGB(255, 255, 255)
+end
+if _G.EspHighlight == true and a.Handle:FindFirstChild("Esp_Highlight") == nil then
+	local Highlight = Instance.new("Highlight")
+	Highlight.Name = "Esp_Highlight"
+	Highlight.FillColor = Color3.fromRGB(255, 255, 255) 
+	Highlight.OutlineColor = Color3.fromRGB(255, 255, 255) 
+	Highlight.FillTransparency = 0.5
+	Highlight.OutlineTransparency = 0
+	Highlight.Adornee = a
+	Highlight.Parent = a.Handle
+	elseif _G.EspHighlight == false and a.Handle:FindFirstChild("Esp_Highlight") then
+	a.Handle:FindFirstChild("Esp_Highlight"):Destroy()
+end
+if a.Handle:FindFirstChild("Esp_Gui") and a.Handle["Esp_Gui"]:FindFirstChild("TextLabel") then
+	a.Handle["Esp_Gui"]:FindFirstChild("TextLabel").Text = 
+	        (_G.EspName == true and "Key" or "")..
+            (_G.EspDistance == true and "\nDistance ("..string.format("%.1f", (game.Players.LocalPlayer.Character.HumanoidRootPart.Position - a.Handle.Position).Magnitude).."m)" or "")
+    a.Handle["Esp_Gui"]:FindFirstChild("TextLabel").TextSize = _G.EspGuiTextSize or 15
+    a.Handle["Esp_Gui"]:FindFirstChild("TextLabel").TextColor3 = _G.EspGuiTextColor or Color3.new(255, 255, 255)
+end
+if _G.EspGui == true and a.Handle:FindFirstChild("Esp_Gui") == nil then
+	GuiPlayerEsp = Instance.new("BillboardGui", a.Handle)
+	GuiPlayerEsp.Adornee = a.Handle
+	GuiPlayerEsp.Name = "Esp_Gui"
+	GuiPlayerEsp.Size = UDim2.new(0, 100, 0, 150)
+	GuiPlayerEsp.AlwaysOnTop = true
+	GuiPlayerEsp.StudsOffset = Vector3.new(0, 3, 0)
+	GuiPlayerEspText = Instance.new("TextLabel", GuiPlayerEsp)
+	GuiPlayerEspText.BackgroundTransparency = 1
+	GuiPlayerEspText.Font = Enum.Font.Code
+	GuiPlayerEspText.Size = UDim2.new(0, 100, 0, 100)
+	GuiPlayerEspText.TextSize = 15
+	GuiPlayerEspText.TextColor3 = Color3.new(0,0,0) 
+	GuiPlayerEspText.TextStrokeTransparency = 0.5
+	GuiPlayerEspText.Text = ""
+	local UIStroke = Instance.new("UIStroke")
+	UIStroke.Color = Color3.new(0, 0, 0)
+	UIStroke.Thickness = 1.5
+	UIStroke.Parent = GuiPlayerEspText
+	elseif _G.EspGui == false and a.Handle:FindFirstChild("Esp_Gui") then
+	a.Handle:FindFirstChild("Esp_Gui"):Destroy()
+end
+end
+end
+task.wait()
+end
+    end
+})
 
-	local targetPos = root.Position + root.CFrame.LookVector * forwardDistance + Vector3.new(0, 3, 0)
-	for _, part in ipairs(ClonedNPCParts) do
-		if part and part.Parent then
-			part.CFrame = CFrame.new(targetPos)
+TugwarGroup:AddToggle("Hide", {
+    Text = Translation(MainTab, "Esp Player Hide"),
+    Default = false, 
+    Callback = function(Value) 
+_G.HidePlayer = Value
+if _G.HidePlayer == false then
+	for i, v in pairs(game.Players:GetChildren()) do
+		if v ~= game.Players.LocalPlayer and v.Character and v.Character:FindFirstChild("Head") and v.Character:FindFirstChild("HumanoidRootPart") and v.Character:FindFirstChild("Humanoid") then
+			for i, n in pairs(v.Character:FindFirstChild("Head"):GetChildren()) do
+				if n.Name:find("Esp_") then
+					n:Destroy()
+				end
+			end
 		end
 	end
 end
+while _G.HidePlayer do
+for i, v in pairs(game.Players:GetChildren()) do
+if v ~= game.Players.LocalPlayer and v.Character and v.Character:FindFirstChild("Head") and v.Character:FindFirstChild("HumanoidRootPart") and v.Character:FindFirstChild("Humanoid") then
+if not v:GetAttribute("IsHider") then
+	for i, n in pairs(v.Character:FindFirstChild("Head"):GetChildren()) do
+		if n.Name:find("Esp_") then
+			n:Destroy()
+		end
+	end
+end
+if v:GetAttribute("IsHider") then
+if v.Character.Head:FindFirstChild("Esp_Highlight") then
+	v.Character.Head:FindFirstChild("Esp_Highlight").FillColor = Colorlight or Color3.fromRGB(255, 255, 255)
+	v.Character.Head:FindFirstChild("Esp_Highlight").OutlineColor = Colorlight or Color3.fromRGB(255, 255, 255)
+end
+if _G.EspHighlight == true and v.Character.Head:FindFirstChild("Esp_Highlight") == nil then
+	local Highlight = Instance.new("Highlight")
+	Highlight.Name = "Esp_Highlight"
+	Highlight.FillColor = Color3.fromRGB(255, 255, 255) 
+	Highlight.OutlineColor = Color3.fromRGB(255, 255, 255) 
+	Highlight.FillTransparency = 0.5
+	Highlight.OutlineTransparency = 0
+	Highlight.Adornee = v.Character
+	Highlight.Parent = v.Character.Head
+	elseif _G.EspHighlight == false and v.Character.Head:FindFirstChild("Esp_Highlight") then
+	v.Character.Head:FindFirstChild("Esp_Highlight"):Destroy()
+end
+if v.Character.Head:FindFirstChild("Esp_Gui") and v.Character.Head["Esp_Gui"]:FindFirstChild("TextLabel") then
+	v.Character.Head["Esp_Gui"]:FindFirstChild("TextLabel").Text = 
+	        v.Name.." (Hide)"..
+            (_G.EspDistance == true and "\nDistance ("..string.format("%.1f", (game.Players.LocalPlayer.Character.HumanoidRootPart.Position - v.HumanoidRootPart.Position).Magnitude).."m)" or "")..
+            (_G.EspHealth == true and "\nHealth ("..string.format("%.0f", v.Humanoid.Health)..")" or "")
+    v.Character.Head["Esp_Gui"]:FindFirstChild("TextLabel").TextSize = _G.EspGuiTextSize or 15
+    v.Character.Head["Esp_Gui"]:FindFirstChild("TextLabel").TextColor3 = _G.EspGuiTextColor or Color3.new(255, 255, 255)
+end
+if _G.EspGui == true and v.Character.Head:FindFirstChild("Esp_Gui") == nil then
+	GuiPlayerEsp = Instance.new("BillboardGui", v.Character.Head)
+	GuiPlayerEsp.Adornee = v.Character.Head
+	GuiPlayerEsp.Name = "Esp_Gui"
+	GuiPlayerEsp.Size = UDim2.new(0, 100, 0, 150)
+	GuiPlayerEsp.AlwaysOnTop = true
+	GuiPlayerEsp.StudsOffset = Vector3.new(0, 3, 0)
+	GuiPlayerEspText = Instance.new("TextLabel", GuiPlayerEsp)
+	GuiPlayerEspText.BackgroundTransparency = 1
+	GuiPlayerEspText.Font = Enum.Font.Code
+	GuiPlayerEspText.Size = UDim2.new(0, 100, 0, 100)
+	GuiPlayerEspText.TextSize = 15
+	GuiPlayerEspText.TextColor3 = Color3.new(0,0,0) 
+	GuiPlayerEspText.TextStrokeTransparency = 0.5
+	GuiPlayerEspText.Text = ""
+	local UIStroke = Instance.new("UIStroke")
+	UIStroke.Color = Color3.new(0, 0, 0)
+	UIStroke.Thickness = 1.5
+	UIStroke.Parent = GuiPlayerEspText
+	elseif _G.EspGui == false and v.Character.Head:FindFirstChild("Esp_Gui") then
+	v.Character.Head:FindFirstChild("Esp_Gui"):Destroy()
+end
+end
+end
+end
+task.wait()
+end
+    end
+})
 
--- Toggle Fluent GUI
-Tabs.Main:AddToggle("AutoNPC_Hitbox", {
-	Title = "Auto Kill NPC",
-	Default = false
-}):OnChanged(function(Value)
-	AutoHitboxNPC = Value
-
-	if Value then
-		task.spawn(function()
-			while AutoHitboxNPC do
-				CloneNPCHitboxes()
-				UpdateHitboxPositions()
-				task.wait(0.5)
-			end
-		end)
-	else
-		for _, part in ipairs(ClonedNPCParts) do
-			if part and part.Parent then
-				part:Destroy()
+TugwarGroup:AddToggle("Hide", {
+    Text = Translation(MainTab, "Esp Player Seek"),
+    Default = false, 
+    Callback = function(Value) 
+_G.SeekPlayer = Value
+if _G.SeekPlayer == false then
+	for i, v in pairs(game.Players:GetChildren()) do
+		if v ~= game.Players.LocalPlayer and v.Character and v.Character:FindFirstChild("Head") and v.Character:FindFirstChild("HumanoidRootPart") and v.Character:FindFirstChild("Humanoid") then
+			for i, n in pairs(v.Character:FindFirstChild("Head"):GetChildren()) do
+				if n.Name:find("Esp_") then
+					n:Destroy()
+				end
 			end
 		end
-		table.clear(ClonedNPCParts)
 	end
+end
+while _G.SeekPlayer do
+for i, v in pairs(game.Players:GetChildren()) do
+if v ~= game.Players.LocalPlayer and v.Character and v.Character:FindFirstChild("Head") and v.Character:FindFirstChild("HumanoidRootPart") and v.Character:FindFirstChild("Humanoid") then
+if not v:GetAttribute("IsHunter") then
+for i, n in pairs(v.Character:FindFirstChild("Head"):GetChildren()) do
+	if n.Name:find("Esp_") then
+		n:Destroy()
+	end
+end
+end
+if v:GetAttribute("IsHunter") then
+if v.Character:FindFirstChild("Esp_Highlight1") then
+	v.Character:FindFirstChild("Esp_Highlight1").FillColor = Colorlight or Color3.fromRGB(255, 255, 255)
+	v.Character:FindFirstChild("Esp_Highlight1").OutlineColor = Colorlight or Color3.fromRGB(255, 255, 255)
+end
+if _G.EspHighlight == true and v.Character:FindFirstChild("Esp_Highlight1") == nil then
+	local Highlight = Instance.new("Highlight")
+	Highlight.Name = "Esp_Highlight1"
+	Highlight.FillColor = Color3.fromRGB(255, 255, 255) 
+	Highlight.OutlineColor = Color3.fromRGB(255, 255, 255) 
+	Highlight.FillTransparency = 0.5
+	Highlight.OutlineTransparency = 0
+	Highlight.Adornee = v.Character
+	Highlight.Parent = v.Character.Head
+	elseif _G.EspHighlight == false and v.Character:FindFirstChild("Esp_Highlight1") then
+	v.Character:FindFirstChild("Esp_Highlight1"):Destroy()
+end
+if v.Character.Head:FindFirstChild("Esp_Gui1") and v.Character.Head["Esp_Gui1"]:FindFirstChild("TextLabel") then
+	v.Character.Head["Esp_Gui1"]:FindFirstChild("TextLabel").Text = 
+	        v.Name.." (Seek)"..
+            (_G.EspDistance == true and "\nDistance ("..string.format("%.1f", (game.Players.LocalPlayer.Character.HumanoidRootPart.Position - v.HumanoidRootPart.Position).Magnitude).."m)" or "")
+    v.Character.Head["Esp_Gui1"]:FindFirstChild("TextLabel").TextSize = _G.EspGuiTextSize or 15
+    v.Character.Head["Esp_Gui1"]:FindFirstChild("TextLabel").TextColor3 = _G.EspGuiTextColor or Color3.new(255, 255, 255)
+end
+if _G.EspGui == true and v.Character.Head:FindFirstChild("Esp_Gui1") == nil then
+	local GuiPlayerEsp = Instance.new("BillboardGui", v.Character.Head)
+	GuiPlayerEsp.Adornee = v.Character.Head
+	GuiPlayerEsp.Name = "Esp_Gui1"
+	GuiPlayerEsp.Size = UDim2.new(0, 100, 0, 150)
+	GuiPlayerEsp.AlwaysOnTop = true
+	GuiPlayerEsp.StudsOffset = Vector3.new(0, 3, 0)
+	local GuiPlayerEspText = Instance.new("TextLabel", GuiPlayerEsp)
+	GuiPlayerEspText.BackgroundTransparency = 1
+	GuiPlayerEspText.Font = Enum.Font.Code
+	GuiPlayerEspText.Size = UDim2.new(0, 100, 0, 100)
+	GuiPlayerEspText.TextSize = 15
+	GuiPlayerEspText.TextColor3 = Color3.new(0,0,0) 
+	GuiPlayerEspText.TextStrokeTransparency = 0.5
+	GuiPlayerEspText.Text = ""
+	local UIStroke = Instance.new("UIStroke")
+	UIStroke.Color = Color3.new(0, 0, 0)
+	UIStroke.Thickness = 1.5
+	UIStroke.Parent = GuiPlayerEspText
+	elseif _G.EspGui == false and v.Character.Head:FindFirstChild("Esp_Gui1") then
+	v.Character.Head:FindFirstChild("Esp_Gui1"):Destroy()
+end
+end
+end
+end
+task.wait()
+end
+    end
+})
+
+TugwarGroup:AddDivider()
+
+TugwarGroup:AddToggle("Auto Teleport Hide", {
+    Text = Translation(MainTab, "Auto Teleport Hide"),
+    Default = false, 
+    Callback = function(Value) 
+_G.AutoTeleportHide = Value
+while _G.AutoTeleportHide do
+for i, v in pairs(game.Players:GetChildren()) do
+if v ~= game.Players.LocalPlayer and v.Character and v.Character:FindFirstChild("Head") and v.Character:FindFirstChild("HumanoidRootPart") and v.Character:FindFirstChild("Humanoid") then
+if v:GetAttribute("IsHider") and v.Character.Humanoid.Health > 0 then
+if v.Character:FindFirstChild("Humanoid") and v.Character.Humanoid.MoveDirection.Magnitude > 0 then
+game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = v.Character:FindFirstChild("HumanoidRootPart").CFrame * CFrame.new(0, 0, -7)
+else
+game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = v.Character:FindFirstChild("HumanoidRootPart").CFrame
+end
+break
+end
+end
+end
+task.wait()
+end
+    end
+})
+
+TugwarGroup:AddButton(Translation(MainTab, "Teleport Player Hide"), function()
+for i, v in pairs(game.Players:GetChildren()) do
+if v ~= game.Players.LocalPlayer and v.Character and v.Character:FindFirstChild("Head") and v.Character:FindFirstChild("HumanoidRootPart") and v.Character:FindFirstChild("Humanoid") then
+if v:GetAttribute("IsHider") and v.Character.Humanoid.Health > 0 then
+game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = v.Character.HumanoidRootPart.CFrame
+break
+end
+end
+end
 end)
 
-
-
-local RunService = game:GetService("RunService")
-local Camera = workspace.CurrentCamera
-
--- ESP Container
-local npcDrawings = {}
-local npcConnection
-
--- Hàm tạo ESP cho NPC
-local function createNPCESP(npc)
-    if npcDrawings[npc] then return end
-
-    local text = Drawing.new("Text")
-    text.Size = 14
-    text.Center = true
-    text.Outline = true
-    text.Visible = false
-    text.Color = Color3.fromRGB(0, 255, 0) -- Xanh lá
-
-    npcDrawings[npc] = text
+TugwarGroup:AddButton(Translation(MainTab, "Teleport All Key"), function()
+local OldCFrame = game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame
+for _, a in pairs(workspace.Effects:GetChildren()) do
+if a.Name:find("DroppedKey") and a:FindFirstChild("Handle") then
+if game.Players.LocalPlayer.Character:FindFirstChild("Head") and game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and game.Players.LocalPlayer.Character:FindFirstChild("Humanoid") then
+if game.Players.LocalPlayer:GetAttribute("IsHider") and game.Players.LocalPlayer.Character.Humanoid.Health > 0 then
+game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = a:FindFirstChild("Handle").CFrame
+wait(0.5)
 end
+end
+end
+end
+if game.Players.LocalPlayer.Character:FindFirstChild("Head") and game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = OldCFrame
+end
+end)
 
--- Xoá ESP NPC
-local function removeNPCESP(npc)
-    if npcDrawings[npc] then
-        npcDrawings[npc]:Remove()
-        npcDrawings[npc] = nil
+local JumpropeGroup = Tabs.Tab:AddLeftGroupbox(Translation(MainTab, "Jump Rope"))
+
+JumpropeGroup:AddButton(Translation(MainTab, "Complete Jump Rope"), function()
+if workspace:WaitForChild("JumpRope") then
+local pos = workspace.JumpRope.Important.Model.LEGS.Position
+Player.Character.HumanoidRootPart.CFrame = CFrame.new(pos, pos + Vector3.new(0, 0, -1))
+end
+end)
+
+local GlassBridgeGroup = Tabs.Tab:AddRightGroupbox(Translation(MainTab, "Glass Bridge"))
+
+GlassBridgeGroup:AddButton(Translation(MainTab, "Glass Bridge Vision"), function()
+local GlassHolder = workspace:WaitForChild("GlassBridge"):WaitForChild("GlassHolder")
+for i, v in pairs(GlassHolder:GetChildren()) do
+    for k, j in pairs(v:GetChildren()) do
+        if j:IsA("Model") and j.PrimaryPart then
+            local Color = j.PrimaryPart:GetAttribute("exploitingisevil") and Color3.fromRGB(248, 87, 87) or Color3.fromRGB(28, 235, 87)
+            j.PrimaryPart.Color = Color
+            j.PrimaryPart.Transparency = 0
+            j.PrimaryPart.Material = Enum.Material.Neon
+        end
     end
 end
+end)
 
--- Bắt đầu ESP NPC
-local function startNPCESP()
-    -- Quét toàn bộ các NPC có Humanoid
-    for _, npc in ipairs(workspace:GetDescendants()) do
-        if npc:IsA("Model") and not game:GetService("Players"):FindFirstChild(npc.Name) then
-            if npc:FindFirstChild("Humanoid") and npc:FindFirstChild("HumanoidRootPart") then
-                createNPCESP(npc)
+GlassBridgeGroup:AddButton(Translation(MainTab, "Complete Glass Bridge"), function()
+if workspace:WaitForChild("GlassBridge") then
+local pos = workspace.GlassBridge.End.PrimaryPart.Position + Vector3.new(0, 8, 0)
+Player.Character.HumanoidRootPart.CFrame = CFrame.new(pos, pos + Vector3.new(0, 0, -1))
+end
+end)
+
+local MingleGroup = Tabs.Tab:AddLeftGroupbox(Translation(MainTab, "Mingle"))
+
+MingleGroup:AddToggle("AutoMingle", {
+    Text = Translation(MainTab, "Auto Mingle"),
+    Default = false, 
+    Callback = function(Value) 
+_G.AutoMingle = Value
+while _G.AutoMingle do
+for i, v in ipairs(game.Players.LocalPlayer.Character:GetChildren()) do
+	if v.Name == "RemoteForQTE" then
+        v:FireServer()
+    end
+end
+task.wait()
+end
+    end
+})
+
+local RebelGroup = Tabs.Tab:AddRightGroupbox(Translation(MainTab, "Rebel"))
+
+RebelGroup:AddToggle("WallCheck", {
+    Text = Translation(MainTab, "WallCheck"),
+    Default = false, 
+    Callback = function(Value) 
+_G.WallCheck = Value
+    end
+})
+
+RebelGroup:AddToggle("Aimbot Guard", {
+    Text = Translation(MainTab, "Aimbot Guard"),
+    Default = false, 
+    Callback = function(Value) 
+_G.Aimbot = Value
+while _G.Aimbot do
+local DistanceMath, TargetNpc = math.huge, nil
+for i,v in pairs(workspace.Live:GetChildren()) do
+	if v.Name:find("Guard") or v.Name:find("Third") then
+		if v:FindFirstChild("Humanoid") and v:FindFirstChild("HumanoidRootPart") and v.Humanoid.Health > 0 then
+			if _G.WallCheck == true and not CheckWall(v:FindFirstChild("Head")) then 
+				continue
+			end
+			local Distance = (game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart").Position - v.HumanoidRootPart.Position).Magnitude
+			if Distance < DistanceMath then
+				TargetNpc, DistanceMath = v, Distance
+			end
+		end
+	end
+end
+if TargetNpc then
+if game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and TargetNpc:FindFirstChild("Head") and TargetNpc:FindFirstChild("Humanoid") then
+game.Workspace.CurrentCamera.CFrame = CFrame.lookAt(game.Workspace.CurrentCamera.CFrame.Position, game.Workspace.CurrentCamera.CFrame.Position + (TargetNpc["Head"].Position - game.Workspace.CurrentCamera.CFrame.Position).unit)
+end
+end
+task.wait()
+end
+    end
+})
+
+RebelGroup:AddToggle("Bring Guard", {
+    Text = Translation(MainTab, "Bring Guard"),
+    Default = false, 
+    Callback = function(Value) 
+_G.Bring = Value
+while _G.Bring do
+for i,v in pairs(workspace.Live:GetChildren()) do
+	if v.Name:find("Guard") or v.Name:find("Third") then
+		if v:FindFirstChild("Humanoid") and v:FindFirstChild("HumanoidRootPart") and v.Humanoid.Health > 0 then
+			v.HumanoidRootPart.CFrame = Player.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, -6)
+		end
+	end
+end
+task.wait()
+end
+    end
+})
+
+RebelGroup:AddToggle("Inf Ammo", {
+    Text = Translation(MainTab, "Inf Ammo"),
+    Default = false, 
+    Callback = function(Value) 
+_G.InfAmmo = Value
+while _G.InfAmmo do
+for i, v in pairs(game.Players.LocalPlayer.Character:GetChildren()) do
+if v.Name == "InfoMP5Client" and v:FindFirstChild("Bullets") then
+v.Bullets.Value = 999999999
+end
+end
+task.wait()
+end
+    end
+})
+
+local MiscTab = "Misc"
+local Misc1Group = Tabs.Tab1:AddLeftGroupbox(Translation("Tab", "Misc"))
+
+Misc1Group:AddToggle("AutoSkip", {
+    Text = Translation(MiscTab, "Auto Skip"),
+    Default = false, 
+    Callback = function(Value) 
+_G.AutoSkip = Value
+while _G.AutoSkip do
+game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("DialogueRemote"):FireServer("Skipped")
+game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("TemporaryReachedBindable"):FireServer()
+task.wait(0.8)
+end
+    end
+})
+
+Misc1Group:AddSlider("WalkSpeed", {
+    Text = Translation(MiscTab, "Speed"),
+    Default = 20,
+    Min = 20,
+    Max = 1000,
+    Rounding = 0,
+    Compact = true,
+    Callback = function(Value)
+_G.Speed = Value
+    end
+})
+
+Misc1Group:AddInput("WalkSpeed1", {
+    Default = "20",
+    Numeric = false,
+    Text = Translation(MiscTab, "Speed"),
+    Placeholder = "UserSpeed",
+    Callback = function(Value)
+_G.Speed = Value
+    end
+})
+
+Misc1Group:AddToggle("SetSpeed", {
+    Text = Translation(MiscTab, "Auto Speed"),
+    Default = false, 
+    Callback = function(Value) 
+_G.AutoSpeed = Value
+if game.Players.LocalPlayer.Character:FindFirstChild("Humanoid") then
+game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = _G.Speed or 50
+end
+    end
+})
+
+Misc1Group:AddToggle("No Cooldown Proximity", {
+    Text = Translation(MiscTab, "No Cooldown Proximity"),
+    Default = false, 
+    Callback = function(Value) 
+_G.NoCooldownProximity = Value
+if _G.NoCooldownProximity == true then
+for i, v in pairs(workspace:GetDescendants()) do
+if v.ClassName == "ProximityPrompt" then
+v.HoldDuration = 0
+end
+end
+else
+if CooldownProximity then
+CooldownProximity:Disconnect()
+CooldownProximity = nil
+end
+end
+CooldownProximity = workspace.DescendantAdded:Connect(function(Cooldown)
+if _G.NoCooldownProximity == true then
+if Cooldown:IsA("ProximityPrompt") then
+Cooldown.HoldDuration = 0
+end
+end
+end)
+    end
+})
+
+Misc1Group:AddSlider("Fly Bypass", {
+    Text = Translation(MiscTab, "Fly Speed"),
+    Default = 20,
+    Min = 20,
+    Max = 500,
+    Rounding = 0,
+    Compact = true,
+    Callback = function(Value)
+_G.SetSpeedFly = Value
+    end
+})
+
+_G.SetSpeedFly = 50
+Misc1Group:AddToggle("Fly", {
+    Text = Translation(MiscTab, "Fly"),
+    Default = false, 
+    Callback = function(Value) 
+_G.StartFly = Value
+while _G.StartFly do
+if game.Players.LocalPlayer.Character.HumanoidRootPart:FindFirstChild("BodyGyro") == nil then
+local bg = Instance.new("BodyGyro", game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart"))
+bg.maxTorque = Vector3.new(9e9, 9e9, 9e9)
+bg.P = 9e4
+bg.CFrame = game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart").CFrame
+end
+if game.Players.LocalPlayer.Character.HumanoidRootPart:FindFirstChild("BodyVelocity") == nil then
+local bv = Instance.new("BodyVelocity", game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart"))
+bv.Velocity = Vector3.new(0, 0, 0)
+bv.maxForce = Vector3.new(9e9, 9e9, 9e9)
+end
+local MoveflyPE = require(game.Players.LocalPlayer.PlayerScripts:WaitForChild("PlayerModule"):WaitForChild("ControlModule")):GetMoveVector()
+if game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and game.Players.LocalPlayer.Character.HumanoidRootPart:FindFirstChild("BodyVelocity") and game.Players.LocalPlayer.Character.HumanoidRootPart:FindFirstChild("BodyGyro") then
+    game.Players.LocalPlayer.Character.HumanoidRootPart.BodyVelocity.MaxForce = Vector3.new(9e9,9e9,9e9)
+    game.Players.LocalPlayer.Character.HumanoidRootPart.BodyGyro.MaxTorque = Vector3.new(9e9,9e9,9e9)
+    game.Players.LocalPlayer.Character.HumanoidRootPart.BodyGyro.CFrame = CFrame.new(game.Players.LocalPlayer.Character.HumanoidRootPart.Position, game.Players.LocalPlayer.Character.HumanoidRootPart.Position + game.Workspace.CurrentCamera.CFrame.LookVector)
+    game.Players.LocalPlayer.Character.HumanoidRootPart.BodyVelocity.Velocity = Vector3.new()
+    if MoveflyPE.X > 0 then
+        game.Players.LocalPlayer.Character.HumanoidRootPart.BodyVelocity.Velocity = game.Players.LocalPlayer.Character.HumanoidRootPart.BodyVelocity.Velocity + game.Workspace.CurrentCamera.CFrame.RightVector * (MoveflyPE.X * _G.SetSpeedFly)
+    end
+    if MoveflyPE.X < 0 then
+        game.Players.LocalPlayer.Character.HumanoidRootPart.BodyVelocity.Velocity = game.Players.LocalPlayer.Character.HumanoidRootPart.BodyVelocity.Velocity + game.Workspace.CurrentCamera.CFrame.RightVector * (MoveflyPE.X * _G.SetSpeedFly)
+    end
+    if MoveflyPE.Z > 0 then
+        game.Players.LocalPlayer.Character.HumanoidRootPart.BodyVelocity.Velocity = game.Players.LocalPlayer.Character.HumanoidRootPart.BodyVelocity.Velocity - game.Workspace.CurrentCamera.CFrame.LookVector * (MoveflyPE.Z * _G.SetSpeedFly)
+    end
+    if MoveflyPE.Z < 0 then
+        game.Players.LocalPlayer.Character.HumanoidRootPart.BodyVelocity.Velocity = game.Players.LocalPlayer.Character.HumanoidRootPart.BodyVelocity.Velocity - game.Workspace.CurrentCamera.CFrame.LookVector * (MoveflyPE.Z * _G.SetSpeedFly)
+    end
+end
+task.wait()
+end
+if game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+    if game.Players.LocalPlayer.Character.HumanoidRootPart:FindFirstChild("BodyGyro") then
+        game.Players.LocalPlayer.Character.HumanoidRootPart:FindFirstChild("BodyGyro"):Destroy()
+    end
+    if game.Players.LocalPlayer.Character.HumanoidRootPart:FindFirstChild("BodyVelocity") then
+        game.Players.LocalPlayer.Character.HumanoidRootPart:FindFirstChild("BodyVelocity"):Destroy()
+    end
+end
+	end
+}):AddKeyPicker("Fly", {
+   Default = "R",
+   Text = "Fly",
+   Mode = "Toggle",
+   SyncToggleState = true
+})
+
+Misc1Group:AddToggle("Noclip", {
+    Text = Translation(MiscTab, "Noclip"),
+    Default = false, 
+    Callback = function(Value) 
+_G.NoclipCharacter = Value
+if _G.NoclipCharacter == false then
+	if game.Players.LocalPlayer.Character ~= nil then
+		for i, v in pairs(game.Players.LocalPlayer.Character:GetChildren()) do
+			if v:IsA("BasePart") and v.CanCollide == false then
+				v.CanCollide = true
+			end
+		end
+	end
+end
+while _G.NoclipCharacter do
+if game.Players.LocalPlayer.Character ~= nil then
+		for i, v in pairs(game.Players.LocalPlayer.Character:GetChildren()) do
+			if v:IsA("BasePart") then
+				v.CanCollide = false
+			end
+		end
+	end
+task.wait()
+end
+    end
+}):AddKeyPicker("NoclipCharacter", {
+   Default = "G",
+   Text = Translation(MiscTab, "Noclip"),
+   Mode = "Toggle",
+   SyncToggleState = true
+})
+
+Misc1Group:AddToggle("Inf Jump", {
+    Text = Translation(MiscTab, "Inf Jump"),
+    Default = false, 
+    Callback = function(Value) 
+_G.InfiniteJump = Value
+    end
+}):AddKeyPicker("InfJump", {
+   Default = "J",
+   Text = Translation(MiscTab, "Inf Jump"),
+   Mode = "Toggle",
+   SyncToggleState = true
+})
+
+Misc1Group:AddToggle("Tp", {
+    Text = Translation(MiscTab, "Teleport Player"),
+    Default = false, 
+    Callback = function(Value) 
+_G.TeleportPlayerAuto = Value
+    end
+}):AddKeyPicker("TpPlr", {
+   Default = "G",
+   Text = Translation(MiscTab, "Teleport Player"),
+   Mode = "Toggle",
+   SyncToggleState = true
+})
+
+Misc1Group:AddToggle("Camlock", {
+    Text = Translation(MiscTab, "Camlock Player / TP"),
+    Default = false, 
+    Callback = function(Value) 
+_G.CamlockPlayer = Value
+while _G.CamlockPlayer do
+local DistanceMath, TargetPlayer = math.huge, nil
+for i,v in pairs(game.Players:GetChildren()) do
+	if v ~= game.Players.LocalPlayer and game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and v.Character then
+		if v.Character:FindFirstChild("Head") and v.Character:FindFirstChild("Humanoid") and v.Character:FindFirstChild("HumanoidRootPart") then
+			local Distance = (game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart").Position - v.Character.HumanoidRootPart.Position).Magnitude
+			if Distance < DistanceMath then
+				TargetPlayer, DistanceMath = v.Character, Distance
+			end
+		end
+	end
+end
+if TargetPlayer then
+repeat task.wait()
+if game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and TargetPlayer:FindFirstChild("HumanoidRootPart") and TargetPlayer:FindFirstChild("Humanoid") then
+if _G.TeleportPlayerAuto == true then
+if TargetPlayer:FindFirstChild("Humanoid") and TargetPlayer.Humanoid.MoveDirection.Magnitude > 0 then
+game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = TargetPlayer:FindFirstChild("HumanoidRootPart").CFrame * CFrame.new(0, 0, -7)
+else
+game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = TargetPlayer:FindFirstChild("HumanoidRootPart").CFrame
+end
+elseif not _G.TeleportPlayerAuto then
+game.Workspace.CurrentCamera.CFrame = CFrame.lookAt(game.Workspace.CurrentCamera.CFrame.Position, game.Workspace.CurrentCamera.CFrame.Position + (TargetPlayer.HumanoidRootPart.Position - game.Workspace.CurrentCamera.CFrame.Position).unit)
+game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(game.Players.LocalPlayer.Character.HumanoidRootPart.Position, Vector3.new(TargetPlayer.HumanoidRootPart.Position.X, game.Players.LocalPlayer.Character.HumanoidRootPart.Position.Y, TargetPlayer.HumanoidRootPart.Position.Z))
+end
+end
+until _G.CamlockPlayer == false or TargetPlayer:FindFirstChild("Humanoid") and TargetPlayer.Humanoid.Health <= 0
+end
+task.wait()
+end
+    end
+}):AddKeyPicker("CamlockPlr", {
+   Default = "K",
+   Text = Translation(MiscTab, "Camlock Player / TP"),
+   Mode = "Toggle",
+   SyncToggleState = true
+})
+
+function HasTool(tool)
+	for _, v in pairs(game.Players.LocalPlayer.Character:GetChildren()) do
+		if v:IsA("Tool") and v.Name == tool then
+			return true
+		end
+	end
+	for _, v in pairs(game.Players.LocalPlayer.Backpack:GetChildren()) do
+		if v:IsA("Tool") and v.Name == tool then
+			return true
+		end
+	end
+	return false
+end
+Misc1Group:AddToggle("Bandage", {
+	Text = Translation(MiscTab, "Auto Collect Bandage"),
+	Default = false,
+	Callback = function(Value)
+_G.CollectBandage = Value
+while _G.CollectBandage do
+local OldCFrame = game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame
+if not HasTool("Bandage") then
+repeat task.wait()
+if workspace:FindFirstChild("Effects") then
+for _, v in pairs(workspace:FindFirstChild("Effects"):GetChildren()) do
+if v.Name == "DroppedBandage" and v:FindFirstChild("Handle") then
+game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = v.Handle.CFrame
+break
+end
+end
+end
+until HasTool("Bandage")
+task.wait(0.3)
+game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = OldCFrame
+end
+task.wait()
+end
+	end
+})
+
+Misc1Group:AddToggle("FlashBang", {
+	Text = Translation(MiscTab, "Auto Collect Flash Bang"),
+	Default = false,
+	Callback = function(Value)
+_G.CollectFlashbang = Value
+while _G.CollectFlashbang do
+local OldCFrame = game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame
+if not HasTool("Flashbang") then
+repeat task.wait()
+if workspace:FindFirstChild("Effects") then
+for _, v in pairs(workspace:FindFirstChild("Effects"):GetChildren()) do
+if v.Name == "DroppedFlashbang" and v:FindFirstChild("Stun Grenade") then
+game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = v["Stun Grenade"].CFrame
+break
+end
+end
+end
+until HasTool("Flashbang")
+task.wait(0.3)
+game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = OldCFrame
+end
+task.wait()
+end
+	end
+})
+
+Misc1Group:AddToggle("Grenade", {
+	Text = Translation(MiscTab, "Auto Collect Grenade"),
+	Default = false,
+	Callback = function(Value)
+_G.CollectGrenade = Value
+while _G.CollectGrenade do
+local OldCFrame = game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame
+if not HasTool("Grenade") then
+repeat task.wait()
+if workspace:FindFirstChild("Effects") then
+for _, v in pairs(workspace:FindFirstChild("Effects"):GetChildren()) do
+if v.Name == "DroppedGrenade" and v:FindFirstChild("Handle") then
+game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = v.Handle.CFrame
+break
+end
+end
+end
+until HasTool("Grenade")
+task.wait(0.3)
+game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = OldCFrame
+end
+task.wait()
+end
+	end
+})
+
+Misc1Group:AddToggle("Anti Fling", {
+    Text = Translation(MiscTab, "Anti Fling"),
+    Default = false, 
+    Callback = function(Value) 
+_G.AntiFling = Value
+while _G.AntiFling do
+for i, v in pairs(game.Players:GetChildren()) do
+    if v ~= game.Players.LocalPlayer and v.Character then
+        for _, k in pairs(v.Character:GetChildren()) do
+            if k:IsA("BasePart") then
+                k.CanCollide = false
             end
         end
     end
-
-    npcConnection = RunService.RenderStepped:Connect(function()
-        for npc, text in pairs(npcDrawings) do
-            if npc and npc:FindFirstChild("HumanoidRootPart") and npc:FindFirstChild("Humanoid") then
-                local hrp = npc.HumanoidRootPart
-                local humanoid = npc.Humanoid
-
-                if humanoid.Health > 0 then
-                    local pos, visible = Camera:WorldToViewportPoint(hrp.Position + Vector3.new(0, 2.5, 0))
-                    local distance = (hrp.Position - Camera.CFrame.Position).Magnitude
-                    text.Text = string.format("%s [%.0fm]", npc.Name, distance)
-                    text.Position = Vector2.new(pos.X, pos.Y)
-                    text.Visible = visible
-                else
-                    text.Visible = false
-                end
-            else
-                text.Visible = false
-            end
-        end
-    end)
 end
-
--- Dừng ESP NPC
-local function stopNPCESP()
-    if npcConnection then
-        npcConnection:Disconnect()
-        npcConnection = nil
-    end
-
-    for _, text in pairs(npcDrawings) do
-        text:Remove()
-    end
-    npcDrawings = {}
+task.wait()
 end
+    end
+})
 
--- ✅ Tích hợp Fluent GUI Toggle trong Tabs.ESP
-Tabs.Main:AddToggle("ESPNPC", {
-    Title = "ESP NPC V2",
-    Default = false,
-}):OnChanged(function(enabled)
-    if enabled then
-        startNPCESP()
+Misc1Group:AddToggle("Anti Banana", {
+    Text = Translation(MiscTab, "Anti Banana"),
+    Default = false, 
+    Callback = function(Value) 
+_G.AntiBanana = Value
+while _G.AntiBanana do
+if workspace:FindFirstChild("Effects") then
+	for i, v in pairs(workspace:FindFirstChild("Effects"):GetChildren()) do
+	    if v.Name:find("Banana") then
+		    v:Destroy()
+	    end
+	end
+end
+task.wait()
+end
+    end
+})
+
+
+_G.PartLag = {"FootstepEffect", "BulletHole", "GroundSmokeDIFFERENT", "ARshell", "effect debris", "effect", "DroppedMP5"}
+Misc1Group:AddToggle("Anti Lag", {
+    Text = Translation(MiscTab, "Anti Lag"),
+    Default = false, 
+    Callback = function(Value) 
+_G.AntiLag = Value
+if _G.AntiLag == true then
+local Terrain = workspace:FindFirstChildOfClass("Terrain")
+Terrain.WaterWaveSize = 0
+Terrain.WaterWaveSpeed = 0
+Terrain.WaterReflectance = 0
+Terrain.WaterTransparency = 1
+game.Lighting.GlobalShadows = false
+game.Lighting.FogEnd = 9e9
+game.Lighting.FogStart = 9e9
+for i,v in pairs(game:GetDescendants()) do
+	if v:IsA("BasePart") then
+		v.Material = "Plastic"
+		v.Reflectance = 0
+		v.BackSurface = "SmoothNoOutlines"
+		v.BottomSurface = "SmoothNoOutlines"
+		v.FrontSurface = "SmoothNoOutlines"
+		v.LeftSurface = "SmoothNoOutlines"
+		v.RightSurface = "SmoothNoOutlines"
+		v.TopSurface = "SmoothNoOutlines"
+	elseif v:IsA("Decal") then
+		v.Transparency = 1
+	elseif v:IsA("ParticleEmitter") or v:IsA("Trail") then
+		v.Lifetime = NumberRange.new(0)
+	end
+end
+for i,v in pairs(game.Lighting:GetDescendants()) do
+	if v:IsA("PostEffect") then
+		v.Enabled = false
+	end
+end
+for i,v in pairs(game.Workspace:GetDescendants()) do
+	if v:IsA("ForceField") or v:IsA("Sparkles") or v:IsA("Smoke") or v:IsA("Fire") or v:IsA("Beam") then
+		v:Destroy()
+	end
+end
+end
+while _G.AntiLag do
+	for i, v in pairs(workspace:FindFirstChild("Effects"):GetChildren()) do
+		if _G.AntiLag == true then
+			PartLagDe(v)
+		end
+	end
+	task.wait()
+end
+    end
+})
+
+local Misc2Group = Tabs.Tab1:AddRightGroupbox(Translation(MiscTab, "Settings Gui"))
+
+_G.EspHighlight = false
+Misc2Group:AddToggle("Esp Hight Light", {
+    Text = Translation(MiscTab, "Esp Hight Light"),
+    Default = false, 
+    Callback = function(Value) 
+_G.EspHighlight = Value
+    end
+}):AddColorPicker("Color Esp", {
+     Default = Color3.new(255,255,255),
+     Callback = function(Value)
+_G.ColorLight = Value
+     end
+})
+
+_G.EspGui = false
+Misc2Group:AddToggle("Esp Gui", {
+    Text = Translation(MiscTab, "Esp Gui"),
+    Default = false, 
+    Callback = function(Value) 
+_G.EspGui = Value
+    end
+}):AddColorPicker("Color Esp Text", {
+     Default = Color3.new(255,255,255),
+     Callback = function(Value)
+_G.EspGuiTextColor = Value
+     end
+})
+
+Misc2Group:AddSlider("Text Size", {
+    Text = Translation(MiscTab, "Text Size [ Gui ]"),
+    Default = 7,
+    Min = 7,
+    Max = 50,
+    Rounding = 0,
+    Compact = false,
+    Callback = function(Value)
+_G.EspGuiTextSize = Value
+    end
+})
+
+Misc2Group:AddDivider()
+
+_G.EspName = false
+Misc2Group:AddToggle("Esp Name", {
+    Text = Translation(MiscTab, "Esp Name"),
+    Default = false, 
+    Callback = function(Value) 
+_G.EspName = Value
+    end
+})
+
+_G.EspDistance = false
+Misc2Group:AddToggle("Esp Distance", {
+    Text = Translation(MiscTab, "Esp Distance"),
+    Default = false, 
+    Callback = function(Value) 
+_G.EspDistance = Value
+    end
+})
+
+------------------------------------------------------------------------
+local MenuGroup = Tabs["UI Settings"]:AddLeftGroupbox("Menu")
+local CreditsGroup = Tabs["UI Settings"]:AddRightGroupbox("Credits")
+local Info = Tabs["UI Settings"]:AddRightGroupbox("Info")
+
+MenuGroup:AddDropdown("NotifySide", {
+    Text = "Notification Side",
+    Values = {"Left", "Right"},
+    Default = "Right",
+    Multi = false,
+    Callback = function(Value)
+Library:SetNotifySide(Value)
+    end
+})
+
+_G.ChooseNotify = "Obsidian"
+MenuGroup:AddDropdown("NotifyChoose", {
+    Text = "Notification Choose",
+    Values = {"Obsidian", "Roblox"},
+    Default = "",
+    Multi = false,
+    Callback = function(Value)
+_G.ChooseNotify = Value
+    end
+})
+
+_G.NotificationSound = true
+MenuGroup:AddToggle("NotifySound", {
+    Text = "Notification Sound",
+    Default = true, 
+    Callback = function(Value) 
+_G.NotificationSound = Value 
+    end
+})
+
+MenuGroup:AddSlider("Volume Notification", {
+    Text = "Volume Notification",
+    Default = 2,
+    Min = 2,
+    Max = 10,
+    Rounding = 1,
+    Compact = true,
+    Callback = function(Value)
+_G.VolumeTime = Value
+    end
+})
+
+MenuGroup:AddToggle("KeybindMenuOpen", {Default = false, Text = "Open Keybind Menu", Callback = function(Value) Library.KeybindFrame.Visible = Value end})
+MenuGroup:AddToggle("ShowCustomCursor", {Text = "Custom Cursor", Default = true, Callback = function(Value) Library.ShowCustomCursor = Value end})
+MenuGroup:AddDivider()
+MenuGroup:AddLabel("Menu bind"):AddKeyPicker("MenuKeybind", {Default = "RightShift", NoUI = true, Text = "Menu keybind"})
+_G.LinkJoin = loadstring(game:HttpGet("https://raw.githubusercontent.com/HocSinhLop10/Skid/refs/heads/main/Link.lua"))()
+MenuGroup:AddButton("Copy Link Discord", function()
+    if setclipboard then
+        setclipboard(_G.LinkJoin["Discord"])
+        Library:Notify("Copied discord link to clipboard!")
     else
-        stopNPCESP()
+        Library:Notify("Discord link: ".._G.LinkJoin["Discord"], 10)
+    end
+end):AddButton("Copy Link Youtube", function()
+    if setclipboard then
+        setclipboard(_G.LinkJoin["Youtube"])
+        Library:Notify("Copied Youtube link to clipboard!")
+    else
+        Library:Notify("Youtube link: ".._G.LinkJoin["Youtube"], 10)
+    end
+end)
+MenuGroup:AddButton("Unload", function() Library:Unload() end)
+CreditsGroup:AddLabel("AmongUs - Python / Dex / Script", true)
+CreditsGroup:AddLabel("Giang Hub - Script / Dex", true)
+CreditsGroup:AddLabel("Cao Mod - Script / Dex", true)
+CreditsGroup:AddLabel("Vokareal Hub (Vu Hub) - Script / Dex", true)
+
+Info:AddLabel("Counter [ "..game:GetService("LocalizationService"):GetCountryRegionForPlayerAsync(game.Players.LocalPlayer).." ]", true)
+Info:AddLabel("Executor [ "..identifyexecutor().." ]", true)
+Info:AddLabel("Job Id [ "..game.JobId.." ]", true)
+Info:AddDivider()
+Info:AddButton("Copy JobId", function()
+    if setclipboard then
+        setclipboard(tostring(game.JobId))
+        Library:Notify("Copied Success")
+    else
+        Library:Notify(tostring(game.JobId), 10)
     end
 end)
 
-
-local Toggles = {}
-
--- ✅ Tạo các Toggle
-Toggles.RedLightGodMode = Tabs.Main:AddToggle("RedLightGodMode", { Title = "Red Light God Mode", Default = false })
-Toggles.DalgonaAuto = Tabs.Main:AddToggle("DalgonaAuto", { Title = "Dalgona Auto Complete", Default = false })
-Toggles.TugOfWarAuto = Tabs.Main:AddToggle("TugOfWarAuto", { Title = "Tug Of War Auto Pull", Default = false })
-Toggles.GlassBridgeESP = Tabs.Main:AddToggle("GlassBridgeESP", { Title = "Glass Bridge ESP", Default = false })
-Toggles.MinglePowerHoldAuto = Tabs.Main:AddToggle("MinglePowerHoldAuto", { Title = "Mingle Auto QTE", Default = false })
-
--- ✅ Global GetToggleValue function
-local function GetToggleValue(key)
-    return Toggles[key] and Toggles[key].Value
-end
-
--- ✅ Red Light Green Light God Mode
-do
-    local Players = game:GetService("Players")
-    local ReplicatedStorage = game:GetService("ReplicatedStorage")
-
-    local Client = Players.LocalPlayer
-    local TrafficLightImage = Client.PlayerGui:WaitForChild("ImpactFrames"):WaitForChild("TrafficLightEmpty")
-
-    local IsGreenLight = TrafficLightImage.Image == ReplicatedStorage.Effects.Images.TrafficLights.GreenLight.Image
-    local LastRootPartCFrame = nil
-
-    ReplicatedStorage.Remotes.Effects.OnClientEvent:Connect(function(EffectsData)
-        if EffectsData.EffectName == "TrafficLight" then
-            IsGreenLight = EffectsData.GreenLight == true
-            local RootPart = Client.Character and Client.Character:FindFirstChild("HumanoidRootPart")
-            LastRootPartCFrame = RootPart and RootPart.CFrame
-        end
-    end)
-
-    local OldNamecall
-    OldNamecall = hookfunction(getrawmetatable(game).__namecall, newcclosure(function(self, ...)
-        local method = getnamecallmethod()
-        local args = { ... }
-
-        if method == "FireServer" and self.ClassName == "RemoteEvent" and self.Name == "rootCFrame" then
-            if GetToggleValue("RedLightGodMode") and not IsGreenLight and LastRootPartCFrame then
-                args[1] = LastRootPartCFrame
-                return OldNamecall(self, unpack(args))
-            end
-        end
-
-        return OldNamecall(self, ...)
-    end))
-end
-
--- ✅ Dalgona Auto Complete
-do
-    local Module = game.ReplicatedStorage.Modules.Games.DalgonaClient
-
-    local function CompleteDalgona()
-        if not GetToggleValue("DalgonaAuto") then return end
-
-        for _, f in ipairs(getreg()) do
-            if typeof(f) == "function" and islclosure(f) then
-                if getfenv(f).script == Module then
-                    if getinfo(f).nups == 73 then
-                        setupvalue(f, 31, 9e9)
-                        break
-                    end
-                end
-            end
-        end
+Info:AddInput("Join Job", {
+    Default = "Nah",
+    Numeric = false,
+    Text = "Join Job",
+    Placeholder = "UserJobId",
+    Callback = function(Value)
+_G.JobIdJoin = Value
     end
+})
 
-    local Original
-    Original = hookfunction(require(Module), function(...)
-        task.delay(3, CompleteDalgona)
-        return Original(...)
-    end)
+Info:AddButton("Join JobId", function()
+game:GetService("TeleportService"):TeleportToPlaceInstance(game.PlaceId, _G.JobIdJoin, game.Players.LocalPlayer)
+end)
 
-    Toggles.DalgonaAuto:OnChanged(CompleteDalgona)
-end
-
--- ✅ Tug of War Auto
-do
-    local ReplicatedStorage = game:GetService("ReplicatedStorage")
-    local Remote = ReplicatedStorage.Remotes.TemporaryReachedBindable
-    local VALID_PULL_DATA = { ["PerfectQTE"] = true }
-
-    task.spawn(function()
-        while task.wait(0.025) do
-            if GetToggleValue("TugOfWarAuto") then
-                Remote:FireServer(VALID_PULL_DATA)
-            end
-        end
-    end)
-end
-
--- ✅ Glass Bridge ESP
-do
-    local GlassHolder = workspace:WaitForChild("GlassBridge"):WaitForChild("GlassHolder")
-
-    local function SetupGlassPart(part)
-        if not GetToggleValue("GlassBridgeESP") then
-            part.Color = Color3.fromRGB(106, 106, 106)
-            part.Transparency = 0.45
-            part.Material = Enum.Material.SmoothPlastic
-        else
-            local color = part:GetAttribute("exploitingisevil") and Color3.fromRGB(248, 87, 87) or Color3.fromRGB(28, 235, 87)
-            part.Color = color
-            part.Transparency = 0
-            part.Material = Enum.Material.Neon
-        end
+Info:AddButton("Copy Join JobId", function()
+    if setclipboard then
+        setclipboard('game:GetService("TeleportService"):TeleportToPlaceInstance(game.PlaceId, '..game.JobId..", game.Players.LocalPlayer)")
+        Library:Notify("Copied Success") 
+    else
+        Library:Notify(tostring(game.JobId), 10)
     end
+end)
 
-    local function UpdateAll()
-        for _, panelPair in ipairs(GlassHolder:GetChildren()) do
-            for _, panel in ipairs(panelPair:GetChildren()) do
-                local glass = panel:FindFirstChild("glasspart")
-                if glass then
-                    SetupGlassPart(glass)
-                end
-            end
-        end
-    end
+Library.ToggleKeybind = Options.MenuKeybind
 
-    Toggles.GlassBridgeESP:OnChanged(UpdateAll)
-
-    GlassHolder.DescendantAdded:Connect(function(desc)
-        if desc.Name == "glasspart" and desc:IsA("BasePart") then
-            SetupGlassPart(desc)
-        end
-    end)
-end
-
--- ✅ Mingle Power Hold Auto
-do
-    local Players = game:GetService("Players")
-    local Client = Players.LocalPlayer
-
-    local function Setup(Character)
-        Character.ChildAdded:Connect(function(child)
-            if child:IsA("RemoteEvent") and child.Name == "RemoteForQTE" then
-                task.spawn(function()
-                    while child and child.Parent do
-                        if GetToggleValue("MinglePowerHoldAuto") then
-                            child:FireServer()
-                        end
-                        task.wait(0.5)
-                    end
-                end)
-            end
-        end)
-
-        for _, obj in ipairs(Character:GetChildren()) do
-            if obj:IsA("RemoteEvent") and obj.Name == "RemoteForQTE" then
-                task.spawn(function()
-                    while obj and obj.Parent do
-                        if GetToggleValue("MinglePowerHoldAuto") then
-                            obj:FireServer()
-                        end
-                        task.wait(0.5)
-                    end
-                end)
-            end
-        end
-    end
-
-    if Client.Character then Setup(Client.Character) end
-    Client.CharacterAdded:Connect(Setup)
-end
-
-
-
+ThemeManager:SetLibrary(Library)
+SaveManager:SetLibrary(Library)
+SaveManager:IgnoreThemeSettings()
+SaveManager:BuildConfigSection(Tabs["UI Settings"])
+ThemeManager:ApplyToTab(Tabs["UI Settings"])
+SaveManager:LoadAutoloadConfig()
