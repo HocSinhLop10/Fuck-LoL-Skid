@@ -4,8 +4,8 @@ end
 
 getgenv().TranslationCounter = "English" -- MẶC ĐỊNH CHỌN TIẾNG ANH NGAY TỪ ĐẦU
 
-Translations = loadstring(game:HttpGet("https://raw.githubusercontent.com/Articles-Hub/ROBLOXScript/refs/heads/main/Translation/Translation.lua"))()
-loadstring(game:HttpGet("https://pastefy.app/yavAjgX3/raw"))()
+Translations = loadstring(game:HttpGet("https://raw.githubusercontent.com/HocSinhLop10/Skid/refs/heads/main/ChonNgonNgu.lua"))()
+loadstring(game:HttpGet("https://raw.githubusercontent.com/HocSinhLop10/Skid/refs/heads/main/NgonNgu.lua"))()
 
 repeat task.wait() until TranslationCounter
 
