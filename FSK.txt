@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Free] | Forsaken",
-    SubTitle = "Version 2.1.0",
+    SubTitle = "Version 2.1.5",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -421,6 +421,121 @@ pcall(function() -- Chặn lỗi từ Fluent UI
         end)
     end)
 end)
+
+
+    Tabs.Player:AddSection("↳ Hitbox")
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+-- Danh sách model cần tăng hitbox
+local targetModels = {
+    ["Noob"] = true,
+    ["Guest1337"] = true,
+    ["Elliot"] = true,
+    ["Shedletsky"] = true,
+    ["TwoTime"] = true,
+    ["007n7"] = true,
+    ["Chance"] = true,
+    ["Builderman"] = true,
+    ["Taph"] = true,
+    ["Dusekkar"] = true,
+    ["Jason"] = true,
+    ["1x1x1x1"] = true,
+    ["c00lkidd"] = true,
+    ["Noli"] = true,
+    ["JohnDoe"] = true,
+    ["Quest666"] = true
+}
+
+local HitboxEnabled = false
+local HitboxScale = 2 -- mặc định
+local originalSizes = {}
+
+-- Hàm áp dụng hitbox
+local function applyHitboxToCharacter(char, owner)
+    if not HitboxEnabled then return end
+    if not targetModels[char.Name] then return end
+    if owner == LocalPlayer then return end -- Không áp dụng cho bản thân
+
+    local part = char:FindFirstChild("HumanoidRootPart")
+    if part and part:IsA("BasePart") then
+        if not originalSizes[part] then
+            originalSizes[part] = part.Size
+        end
+
+        part.Size = originalSizes[part] * HitboxScale
+        part.Transparency = 0.8 -- Trong suốt
+        part.Color = Color3.fromRGB(255, 0, 0) -- Đỏ
+        part.Material = Enum.Material.Neon
+        part.CanCollide = false
+    end
+end
+
+-- Hàm reset hitbox
+local function resetHitbox(char)
+    local part = char:FindFirstChild("HumanoidRootPart")
+    if part and part:IsA("BasePart") and originalSizes[part] then
+        part.Size = originalSizes[part]
+        part.Transparency = 1
+        part.Material = Enum.Material.Plastic
+    end
+end
+
+-- Slider chỉnh scale
+Tabs.Player:AddSlider("HitboxScale", {
+    Title = "Hitbox Scale",
+    Default = 2,
+    Min = 1,
+    Max = 10,
+    Rounding = 1
+}):OnChanged(function(value)
+    HitboxScale = value
+    if HitboxEnabled then
+        for _, plr in ipairs(Players:GetPlayers()) do
+            if plr.Character then
+                applyHitboxToCharacter(plr.Character, plr)
+            end
+        end
+    end
+end)
+
+-- Toggle bật/tắt (nằm dưới slider)
+Tabs.Player:AddToggle("HitboxToggle", {
+    Title = "Hitbox Target Players",
+    Default = false
+}):OnChanged(function(state)
+    HitboxEnabled = state
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player.Character then
+            if state then
+                applyHitboxToCharacter(player.Character, player)
+            else
+                resetHitbox(player.Character)
+            end
+        end
+    end
+end)
+
+-- Theo dõi player mới vào
+Players.PlayerAdded:Connect(function(plr)
+    plr.CharacterAdded:Connect(function(char)
+        task.wait(0.1)
+        applyHitboxToCharacter(char, plr)
+    end)
+end)
+
+-- Áp dụng cho player hiện tại
+for _, plr in ipairs(Players:GetPlayers()) do
+    plr.CharacterAdded:Connect(function(char)
+        task.wait(0.1)
+        applyHitboxToCharacter(char, plr)
+    end)
+    if plr.Character then
+        applyHitboxToCharacter(plr.Character, plr)
+    end
+end
 
 -- Tabs.Visual
 
