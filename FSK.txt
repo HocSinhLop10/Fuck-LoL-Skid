@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Free] | Forsaken",
-    SubTitle = "Version 2.0.0",
+    SubTitle = "Version 2.1.0",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -197,8 +197,7 @@ end)
 
 -- Tabs.Player
 
--- Forsaken Player Aimlock with Fluent GUI Toggle
--- Open Source by ChatGPT
+-- Forsaken Player Aimlock with Fluent GUI Toggle (Fix: Switch to nearest, skip dead)
 if not game:IsLoaded() then game.Loaded:Wait() end
 
 -- ======= DỊCH VỤ =======
@@ -223,7 +222,6 @@ local AllowedModels = {
 
 -- ======= BIẾN TRẠNG THÁI =======
 local AimlockEnabled = false
-local Target = nil
 
 -- ======= HÀM KIỂM TRA MODEL =======
 local function IsAllowedModel(model)
@@ -233,7 +231,7 @@ end
 -- ======= LẤY MODEL FORSAKEN =======
 local function GetPlayerModel(plr)
     if not plr.Character then return nil end
-    if IsAllowedModel(plr.Character) then
+    if IsAllowedModel(plr.Character) and plr.Character:FindFirstChildWhichIsA("Humanoid") then
         return plr.Character
     end
     for _, model in ipairs(workspace:GetChildren()) do
@@ -258,10 +256,13 @@ local function GetClosestTarget()
         if plr ~= LocalPlayer then
             local model = GetPlayerModel(plr)
             if model and model.PrimaryPart then
-                local distance = (model.PrimaryPart.Position - myRoot.Position).Magnitude
-                if distance < dist then
-                    dist = distance
-                    closest = model
+                local humanoid = model:FindFirstChildWhichIsA("Humanoid")
+                if humanoid and humanoid.Health > 0 then -- bỏ qua model chết
+                    local distance = (model.PrimaryPart.Position - myRoot.Position).Magnitude
+                    if distance < dist then
+                        dist = distance
+                        closest = model
+                    end
                 end
             end
         end
@@ -272,25 +273,19 @@ end
 -- ======= AIMLOCK LOOP =======
 RunService.RenderStepped:Connect(function()
     if AimlockEnabled then
-        if not Target or not Target.Parent then
-            Target = GetClosestTarget()
-        end
-        if Target and Target.PrimaryPart then
-            Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, Target.PrimaryPart.Position)
+        local newTarget = GetClosestTarget()
+        if newTarget then
+            Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, newTarget.PrimaryPart.Position)
         end
     end
 end)
 
 -- ======= FLUENT GUI TOGGLE =======
--- Giả sử bạn đã có biến Tabs.Player trong Fluent UI
 Tabs.Player:AddToggle("ForsakenAimlock", {
     Title = "Aimlock Player",
     Default = false
 }):OnChanged(function(Value)
     AimlockEnabled = Value
-    if not Value then
-        Target = nil
-    end
 end)
 
 local StaminaModule = require(game:GetService("ReplicatedStorage").Systems.Character.Game.Sprinting)
