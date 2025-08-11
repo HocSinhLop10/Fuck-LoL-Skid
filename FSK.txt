@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Free] | Forsaken",
-    SubTitle = "Version 2.2.6",
+    SubTitle = "Version 2.2.7",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -181,7 +181,7 @@ Tabs.Main:AddToggle("AutoFinishGen", {
                     gen.Remotes.RE:FireServer()
                 end
                 solveGeneratorCooldown = true
-                task.wait(1)
+                task.wait(1.5)
                 solveGeneratorCooldown = false
             end
         end)
