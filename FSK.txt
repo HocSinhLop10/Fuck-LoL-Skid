@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Free] | Forsaken",
-    SubTitle = "Version 2.2.3",
+    SubTitle = "Version 2.2.4",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -1008,64 +1008,76 @@ end)
 
 
 
+
 local ActiveEspItems = false
+local espLoopRunning = false
 
-Tabs.Visual:AddToggle({
-    Title = "Esp Item",
-    Default = false,
-    Callback = function(Value)
-        ActiveEspItems = Value
+-- Chỉ thêm toggle nếu Tabs.Visual tồn tại
+if Tabs and Tabs.Visual and Tabs.Visual.AddToggle then
+    Tabs.Visual:AddToggle({
+        Title = "ESP Items",
+        Default = false,
+        Callback = function(Value)
+            ActiveEspItems = Value
 
-        -- Khi tắt toggle → xoá ESP
-        if not Value then
-            local function removeESP(folder)
-                for _, Players in pairs(folder:GetChildren()) do
-                    if Players:IsA("Tool") and Players.PrimaryPart then
-                        local highlight = Players:FindFirstChildOfClass("Highlight")
-                        local billboard = Players.PrimaryPart:FindFirstChildOfClass("BillboardGui")
-                        if highlight then highlight:Destroy() end
-                        if billboard then billboard:Destroy() end
-                    end
-                end
-            end
-
-            if workspace:FindFirstChild("Map") and workspace.Map:FindFirstChild("Ingame") then
-                removeESP(workspace.Map.Ingame)
-                local mapFolder = workspace.Map.Ingame:FindFirstChild("Map")
-                if mapFolder then
-                    removeESP(mapFolder)
-                end
-            end
-            return
-        end
-
-        -- Khi bật toggle → bắt đầu tạo ESP
-        task.spawn(function()
-            while ActiveEspItems do
-                local function addESP(folder)
-                    for _, Players in pairs(folder:GetChildren()) do 
-                        if Players:IsA("Tool") and Players.PrimaryPart
-                            and not Players:FindFirstChildOfClass("Highlight") 
-                            and not Players.PrimaryPart:FindFirstChildOfClass("BillboardGui") then
-                            CreateEsp(Players, Color3.fromRGB(0,0,255), Players.Name, Players.PrimaryPart, -1)
+            -- Khi tắt toggle → xoá ESP
+            if not Value then
+                local function removeESP(folder)
+                    for _, Players in ipairs(folder:GetChildren()) do
+                        if Players:IsA("Tool") and Players:FindFirstChild("PrimaryPart") then
+                            local highlight = Players:FindFirstChildOfClass("Highlight")
+                            local billboard = Players.PrimaryPart and Players.PrimaryPart:FindFirstChildOfClass("BillboardGui")
+                            if highlight then highlight:Destroy() end
+                            if billboard then billboard:Destroy() end
                         end
                     end
                 end
 
                 if workspace:FindFirstChild("Map") and workspace.Map:FindFirstChild("Ingame") then
-                    addESP(workspace.Map.Ingame)
+                    removeESP(workspace.Map.Ingame)
                     local mapFolder = workspace.Map.Ingame:FindFirstChild("Map")
                     if mapFolder then
-                        addESP(mapFolder)
+                        removeESP(mapFolder)
                     end
                 end
-
-                task.wait(0.1)
+                return
             end
-        end)
-    end
-})
 
+            -- Khi bật toggle → tránh chạy nhiều vòng lặp cùng lúc
+            if espLoopRunning then return end
+            espLoopRunning = true
+
+            task.spawn(function()
+                while ActiveEspItems do
+                    local function addESP(folder)
+                        for _, Players in ipairs(folder:GetChildren()) do 
+                            if Players:IsA("Tool") and Players:FindFirstChild("PrimaryPart")
+                                and not Players:FindFirstChildOfClass("Highlight") 
+                                and not (Players.PrimaryPart and Players.PrimaryPart:FindFirstChildOfClass("BillboardGui")) then
+                                pcall(function()
+                                    CreateEsp(Players, Color3.fromRGB(0,0,255), Players.Name, Players.PrimaryPart, -1)
+                                end)
+                            end
+                        end
+                    end
+
+                    if workspace:FindFirstChild("Map") and workspace.Map:FindFirstChild("Ingame") then
+                        addESP(workspace.Map.Ingame)
+                        local mapFolder = workspace.Map.Ingame:FindFirstChild("Map")
+                        if mapFolder then
+                            addESP(mapFolder)
+                        end
+                    end
+
+                    task.wait(0.1)
+                end
+                espLoopRunning = false
+            end)
+        end
+    })
+else
+    warn("[ESP] Tabs.Visual chưa tồn tại, không thể AddToggle")
+end
 
 
 
