@@ -485,8 +485,8 @@ UserInputService.InputBegan:Connect(function(input, gp)
     end
 end)
 
--- Toggle trong Tabs.Main
-Tabs.Main:AddToggle("FakeDie", {
+-- Toggle trong Tabs.Player
+Tabs.Player:AddToggle("FakeDie", {
     Title = "Fake Die [Beta]",
     Default = false
 }):OnChanged(function(state)
