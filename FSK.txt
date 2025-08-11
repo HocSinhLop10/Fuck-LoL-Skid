@@ -1009,75 +1009,151 @@ end)
 
 
 
-local ActiveEspItems = false
-local espLoopRunning = false
+local RunService = game:GetService("RunService")
+local Camera = workspace.CurrentCamera
 
--- Chỉ thêm toggle nếu Tabs.Visual tồn tại
-if Tabs and Tabs.Visual and Tabs.Visual.AddToggle then
-    Tabs.Visual:AddToggle({
-        Title = "ESP Items",
-        Default = false,
-        Callback = function(Value)
-            ActiveEspItems = Value
+-- ESP Container cho các model
+local drawings = {}
+local espConnection
 
-            -- Khi tắt toggle → xoá ESP
-            if not Value then
-                local function removeESP(folder)
-                    for _, Players in ipairs(folder:GetChildren()) do
-                        if Players:IsA("Tool") and Players:FindFirstChild("PrimaryPart") then
-                            local highlight = Players:FindFirstChildOfClass("Highlight")
-                            local billboard = Players.PrimaryPart and Players.PrimaryPart:FindFirstChildOfClass("BillboardGui")
-                            if highlight then highlight:Destroy() end
-                            if billboard then billboard:Destroy() end
-                        end
-                    end
-                end
+-- Danh sách model cần theo dõi và màu sắc
+local trackedModels = {
+    ["Bloxycola"] = Color3.fromRGB(139, 69, 19), -- Brown
+    ["Medkit"] = Color3.fromRGB(0, 255, 0),      -- Green
+}
 
-                if workspace:FindFirstChild("Map") and workspace.Map:FindFirstChild("Ingame") then
-                    removeESP(workspace.Map.Ingame)
-                    local mapFolder = workspace.Map.Ingame:FindFirstChild("Map")
-                    if mapFolder then
-                        removeESP(mapFolder)
-                    end
-                end
-                return
-            end
+-- Tạo ESP cho model với viền và phát sáng
+local function createESP(model)
+    if drawings[model] then return end
 
-            -- Khi bật toggle → tránh chạy nhiều vòng lặp cùng lúc
-            if espLoopRunning then return end
-            espLoopRunning = true
+    -- Text chính
+    local text = Drawing.new("Text")
+    text.Size = 16
+    text.Center = true
+    text.Outline = false -- Tắt outline cho text chính
+    text.Color = trackedModels[model.Name] or Color3.new(1, 1, 1)
+    text.Visible = false
 
-            task.spawn(function()
-                while ActiveEspItems do
-                    local function addESP(folder)
-                        for _, Players in ipairs(folder:GetChildren()) do 
-                            if Players:IsA("Tool") and Players:FindFirstChild("PrimaryPart")
-                                and not Players:FindFirstChildOfClass("Highlight") 
-                                and not (Players.PrimaryPart and Players.PrimaryPart:FindFirstChildOfClass("BillboardGui")) then
-                                pcall(function()
-                                    CreateEsp(Players, Color3.fromRGB(0,0,255), Players.Name, Players.PrimaryPart, -1)
-                                end)
-                            end
-                        end
-                    end
+    -- Viền (Outline) bằng nhiều text nhỏ hơn, offset
+    local outlineTexts = {}
 
-                    if workspace:FindFirstChild("Map") and workspace.Map:FindFirstChild("Ingame") then
-                        addESP(workspace.Map.Ingame)
-                        local mapFolder = workspace.Map.Ingame:FindFirstChild("Map")
-                        if mapFolder then
-                            addESP(mapFolder)
-                        end
-                    end
+    local offsets = {
+        Vector2.new(-1, 0),
+        Vector2.new(1, 0),
+        Vector2.new(0, -1),
+        Vector2.new(0, 1),
+        Vector2.new(-1, -1),
+        Vector2.new(1, -1),
+        Vector2.new(-1, 1),
+        Vector2.new(1, 1),
+    }
 
-                    task.wait(0.1)
-                end
-                espLoopRunning = false
-            end)
-        end
-    })
-else
-    warn("[ESP] Tabs.Visual chưa tồn tại, không thể AddToggle")
+    for _, offset in ipairs(offsets) do
+        local outline = Drawing.new("Text")
+        outline.Size = 16
+        outline.Center = true
+        outline.Color = trackedModels[model.Name] or Color3.new(1, 1, 1)
+        outline.Position = Vector2.new(0, 0)
+        outline.Visible = false
+        outline.Text = ""
+        table.insert(outlineTexts, {obj = outline, offset = offset})
+    end
+
+    drawings[model] = {
+        main = text,
+        outlines = outlineTexts
+    }
 end
+
+-- Xoá ESP
+local function removeESP(model)
+    if drawings[model] then
+        drawings[model].main:Remove()
+        for _, outline in ipairs(drawings[model].outlines) do
+            outline.obj:Remove()
+        end
+        drawings[model] = nil
+    end
+end
+
+-- Bắt đầu ESP
+local function startESP()
+    -- Tạo ESP cho các model đang có trong workspace
+    for _, model in ipairs(workspace:GetChildren()) do
+        if trackedModels[model.Name] then
+            createESP(model)
+        end
+    end
+
+    -- Lắng nghe model mới thêm vào workspace
+    workspace.ChildAdded:Connect(function(model)
+        if trackedModels[model.Name] then
+            createESP(model)
+        end
+    end)
+
+    -- Lắng nghe model bị xoá khỏi workspace
+    workspace.ChildRemoved:Connect(function(model)
+        if trackedModels[model.Name] then
+            removeESP(model)
+        end
+    end)
+
+    -- Cập nhật vị trí và hiển thị ESP mỗi frame
+    espConnection = RunService.RenderStepped:Connect(function()
+        for model, esp in pairs(drawings) do
+            local primaryPart = model.PrimaryPart or model:FindFirstChild("HumanoidRootPart") or model:FindFirstChildWhichIsA("BasePart")
+            if primaryPart then
+                local pos, visible = Camera:WorldToViewportPoint(primaryPart.Position + Vector3.new(0, 2.5, 0))
+                local distance = (primaryPart.Position - Camera.CFrame.Position).Magnitude
+
+                esp.main.Text = string.format("%s [%.0fm]", model.Name, distance)
+                esp.main.Position = Vector2.new(pos.X, pos.Y)
+                esp.main.Visible = visible
+
+                for _, outline in ipairs(esp.outlines) do
+                    outline.obj.Text = esp.main.Text
+                    outline.obj.Position = esp.main.Position + outline.offset
+                    outline.obj.Color = Color3.new(0, 0, 0) -- viền đen rõ hơn
+                    outline.obj.Visible = visible
+                end
+            else
+                esp.main.Visible = false
+                for _, outline in ipairs(esp.outlines) do
+                    outline.obj.Visible = false
+                end
+            end
+        end
+    end)
+end
+
+-- Dừng ESP
+local function stopESP()
+    if espConnection then
+        espConnection:Disconnect()
+        espConnection = nil
+    end
+
+    for model, esp in pairs(drawings) do
+        esp.main:Remove()
+        for _, outline in ipairs(esp.outlines) do
+            outline.obj:Remove()
+        end
+    end
+    drawings = {}
+end
+
+-- Tích hợp Fluent GUI Toggle trong Tabs.Visual (hoặc Tabs.Player tùy bạn)
+Tabs.Visual:AddToggle("ESPModelsToggle", {
+    Title = "ESP Item Drop",
+    Default = false,
+}):OnChanged(function(enabled)
+    if enabled then
+        startESP()
+    else
+        stopESP()
+    end
+end)
 
 
 
