@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Free] | Forsaken",
-    SubTitle = "Version 2.1.5",
+    SubTitle = "Version 2.2.0",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -191,6 +191,44 @@ Tabs.Main:AddToggle("AutoFinishGen", {
             autoLoop = nil
         end
         solveGeneratorCooldown = false
+    end
+end)
+
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RemoteEvent = ReplicatedStorage.Modules.Network.RemoteEvent
+
+local ActiveAutoUseCoinFlip = false
+local coinFlipLoop
+
+Tabs.Main:AddToggle("AutoUseCoinFlip", {
+    Title = "Auto Flip Coin (Chance)",
+    Default = false,
+}):OnChanged(function(value)
+    ActiveAutoUseCoinFlip = value
+
+    if value then
+        -- Nếu đã có loop cũ thì hủy để tránh trùng lặp
+        if coinFlipLoop then
+            task.cancel(coinFlipLoop)
+            coinFlipLoop = nil
+        end
+
+        -- Bắt đầu loop gửi sự kiện mỗi 1 giây
+        coinFlipLoop = task.spawn(function()
+            while ActiveAutoUseCoinFlip do
+                pcall(function()
+                    RemoteEvent:FireServer("UseActorAbility", "CoinFlip")
+                end)
+                task.wait(1)
+            end
+        end)
+    else
+        -- Khi tắt toggle thì hủy loop
+        if coinFlipLoop then
+            task.cancel(coinFlipLoop)
+            coinFlipLoop = nil
+        end
     end
 end)
 
@@ -382,7 +420,45 @@ end)
 
 
 
-    Tabs.Player:AddSection("↳ ???")
+    Tabs.Player:AddSection("↳ Cheats")
+
+
+local ActiveNoStun = false
+local noStunLoop
+
+Tabs.Player:AddToggle("NoStunToggle", {
+    Title = "No Stun",
+    Default = false,
+}):OnChanged(function(value)
+    ActiveNoStun = value
+
+    if value then
+        -- Nếu có loop cũ thì dừng
+        if noStunLoop then
+            task.cancel(noStunLoop)
+            noStunLoop = nil
+        end
+
+        -- Tạo loop mới liên tục đảm bảo HumanoidRootPart không bị anchore
+        noStunLoop = task.spawn(function()
+            while ActiveNoStun do
+                local character = game.Players.LocalPlayer.Character
+                local hrp = character and character:FindFirstChild("HumanoidRootPart")
+                if hrp then
+                    hrp.Anchored = false
+                end
+                task.wait(0.1) -- Không cần quá nhanh, tránh lag
+            end
+        end)
+    else
+        -- Tắt loop khi toggle off
+        if noStunLoop then
+            task.cancel(noStunLoop)
+            noStunLoop = nil
+        end
+    end
+end)
+
 
 local StaminaModule = require(game:GetService("ReplicatedStorage").Systems.Character.Game.Sprinting)
 local InfStaminaEnabled = false
@@ -861,104 +937,143 @@ Tabs.Visual:AddToggle("ESPGeneratorToggle", {
 end)
 
 
-
 local RunService = game:GetService("RunService")
 local Camera = workspace.CurrentCamera
 
--- Danh sách model được phép ESP
-local allowedModels = {
-    ["Medkit"] = true,
-    ["Bloxy Cola"] = true,
-    ["BloxyCola"] = true
+-- ESP Container cho các model
+local drawings = {}
+local espConnection
+
+-- Danh sách model cần theo dõi và màu sắc
+local trackedModels = {
+    ["Bloxycola"] = Color3.fromRGB(139, 69, 19), -- Brown
+    ["Medkit"] = Color3.fromRGB(0, 255, 0),      -- Green
 }
 
--- Internal
-local drawings = {}
-local espConnection, addedConn, removedConn
-local defaultColor = Color3.fromRGB(0, 255, 0) -- Xanh lá mặc định
-
--- Tạo ESP cho model
+-- Tạo ESP cho model với viền và phát sáng
 local function createESP(model)
-    if not model or drawings[model] then return end
-    if not model:IsA("Model") or not model:FindFirstChild("HumanoidRootPart") then return end
+    if drawings[model] then return end
 
+    -- Text chính
     local text = Drawing.new("Text")
-    text.Size = 14
+    text.Size = 16
     text.Center = true
-    text.Outline = true
+    text.Outline = false -- Tắt outline cho text chính
+    text.Color = trackedModels[model.Name] or Color3.new(1, 1, 1)
     text.Visible = false
-    text.Color = defaultColor
 
-    drawings[model] = text
+    -- Viền (Outline) bằng nhiều text nhỏ hơn, offset
+    local outlineTexts = {}
+
+    local offsets = {
+        Vector2.new(-1, 0),
+        Vector2.new(1, 0),
+        Vector2.new(0, -1),
+        Vector2.new(0, 1),
+        Vector2.new(-1, -1),
+        Vector2.new(1, -1),
+        Vector2.new(-1, 1),
+        Vector2.new(1, 1),
+    }
+
+    for _, offset in ipairs(offsets) do
+        local outline = Drawing.new("Text")
+        outline.Size = 16
+        outline.Center = true
+        outline.Color = trackedModels[model.Name] or Color3.new(1, 1, 1)
+        outline.Position = Vector2.new(0, 0)
+        outline.Visible = false
+        outline.Text = ""
+        table.insert(outlineTexts, {obj = outline, offset = offset})
+    end
+
+    drawings[model] = {
+        main = text,
+        outlines = outlineTexts
+    }
 end
 
 -- Xoá ESP
 local function removeESP(model)
     if drawings[model] then
-        drawings[model]:Remove()
-        drawings[model] = nil
-    end
-end
-
--- Quét workspace để tạo ESP
-local function scanWorkspace()
-    for _, obj in ipairs(workspace:GetDescendants()) do
-        if obj:IsA("Model") and allowedModels[obj.Name] and obj:FindFirstChild("HumanoidRootPart") then
-            createESP(obj)
+        drawings[model].main:Remove()
+        for _, outline in ipairs(drawings[model].outlines) do
+            outline.obj:Remove()
         end
+        drawings[model] = nil
     end
 end
 
 -- Bắt đầu ESP
 local function startESP()
-    scanWorkspace()
-
-    espConnection = RunService.RenderStepped:Connect(function()
-        for model, text in pairs(drawings) do
-            if not model or not model.Parent or not model:FindFirstChild("HumanoidRootPart") then
-                text.Visible = false
-            else
-                local hrp = model.HumanoidRootPart
-                local pos, onScreen = Camera:WorldToViewportPoint(hrp.Position + Vector3.new(0, 2.5, 0))
-                local dist = (hrp.Position - Camera.CFrame.Position).Magnitude
-                text.Text = string.format("%s [%.0fm]", model.Name, dist)
-                text.Position = Vector2.new(pos.X, pos.Y)
-                text.Visible = onScreen
-            end
+    -- Tạo ESP cho các model đang có trong workspace
+    for _, model in ipairs(workspace:GetChildren()) do
+        if trackedModels[model.Name] then
+            createESP(model)
         end
-    end)
+    end
 
-    addedConn = workspace.DescendantAdded:Connect(function(obj)
-        local model = obj:IsA("Model") and obj or obj:FindFirstAncestorOfClass("Model")
-        if model and allowedModels[model.Name] and model:FindFirstChild("HumanoidRootPart") then
+    -- Lắng nghe model mới thêm vào workspace
+    workspace.ChildAdded:Connect(function(model)
+        if trackedModels[model.Name] then
             createESP(model)
         end
     end)
 
-    removedConn = workspace.DescendantRemoving:Connect(function(obj)
-        if obj:IsA("Model") and drawings[obj] then
-            removeESP(obj)
+    -- Lắng nghe model bị xoá khỏi workspace
+    workspace.ChildRemoved:Connect(function(model)
+        if trackedModels[model.Name] then
+            removeESP(model)
+        end
+    end)
+
+    -- Cập nhật vị trí và hiển thị ESP mỗi frame
+    espConnection = RunService.RenderStepped:Connect(function()
+        for model, esp in pairs(drawings) do
+            local primaryPart = model.PrimaryPart or model:FindFirstChild("HumanoidRootPart") or model:FindFirstChildWhichIsA("BasePart")
+            if primaryPart then
+                local pos, visible = Camera:WorldToViewportPoint(primaryPart.Position + Vector3.new(0, 2.5, 0))
+                local distance = (primaryPart.Position - Camera.CFrame.Position).Magnitude
+
+                esp.main.Text = string.format("%s [%.0fm]", model.Name, distance)
+                esp.main.Position = Vector2.new(pos.X, pos.Y)
+                esp.main.Visible = visible
+
+                for _, outline in ipairs(esp.outlines) do
+                    outline.obj.Text = esp.main.Text
+                    outline.obj.Position = esp.main.Position + outline.offset
+                    outline.obj.Color = Color3.new(0, 0, 0) -- viền đen rõ hơn
+                    outline.obj.Visible = visible
+                end
+            else
+                esp.main.Visible = false
+                for _, outline in ipairs(esp.outlines) do
+                    outline.obj.Visible = false
+                end
+            end
         end
     end)
 end
 
 -- Dừng ESP
 local function stopESP()
-    if espConnection then espConnection:Disconnect() espConnection = nil end
-    if addedConn then addedConn:Disconnect() addedConn = nil end
-    if removedConn then removedConn:Disconnect() removedConn = nil end
+    if espConnection then
+        espConnection:Disconnect()
+        espConnection = nil
+    end
 
-    for _, text in pairs(drawings) do
-        text:Remove()
+    for model, esp in pairs(drawings) do
+        esp.main:Remove()
+        for _, outline in ipairs(esp.outlines) do
+            outline.obj:Remove()
+        end
     end
     drawings = {}
 end
 
--- ==========================
--- TÍCH HỢP FLUENT GUI Toggle
--- ==========================
-Tabs.Visual:AddToggle("ESPMedkitBloxyToggle", {
-    Title = "ESP Tool",
+-- Tích hợp Fluent GUI Toggle trong Tabs.Visual (hoặc Tabs.Player tùy bạn)
+Tabs.Visual:AddToggle("ESPModelsToggle", {
+    Title = "ESP Item Drop",
     Default = false,
 }):OnChanged(function(enabled)
     if enabled then
@@ -969,59 +1084,6 @@ Tabs.Visual:AddToggle("ESPMedkitBloxyToggle", {
 end)
 
 
--- Tabs.Misc
-
-    local UIS = game:GetService("UserInputService")
-    local SkipHoldToggle = Tabs.Misc:AddToggle("SkipHoldToggle", {Title = "Bypass Hold Prompt", Default = false})
-
-    local function skipHoldPrompt(prompt)
-        if prompt and prompt:IsA("ProximityPrompt") and prompt.HoldDuration > 0 then
-            -- Store original HoldDuration if not already stored
-            if prompt:GetAttribute("OriginalHold") == nil then
-                prompt:SetAttribute("OriginalHold", prompt.HoldDuration)
-            end
-            prompt.HoldDuration = 0 -- Remove hold time
-        end
-    end
-
-    local function enableSkipHold()
-        for _, obj in ipairs(workspace:GetDescendants()) do
-            if obj:IsA("ProximityPrompt") then
-                skipHoldPrompt(obj)
-            end
-        end
-
-        -- Ensure new prompts also get modified
-        local connection
-        connection = workspace.DescendantAdded:Connect(function(obj)
-            task.wait(0.1) -- Prevent errors
-            if SkipHoldToggle.Value then
-                skipHoldPrompt(obj)
-            else
-                connection:Disconnect() -- Stop listening if disabled
-            end
-        end)
-    end
-
-    local function disableSkipHold()
-        for _, obj in ipairs(workspace:GetDescendants()) do
-            if obj:IsA("ProximityPrompt") then
-                local originalHold = obj:GetAttribute("OriginalHold")
-                if originalHold then
-                    obj.HoldDuration = originalHold -- Restore original HoldDuration
-                    obj:SetAttribute("OriginalHold", nil) -- Remove stored attribute
-                end
-            end
-        end
-    end
-
-    SkipHoldToggle:OnChanged(function()
-        if SkipHoldToggle.Value then
-            enableSkipHold()
-        else
-            disableSkipHold()
-        end
-    end)
 
 
 -- Tabs.Misc
