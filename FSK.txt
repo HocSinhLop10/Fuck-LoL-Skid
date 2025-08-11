@@ -382,7 +382,7 @@ end)
 
 
 
-
+    Tabs.Player:AddSection("↳ ???")
 
 local StaminaModule = require(game:GetService("ReplicatedStorage").Systems.Character.Game.Sprinting)
 local InfStaminaEnabled = false
@@ -421,6 +421,103 @@ pcall(function() -- Chặn lỗi từ Fluent UI
         end)
     end)
 end)
+
+
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local UserInputService = game:GetService("UserInputService")
+
+local FakeDieEnabled = false
+local FakeDieLoop
+local MovementBlocked = false
+
+-- Hàm nằm xuống
+local function LieDown()
+    local Character = LocalPlayer.Character
+    if not Character then return end
+    local Humanoid = Character:FindFirstChildOfClass("Humanoid")
+    local HRP = Character:FindFirstChild("HumanoidRootPart")
+    
+    if Humanoid then
+        Humanoid:ChangeState(Enum.HumanoidStateType.Physics)
+    end
+
+    if HRP then
+        HRP.CFrame = CFrame.new(HRP.Position) * CFrame.Angles(math.rad(90), 0, 0)
+        HRP.Velocity = Vector3.zero
+        HRP.AssemblyLinearVelocity = Vector3.zero
+        HRP.AssemblyAngularVelocity = Vector3.zero
+    end
+
+    -- Chặn di chuyển
+    MovementBlocked = true
+end
+
+-- Hàm đứng dậy
+local function StandUp()
+    local Character = LocalPlayer.Character
+    if not Character then return end
+    local Humanoid = Character:FindFirstChildOfClass("Humanoid")
+    local HRP = Character:FindFirstChild("HumanoidRootPart")
+
+    if Humanoid then
+        Humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
+    end
+
+    if HRP then
+        HRP.CFrame = CFrame.new(HRP.Position + Vector3.new(0, 3, 0))
+    end
+
+    MovementBlocked = false
+end
+
+-- Chặn input di chuyển khi đang nằm
+UserInputService.InputBegan:Connect(function(input, gp)
+    if MovementBlocked and input.UserInputType == Enum.UserInputType.Keyboard then
+        if input.KeyCode == Enum.KeyCode.W
+        or input.KeyCode == Enum.KeyCode.A
+        or input.KeyCode == Enum.KeyCode.S
+        or input.KeyCode == Enum.KeyCode.D
+        or input.KeyCode == Enum.KeyCode.Space then
+            input:Capture() -- Ngăn thao tác
+        end
+    end
+end)
+
+-- Toggle trong Tabs.Main
+Tabs.Main:AddToggle("FakeDie", {
+    Title = "Fake Die [Beta]",
+    Default = false
+}):OnChanged(function(state)
+    FakeDieEnabled = state
+
+    if state then
+        -- Bắt đầu loop giữ nằm
+        FakeDieLoop = task.spawn(function()
+            while FakeDieEnabled do
+                LieDown()
+                task.wait(0.2) -- Cập nhật liên tục để đảm bảo luôn nằm
+            end
+        end)
+    else
+        if FakeDieLoop then
+            task.cancel(FakeDieLoop)
+            FakeDieLoop = nil
+        end
+        StandUp()
+    end
+end)
+
+-- Đảm bảo khi respawn vẫn giữ trạng thái
+LocalPlayer.CharacterAdded:Connect(function(char)
+    if FakeDieEnabled then
+        task.wait(1) -- chờ load xong
+        LieDown()
+    end
+end)
+
+
 
 
     Tabs.Player:AddSection("↳ Hitbox")
