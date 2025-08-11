@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Free] | Forsaken",
-    SubTitle = "Version 2.2.9",
+    SubTitle = "Version 2.3.0",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -261,6 +261,17 @@ Tabs.Main:AddButton({
     end
 })
 
+
+
+Tabs.Main:AddButton({
+    Title = "Auto Kill Survivors",
+    Callback = function()
+        pcall(function()
+            -- Tải và chạy script từ link
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/HocSinhLop10/Skid/refs/heads/main/Auto-Kill.lua"))()
+        end)
+    end
+})
 
 
 -- Tabs.Player
