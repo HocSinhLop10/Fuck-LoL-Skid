@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Free] | Forsaken",
-    SubTitle = "Version 2.2.4",
+    SubTitle = "Version 2.2.5",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -38,7 +38,7 @@ local Tabs = {
     Visual = Window:AddTab({ Title = "Visual", Icon = "rbxassetid://121302760641013" }),
     Misc = Window:AddTab({ Title = "Misc", Icon = "rbxassetid://121302760641013" }),
     Settings = Window:AddTab({ Title = "Settings", Icon = "rbxassetid://121302760641013" }),
-}  
+}         
 
 -- Tab.Dev
 
@@ -181,7 +181,7 @@ Tabs.Main:AddToggle("AutoFinishGen", {
                     gen.Remotes.RE:FireServer()
                 end
                 solveGeneratorCooldown = true
-                task.wait(2.5)
+                task.wait(2)
                 solveGeneratorCooldown = false
             end
         end)
@@ -763,11 +763,11 @@ Tabs.Player:AddToggle("PlayerSpeedToggle", {
     ActiveSpeedBoost = value
     if value then
         setSpeed(ValueSpeed)
-        -- Bắt đầu vòng lặp liên tục set tốc độ mỗi 1 giây
+        -- Bắt đầu vòng lặp liên tục set tốc độ mỗi 0.5 giây
         speedLoop = task.spawn(function()
             while ActiveSpeedBoost do
                 setSpeed(ValueSpeed)
-                task.wait(1)
+                task.wait(0.5)
             end
         end)
     else
