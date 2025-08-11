@@ -181,7 +181,7 @@ Tabs.Main:AddToggle("AutoFinishGen", {
                     gen.Remotes.RE:FireServer()
                 end
                 solveGeneratorCooldown = true
-                task.wait(5)
+                task.wait(2.5)
                 solveGeneratorCooldown = false
             end
         end)
@@ -709,6 +709,89 @@ for _, plr in ipairs(Players:GetPlayers()) do
         applyHitboxToCharacter(plr.Character, plr)
     end
 end
+
+
+
+
+    Tabs.Player:AddSection("↳ Walk Speed")
+
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+
+local speedEnabled = false
+local speedValue = 16 -- mặc định tốc độ
+local speedLoop
+
+-- Hàm cập nhật tốc độ lên humanoid hiện tại của character mới
+local function updateSpeed()
+    local character = LocalPlayer.Character
+    if not character then return end
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+    if humanoid then
+        humanoid.WalkSpeed = speedEnabled and speedValue or 16
+    end
+end
+
+-- Bắt sự kiện khi Character thay đổi (chết hoặc respawn)
+LocalPlayer.CharacterAdded:Connect(function(char)
+    if speedEnabled then
+        -- delay 0.1s để humanoid chắc chắn tồn tại
+        task.wait(0.1)
+        updateSpeed()
+    end
+end)
+
+-- Tạo Slider chỉnh tốc độ từ 1 đến 25
+Tabs.Player:AddSlider("SpeedSlider", {
+    Title = "Set Speed",
+    Default = speedValue,
+    Min = 1,
+    Max = 25,
+    Rounding = 1,
+}):OnChanged(function(value)
+    speedValue = value
+    if speedEnabled then
+        updateSpeed()
+    end
+end)
+
+-- Tạo Toggle bật/tắt tốc độ
+Tabs.Player:AddToggle("SpeedToggle", {
+    Title = "Enable Speed",
+    Default = false,
+}):OnChanged(function(enabled)
+    speedEnabled = enabled
+
+    if enabled then
+        updateSpeed()
+        -- Khởi tạo loop cập nhật liên tục để xử lý trường hợp model đổi mà Humanoid chưa cập nhật
+        if speedLoop then
+            task.cancel(speedLoop)
+            speedLoop = nil
+        end
+
+        speedLoop = task.spawn(function()
+            while speedEnabled do
+                updateSpeed()
+                task.wait(0.5) -- cập nhật mỗi 0.5s
+            end
+        end)
+    else
+        -- Khi tắt toggle, hủy vòng lặp và reset tốc độ về mặc định
+        if speedLoop then
+            task.cancel(speedLoop)
+            speedLoop = nil
+        end
+        local character = LocalPlayer.Character
+        local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            humanoid.WalkSpeed = 16
+        end
+    end
+end)
+
 
 -- Tabs.Visual
 
