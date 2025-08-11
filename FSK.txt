@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Free] | Forsaken",
-    SubTitle = "Version 2.2.8",
+    SubTitle = "Version 2.2.9",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -260,6 +260,7 @@ Tabs.Main:AddButton({
         end
     end
 })
+
 
 
 -- Tabs.Player
@@ -1541,4 +1542,4 @@ Button.InputChanged:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
         OnDrag(input)
     end
-end)      
+end)
