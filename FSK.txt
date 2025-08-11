@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Free] | Forsaken",
-    SubTitle = "Version 2.2.7",
+    SubTitle = "Version 2.2.8",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -99,8 +99,45 @@ local Options = Fluent.Options
 
 -- Tabs.Main
 
--- Giả sử Tabs đã khai báo sẵn
--- local Tabs = ...
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RemoteEvent = ReplicatedStorage.Modules.Network.RemoteEvent
+
+local ActiveAutoUseCoinFlip = false
+local coinFlipLoop
+
+Tabs.Main:AddToggle("AutoUseCoinFlip", {
+    Title = "Auto Flip Coin",
+    Default = false,
+}):OnChanged(function(value)
+    ActiveAutoUseCoinFlip = value
+
+    if value then
+        -- Nếu đã có loop cũ thì hủy để tránh trùng lặp
+        if coinFlipLoop then
+            task.cancel(coinFlipLoop)
+            coinFlipLoop = nil
+        end
+
+        -- Bắt đầu loop gửi sự kiện mỗi 1 giây
+        coinFlipLoop = task.spawn(function()
+            while ActiveAutoUseCoinFlip do
+                pcall(function()
+                    RemoteEvent:FireServer("UseActorAbility", "CoinFlip")
+                end)
+                task.wait(1)
+            end
+        end)
+    else
+        -- Khi tắt toggle thì hủy loop
+        if coinFlipLoop then
+            task.cancel(coinFlipLoop)
+            coinFlipLoop = nil
+        end
+    end
+end)
+
+    Tabs.Main:AddSection("↳ Generator")
 
 local solveGeneratorCooldown = false
 local AutoFinishGen = false
@@ -152,7 +189,7 @@ Tabs.Main:AddButton({
         if gen and gen:FindFirstChild("Remotes") and gen.Remotes:FindFirstChild("RE") then
             gen.Remotes.RE:FireServer()
             solveGeneratorCooldown = true
-            task.delay(10, function()
+            task.delay(1.5, function()
                 solveGeneratorCooldown = false
             end)
         end
@@ -195,42 +232,34 @@ Tabs.Main:AddToggle("AutoFinishGen", {
 end)
 
 
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local RemoteEvent = ReplicatedStorage.Modules.Network.RemoteEvent
 
-local ActiveAutoUseCoinFlip = false
-local coinFlipLoop
 
-Tabs.Main:AddToggle("AutoUseCoinFlip", {
-    Title = "Auto Flip Coin (Chance)",
-    Default = false,
-}):OnChanged(function(value)
-    ActiveAutoUseCoinFlip = value
+    Tabs.Main:AddSection("↳ Kill Aura")
 
-    if value then
-        -- Nếu đã có loop cũ thì hủy để tránh trùng lặp
-        if coinFlipLoop then
-            task.cancel(coinFlipLoop)
-            coinFlipLoop = nil
+
+Tabs.Main:AddButton({
+    Title = "Kill Radom Survivors",
+    Callback = function()
+        local localChar = game.Players.LocalPlayer.Character
+        if not localChar or not localChar:FindFirstChild("HumanoidRootPart") then
+            return
         end
 
-        -- Bắt đầu loop gửi sự kiện mỗi 1 giây
-        coinFlipLoop = task.spawn(function()
-            while ActiveAutoUseCoinFlip do
-                pcall(function()
-                    RemoteEvent:FireServer("UseActorAbility", "CoinFlip")
-                end)
-                task.wait(1)
+        for _, survivor in pairs(workspace.Players.Survivors:GetChildren()) do
+            if survivor:IsA("Model") and survivor:FindFirstChild("HumanoidRootPart") then
+                -- Dịch chuyển tới Survivor
+                localChar.HumanoidRootPart.CFrame = survivor.HumanoidRootPart.CFrame
+
+                -- Gửi sự kiện tấn công
+                local ReplicatedStorage = game:GetService("ReplicatedStorage")
+                local RemoteEvent = ReplicatedStorage.Modules.Network:FindFirstChild("RemoteEvent")
+                if RemoteEvent then
+                    RemoteEvent:FireServer("UseActorAbility", "Slash")
+                end
             end
-        end)
-    else
-        -- Khi tắt toggle thì hủy loop
-        if coinFlipLoop then
-            task.cancel(coinFlipLoop)
-            coinFlipLoop = nil
         end
     end
-end)
+})
 
 
 -- Tabs.Player
