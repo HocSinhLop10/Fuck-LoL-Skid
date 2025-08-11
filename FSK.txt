@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Free] | Forsaken",
-    SubTitle = "Version 2.2.0",
+    SubTitle = "Version 2.2.2",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -717,78 +717,65 @@ end
 
 
 local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 
-local speedEnabled = false
-local speedValue = 16 -- mặc định tốc độ
+local ValueSpeed = 16
+local ActiveSpeedBoost = false
 local speedLoop
 
--- Hàm cập nhật tốc độ lên humanoid hiện tại của character mới
-local function updateSpeed()
+local function setSpeed(speed)
     local character = LocalPlayer.Character
     if not character then return end
     local humanoid = character:FindFirstChildOfClass("Humanoid")
     if humanoid then
-        humanoid.WalkSpeed = speedEnabled and speedValue or 16
+        humanoid.WalkSpeed = speed
+        humanoid:SetAttribute("BaseSpeed", speed)
     end
 end
 
--- Bắt sự kiện khi Character thay đổi (chết hoặc respawn)
-LocalPlayer.CharacterAdded:Connect(function(char)
-    if speedEnabled then
-        -- delay 0.1s để humanoid chắc chắn tồn tại
-        task.wait(0.1)
-        updateSpeed()
+-- Khi respawn áp dụng lại tốc độ nếu bật
+LocalPlayer.CharacterAdded:Connect(function()
+    task.wait(0.1)
+    if ActiveSpeedBoost then
+        setSpeed(ValueSpeed)
     end
 end)
 
--- Tạo Slider chỉnh tốc độ từ 1 đến 25
-Tabs.Player:AddSlider("SpeedSlider", {
+-- Slider chỉnh tốc độ
+Tabs.Player:AddSlider("PlayerSpeedSlider", {
     Title = "Set Speed",
-    Default = speedValue,
-    Min = 1,
+    Min = 0,
     Max = 25,
+    Default = ValueSpeed,
     Rounding = 1,
 }):OnChanged(function(value)
-    speedValue = value
-    if speedEnabled then
-        updateSpeed()
+    ValueSpeed = value
+    if ActiveSpeedBoost then
+        setSpeed(ValueSpeed)
     end
 end)
 
--- Tạo Toggle bật/tắt tốc độ
-Tabs.Player:AddToggle("SpeedToggle", {
-    Title = "Enable Speed",
+-- Toggle bật/tắt tốc độ và loop tăng tốc liên tục
+Tabs.Player:AddToggle("PlayerSpeedToggle", {
+    Title = "Walk Speed",
     Default = false,
-}):OnChanged(function(enabled)
-    speedEnabled = enabled
-
-    if enabled then
-        updateSpeed()
-        -- Khởi tạo loop cập nhật liên tục để xử lý trường hợp model đổi mà Humanoid chưa cập nhật
-        if speedLoop then
-            task.cancel(speedLoop)
-            speedLoop = nil
-        end
-
+}):OnChanged(function(value)
+    ActiveSpeedBoost = value
+    if value then
+        setSpeed(ValueSpeed)
+        -- Bắt đầu vòng lặp liên tục set tốc độ mỗi 1 giây
         speedLoop = task.spawn(function()
-            while speedEnabled do
-                updateSpeed()
-                task.wait(0.5) -- cập nhật mỗi 0.5s
+            while ActiveSpeedBoost do
+                setSpeed(ValueSpeed)
+                task.wait(1)
             end
         end)
     else
-        -- Khi tắt toggle, hủy vòng lặp và reset tốc độ về mặc định
+        -- Tắt vòng lặp và reset tốc độ về mặc định 16
         if speedLoop then
-            task.cancel(speedLoop)
             speedLoop = nil
         end
-        local character = LocalPlayer.Character
-        local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-        if humanoid then
-            humanoid.WalkSpeed = 16
-        end
+        setSpeed(16)
     end
 end)
 
