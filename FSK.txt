@@ -786,7 +786,7 @@ end)
 Tabs.Player:AddSlider("PlayerSpeedSlider", {
     Title = "Set Speed",
     Min = 0,
-    Max = 25,
+    Max = 50,
     Default = ValueSpeed,
     Rounding = 1,
 }):OnChanged(function(value)
