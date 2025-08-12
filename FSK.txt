@@ -99,7 +99,6 @@ local Options = Fluent.Options
 
 -- Tabs.Main
 
-
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RemoteEvent = ReplicatedStorage.Modules.Network.RemoteEvent
 
@@ -469,7 +468,7 @@ end)
 
 
 
-    Tabs.Main:AddSection("↳ Kill Aura")
+    Tabs.Main:AddSection("↳ Killers")
 
 
 Tabs.Main:AddButton({
@@ -579,6 +578,119 @@ Tabs.Main:AddToggle("AutoKillSurvivors", {
     end
 })
 
+
+    Tabs.Main:AddSection("↳ Survivors")
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+-- Cấu hình skill cho từng model
+local skillConfig = {
+    ["Shedletsky"] = {skillName = "Slash", cooldown = 40},
+    ["TwoTime"] = {skillName = "Dagger", cooldown = 30}
+}
+
+-- Biến điều khiển
+local Active = false
+local loopRunning = false
+local CurrentTarget = nil
+local lastAttack = 0
+local currentModelName = nil
+
+-- Tìm Killer gần nhất
+local function GetClosestKiller()
+    local localChar = LocalPlayer.Character
+    if not (localChar and localChar:FindFirstChild("HumanoidRootPart")) then return nil end
+    local killersFolder = workspace:FindFirstChild("Players") and workspace.Players:FindFirstChild("Killers")
+    if not killersFolder then return nil end
+
+    local closest, minDist = nil, math.huge
+    for _, killer in ipairs(killersFolder:GetChildren()) do
+        local humanoid = killer:FindFirstChildOfClass("Humanoid")
+        if killer:IsA("Model") and killer:FindFirstChild("HumanoidRootPart") and humanoid and humanoid.Health > 0 then
+            local dist = (localChar.HumanoidRootPart.Position - killer.HumanoidRootPart.Position).Magnitude
+            if dist < minDist then
+                minDist = dist
+                closest = killer
+            end
+        end
+    end
+    return closest
+end
+
+-- Hàm tấn công mục tiêu
+local function AttackTarget(target, skillName)
+    if not target then return end
+    local localChar = LocalPlayer.Character
+    if not (localChar and localChar:FindFirstChild("HumanoidRootPart")) then return end
+
+    -- Teleport tới mục tiêu
+    localChar.HumanoidRootPart.CFrame = target.HumanoidRootPart.CFrame
+
+    -- Tấn công nếu cooldown đã hết
+    if tick() - lastAttack >= skillConfig[currentModelName].cooldown then
+        lastAttack = tick()
+        local remote = ReplicatedStorage:FindFirstChild("Modules")
+                      and ReplicatedStorage.Modules:FindFirstChild("Network")
+                      and ReplicatedStorage.Modules.Network:FindFirstChild("RemoteEvent")
+        if remote and typeof(remote.FireServer) == "function" then
+            remote:FireServer("UseActorAbility", skillName)
+        end
+    end
+end
+
+-- Vòng lặp Auto
+local function StartLoop()
+    if loopRunning then return end
+    loopRunning = true
+    task.spawn(function()
+        while Active do
+            local char = LocalPlayer.Character
+            if char and skillConfig[char.Name] then
+                currentModelName = char.Name
+                local skillName = skillConfig[char.Name].skillName
+                if not CurrentTarget or not CurrentTarget.Parent or not CurrentTarget:FindFirstChildOfClass("Humanoid") or CurrentTarget:FindFirstChildOfClass("Humanoid").Health <= 0 then
+                    CurrentTarget = GetClosestKiller()
+                end
+                if CurrentTarget then
+                    AttackTarget(CurrentTarget, skillName)
+                end
+            end
+            task.wait(0.05)
+        end
+        loopRunning = false
+    end)
+end
+
+-- Nút bấm tấn công 1 lần (đặt trước toggle)
+Tabs.Main:AddButton({
+    Title = "Attack Killers",
+    Callback = function()
+        local char = LocalPlayer.Character
+        if char and skillConfig[char.Name] then
+            currentModelName = char.Name
+            local target = GetClosestKiller()
+            if target then
+                AttackTarget(target, skillConfig[char.Name].skillName)
+            end
+        end
+    end
+})
+
+-- Toggle auto tấn công
+Tabs.Main:AddToggle("AutoAttackKillers", {
+    Title = "Auto Attack Killers",
+    Default = false,
+    Callback = function(Value)
+        Active = Value
+        if Active then
+            StartLoop()
+        else
+            CurrentTarget = nil
+        end
+    end
+})
 
     Tabs.Main:AddSection("↳ Items")
 
@@ -1676,6 +1788,54 @@ Tabs.Misc:AddToggle("AntiAcid", {
         end
     end)
 end)
+
+
+
+
+local Lighting = game:GetService("Lighting")
+local Players = game:GetService("Players")
+local LP = Players.LocalPlayer
+local PlayerGui = LP:WaitForChild("PlayerGui")
+
+local ActiveRemoveEffects = false
+
+-- Danh sách hiệu ứng cần xóa
+local effectNames = {
+    "BlurEffect", "ColorCorrectionEffect", "BloomEffect",
+    "SunRaysEffect", "DepthOfFieldEffect", "ScreenFlash",
+    "HitEffect", "DamageOverlay", "BloodEffect"
+}
+
+-- Hàm xóa hiệu ứng
+local function removeEffects()
+    for _, obj in pairs(Lighting:GetDescendants()) do
+        if table.find(effectNames, obj.Name) or obj:IsA("BlurEffect") or obj:IsA("ColorCorrectionEffect") then
+            obj:Destroy()
+        end
+    end
+    for _, obj in pairs(PlayerGui:GetDescendants()) do
+        if (obj:IsA("ScreenGui") or obj:IsA("BillboardGui")) and table.find(effectNames, obj.Name) then
+            obj:Destroy()
+        end
+    end
+end
+
+-- Toggle trong Fluent
+Tabs.Misc:AddToggle("RemoveScreenEffects", {
+    Title = "Remove Effects",
+    Default = false,
+    Callback = function(state)
+        ActiveRemoveEffects = state
+        if state then
+            task.spawn(function()
+                while ActiveRemoveEffects do
+                    removeEffects()
+                    task.wait(0.5) -- Delay 0.5s tránh lag
+                end
+            end)
+        end
+    end
+})
 
     Tabs.Misc:AddSection("↳ Show")
 
