@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Free] | Forsaken",
-    SubTitle = "Version 2.3.0",
+    SubTitle = "Version 2.3.2",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -229,6 +229,223 @@ Tabs.Main:AddToggle("AutoFinishGen", {
         end
         solveGeneratorCooldown = false
     end
+end)
+
+
+local Players = game:GetService("Players")
+local PFS = game:GetService("PathfindingService")
+local VIM = game:GetService("VirtualInputManager")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local LP = Players.LocalPlayer
+local Spectators = {}
+local currentCharacter
+local isInGame, busy, isSprinting = false, false, false
+local stamina, counter = 100, 0
+local Killer, Survivor = false, false
+
+-- Danh sách killer nguy hiểm
+local DangerousKillers = {
+    ["Jason"] = true,
+    ["1x1x1x1"] = true,
+    ["c00lkidd"] = true,
+    ["Noli"] = true,
+    ["JohnDoe"] = true,
+    ["Quest666"] = true
+}
+
+-- Hàm kiểm tra có killer nguy hiểm gần generator không
+local function isKillerNearGenerator(generatorPos, distance)
+    local killersFolder = workspace.Players:FindFirstChild("Killers")
+    if not killersFolder then return false end
+    for _, killer in ipairs(killersFolder:GetChildren()) do
+        if killer:IsA("Model") and killer:FindFirstChild("HumanoidRootPart") then
+            if DangerousKillers[killer.Name] then
+                local dist = (killer.HumanoidRootPart.Position - generatorPos).Magnitude
+                if dist <= distance then
+                    return true
+                end
+            end
+        end
+    end
+    return false
+end
+
+local function safe(pos)
+    local rayParams = RaycastParams.new()
+    rayParams.FilterDescendantsInstances = {workspace.Map.Ingame.Map}
+    rayParams.FilterType = Enum.RaycastFilterType.Include
+    local rayResult = workspace:Raycast(pos + Vector3.new(0, 5, 0), Vector3.new(0, -10, 0), rayParams)
+    if rayResult then
+        local yDiff = math.abs(rayResult.Position.Y - pos.Y)
+        return yDiff < 5 
+    end
+    return false
+end
+
+-- Nút Toggle Fluent UI
+Tabs.Main:AddToggle("AutoExpMoney", {
+    Title = "Auto Farm Exp / Money",
+    Default = false
+})
+:OnChanged(function(Value)
+    _G.AutoFarm = Value
+
+    task.spawn(function()
+        while _G.AutoFarm do
+            Spectators = {}
+            for _, v in ipairs(workspace:WaitForChild("Players"):WaitForChild("Spectating"):GetChildren()) do
+                table.insert(Spectators, v.Name)
+            end
+            isInGame = not table.find(Spectators, LP.Name)
+            task.wait(1)
+        end
+    end)
+
+    task.spawn(function()
+        while _G.AutoFarm do
+            if isInGame and currentCharacter and currentCharacter:FindFirstChild("Humanoid") then
+                pcall(function()
+                    currentCharacter.Humanoid:SetAttribute("BaseSpeed", 14)
+                    local barText = LP:WaitForChild("PlayerGui"):WaitForChild("TemporaryUI"):WaitForChild("PlayerInfo").Bars.Stamina.Amount.Text
+                    stamina = tonumber(string.split(barText, "/")[1]) or 100
+                    local fovMult = currentCharacter:FindFirstChild("FOVMultipliers") and currentCharacter.FOVMultipliers:FindFirstChild("Sprinting")
+                    if fovMult and fovMult.Value ~= 1.125 and stamina >= 70 and not busy then
+                        VIM:SendKeyEvent(true, Enum.KeyCode.LeftShift, false, game)
+                    end
+                end)
+            end
+            task.wait(1)
+        end
+    end)
+
+    task.spawn(function()
+        while _G.AutoFarm do
+            if workspace:FindFirstChild("Players") then
+                local killersFolder = workspace.Players:FindFirstChild("Killers")
+                local survivorsFolder = workspace.Players:FindFirstChild("Survivors")
+                if killersFolder and survivorsFolder then
+                    Killer = killersFolder:FindFirstChild(LP.Name) or table.find(killersFolder:GetChildren(), LP.Character)
+                    Survivor = survivorsFolder:FindFirstChild(LP.Name) or table.find(survivorsFolder:GetChildren(), LP.Character)
+                end
+            end
+            task.wait(1)
+        end
+    end)
+
+    task.spawn(function()
+        task.wait(0.5)
+        local killersFolder = workspace.Players:WaitForChild("Killers")
+        local survivorsFolder = workspace.Players:WaitForChild("Survivors")
+        while _G.AutoFarm do
+            if Killer then
+                -- Theo dõi và tấn công Survivor
+                local target = nil
+                for _, survivor in ipairs(survivorsFolder:GetChildren()) do
+                    if survivor:IsA("Model") and survivor:FindFirstChild("HumanoidRootPart") then
+                        target = survivor
+                        break
+                    end
+                end
+                if target then
+                    local followingTarget = _G.AutoFarm
+                    task.spawn(function()
+                        while followingTarget do
+                            local character = LP.Character
+                            if character and character:FindFirstChild("HumanoidRootPart") and target:FindFirstChild("HumanoidRootPart") then
+                                character:PivotTo(target.HumanoidRootPart.CFrame)
+                            end
+                            task.wait(0.1)
+                        end
+                    end)
+                    task.spawn(function()
+                        while target and target:FindFirstChild("HumanoidRootPart") and target:IsDescendantOf(survivorsFolder) do
+                            for _, key in ipairs({Enum.KeyCode.Q, Enum.KeyCode.E, Enum.KeyCode.R}) do
+                                VIM:SendMouseButtonEvent(0, 0, 0, true, game, 0)
+                                task.wait(0.05)
+                                VIM:SendMouseButtonEvent(0, 0, 0, false, game, 0)
+                                VIM:SendKeyEvent(true, key, false, game)
+                                task.wait(0.05)
+                                VIM:SendKeyEvent(false, key, false, game)
+                                task.wait(0.1)
+                            end
+                            task.wait(0.8)
+                        end
+                        followingTarget = false 
+                    end)
+                else
+                    task.wait(0.5)
+                end
+            elseif Survivor then
+                -- Tìm character của mình
+                if isInGame then
+                    for _, surv in ipairs(survivorsFolder:GetChildren()) do
+                        if surv:GetAttribute("Username") == LP.Name then
+                            currentCharacter = surv
+                            break
+                        end
+                    end
+                    -- Check chết thì reset
+                    task.spawn(function()
+                        while _G.AutoFarm do
+                            if currentCharacter and currentCharacter:FindFirstChild("Humanoid") and currentCharacter.Humanoid.Health <= 0 then
+                                isInGame = false
+                                isSprinting = false
+                                busy = false
+                                break
+                            end
+                            task.wait(0.5)
+                        end
+                    end)
+                    -- Làm generator
+                    for _, gen in ipairs(workspace.Map.Ingame:WaitForChild("Map"):GetChildren()) do
+                        if gen.Name == "Generator" and gen:FindFirstChild("Progress") and gen.Progress.Value ~= 100 then
+                            
+                            local goalPos = gen:WaitForChild("Positions"):WaitForChild("Right").Position
+                            
+                            -- ⚠️ Anti-Killer check
+                            if isKillerNearGenerator(goalPos, 50) then
+                                print("⚠️ Bỏ qua generator vì killer nguy hiểm ở gần!")
+                                continue
+                            end
+
+                            if currentCharacter and currentCharacter:FindFirstChild("HumanoidRootPart") then
+                                currentCharacter:PivotTo(CFrame.new(goalPos + Vector3.new(0, 2, 0)))
+                                task.wait(0.25)
+                                local prompt = gen:FindFirstChild("Main") and gen.Main:FindFirstChild("Prompt")
+                                if prompt then
+                                    prompt.HoldDuration = 0
+                                    prompt.RequiresLineOfSight = false
+                                    prompt.MaxActivationDistance = 99999
+                                    task.wait(0.1)
+                                    pcall(function()
+                                        prompt:InputHoldBegin()
+                                        prompt:InputHoldEnd()
+                                    end)
+                                    busy = true
+                                    counter = 0
+                                    while gen.Progress.Value ~= 100 do
+                                        pcall(function()
+                                            prompt:InputHoldBegin()
+                                            prompt:InputHoldEnd()
+                                            if _G.AutoGeneral == false then
+                                                gen.Remotes.RE:FireServer()
+                                            end
+                                        end)
+                                        task.wait(1.5)
+                                        counter += 1
+                                        if counter >= 10 or not isInGame then break end
+                                    end
+                                    busy = false
+                                    if not isInGame then break end
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+            task.wait(0.5)
+        end
+    end)
 end)
 
 
@@ -786,7 +1003,7 @@ end)
 Tabs.Player:AddSlider("PlayerSpeedSlider", {
     Title = "Set Speed",
     Min = 0,
-    Max = 50,
+    Max = 40,
     Default = ValueSpeed,
     Rounding = 1,
 }):OnChanged(function(value)
