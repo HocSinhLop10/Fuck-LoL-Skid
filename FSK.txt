@@ -588,7 +588,10 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 -- Cấu hình skill cho từng model
 local skillConfig = {
     ["Shedletsky"] = {skillName = "Slash", cooldown = 40},
-    ["TwoTime"] = {skillName = "Dagger", cooldown = 30}
+    ["TwoTime"] = {skillName = "Dagger", cooldown = 30},
+    ["Chance"] = {skillName = "Shoot", cooldown = 40},
+    ["Guest1337"] = {skillName = "Charge", cooldown = 45},
+    ["Dusekkar"] = {skillName = "PlasmaBeam", cooldown = 20}
 }
 
 -- Biến điều khiển
