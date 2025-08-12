@@ -508,6 +508,55 @@ Tabs.Main:AddButton({
 })
 
 
+    Tabs.Main:AddSection("↳ Items")
+
+local Players = game:GetService("Players")
+local LP = Players.LocalPlayer
+
+-- Hàm nhặt item gần nhất
+local function pickUpNearest()
+    local map = workspace:FindFirstChild("Map") 
+                and workspace.Map:FindFirstChild("Ingame") 
+                and workspace.Map.Ingame:FindFirstChild("Map")
+    if not map or not LP.Character or not LP.Character:FindFirstChild("HumanoidRootPart") then return end
+
+    local oldCFrame = LP.Character.HumanoidRootPart.CFrame
+    for _, item in ipairs(map:GetChildren()) do
+        if item:IsA("Tool") and item:FindFirstChild("ItemRoot") 
+           and item.ItemRoot:FindFirstChild("ProximityPrompt") then
+            LP.Character.HumanoidRootPart.CFrame = item.ItemRoot.CFrame
+            task.wait(0.3)
+            fireproximityprompt(item.ItemRoot.ProximityPrompt)
+            task.wait(0.4)
+            LP.Character.HumanoidRootPart.CFrame = oldCFrame
+            break
+        end
+    end
+end
+
+-- Button: Pick Up Item (1 lần)
+Tabs.Main:AddButton({
+    Title = "Pick Up Item",
+    Callback = pickUpNearest
+})
+
+-- Toggle: Auto PickUp Item (lặp)
+Tabs.Main:AddToggle("ItemPick", {
+    Title = "Auto PickUp Item",
+    Default = false
+}):OnChanged(function(Value)
+    _G.PickupItem = Value
+    if not Value then return end
+
+    task.spawn(function()
+        while _G.PickupItem do
+            pickUpNearest()
+            task.wait(0.2) -- delay giữa mỗi lần nhặt
+        end
+    end)
+end)
+
+
 -- Tabs.Player
 
 -- Forsaken Player Aimlock with Fluent GUI Toggle (Fix: Switch to nearest, skip dead)
