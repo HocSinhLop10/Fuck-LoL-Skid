@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Free] | Forsaken",
-    SubTitle = "Version 2.3.2",
+    SubTitle = "Version 2.3.3",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -232,6 +232,8 @@ Tabs.Main:AddToggle("AutoFinishGen", {
 end)
 
 
+
+
 local Players = game:GetService("Players")
 local PFS = game:GetService("PathfindingService")
 local VIM = game:GetService("VirtualInputManager")
@@ -270,6 +272,7 @@ local function isKillerNearGenerator(generatorPos, distance)
     return false
 end
 
+-- Hàm kiểm tra mặt đất
 local function safe(pos)
     local rayParams = RaycastParams.new()
     rayParams.FilterDescendantsInstances = {workspace.Map.Ingame.Map}
@@ -277,7 +280,7 @@ local function safe(pos)
     local rayResult = workspace:Raycast(pos + Vector3.new(0, 5, 0), Vector3.new(0, -10, 0), rayParams)
     if rayResult then
         local yDiff = math.abs(rayResult.Position.Y - pos.Y)
-        return yDiff < 5 
+        return yDiff < 5
     end
     return false
 end
@@ -290,6 +293,7 @@ Tabs.Main:AddToggle("AutoExpMoney", {
 :OnChanged(function(Value)
     _G.AutoFarm = Value
 
+    -- Cập nhật Spectators / InGame
     task.spawn(function()
         while _G.AutoFarm do
             Spectators = {}
@@ -301,6 +305,7 @@ Tabs.Main:AddToggle("AutoExpMoney", {
         end
     end)
 
+    -- Auto sprint nếu đủ stamina
     task.spawn(function()
         while _G.AutoFarm do
             if isInGame and currentCharacter and currentCharacter:FindFirstChild("Humanoid") then
@@ -318,6 +323,7 @@ Tabs.Main:AddToggle("AutoExpMoney", {
         end
     end)
 
+    -- Xác định mình là Killer hay Survivor
     task.spawn(function()
         while _G.AutoFarm do
             if workspace:FindFirstChild("Players") then
@@ -332,13 +338,15 @@ Tabs.Main:AddToggle("AutoExpMoney", {
         end
     end)
 
+    -- Hành động chính
     task.spawn(function()
         task.wait(0.5)
         local killersFolder = workspace.Players:WaitForChild("Killers")
         local survivorsFolder = workspace.Players:WaitForChild("Survivors")
+
         while _G.AutoFarm do
             if Killer then
-                -- Theo dõi và tấn công Survivor
+                -- Theo dõi & tấn công Survivor
                 local target = nil
                 for _, survivor in ipairs(survivorsFolder:GetChildren()) do
                     if survivor:IsA("Model") and survivor:FindFirstChild("HumanoidRootPart") then
@@ -346,10 +354,11 @@ Tabs.Main:AddToggle("AutoExpMoney", {
                         break
                     end
                 end
+
                 if target then
-                    local followingTarget = _G.AutoFarm
+                    -- Dịch chuyển theo target
                     task.spawn(function()
-                        while followingTarget do
+                        while _G.AutoFarm and target and target:IsDescendantOf(survivorsFolder) do
                             local character = LP.Character
                             if character and character:FindFirstChild("HumanoidRootPart") and target:FindFirstChild("HumanoidRootPart") then
                                 character:PivotTo(target.HumanoidRootPart.CFrame)
@@ -357,9 +366,12 @@ Tabs.Main:AddToggle("AutoExpMoney", {
                             task.wait(0.1)
                         end
                     end)
+
+                    -- Tấn công target
                     task.spawn(function()
-                        while target and target:FindFirstChild("HumanoidRootPart") and target:IsDescendantOf(survivorsFolder) do
+                        while _G.AutoFarm and target and target:FindFirstChild("HumanoidRootPart") and target:IsDescendantOf(survivorsFolder) do
                             for _, key in ipairs({Enum.KeyCode.Q, Enum.KeyCode.E, Enum.KeyCode.R}) do
+                                if not _G.AutoFarm then break end
                                 VIM:SendMouseButtonEvent(0, 0, 0, true, game, 0)
                                 task.wait(0.05)
                                 VIM:SendMouseButtonEvent(0, 0, 0, false, game, 0)
@@ -370,20 +382,21 @@ Tabs.Main:AddToggle("AutoExpMoney", {
                             end
                             task.wait(0.8)
                         end
-                        followingTarget = false 
                     end)
                 else
                     task.wait(0.5)
                 end
+
             elseif Survivor then
-                -- Tìm character của mình
                 if isInGame then
+                    -- Lấy character
                     for _, surv in ipairs(survivorsFolder:GetChildren()) do
                         if surv:GetAttribute("Username") == LP.Name then
                             currentCharacter = surv
                             break
                         end
                     end
+
                     -- Check chết thì reset
                     task.spawn(function()
                         while _G.AutoFarm do
@@ -396,13 +409,15 @@ Tabs.Main:AddToggle("AutoExpMoney", {
                             task.wait(0.5)
                         end
                     end)
+
                     -- Làm generator
                     for _, gen in ipairs(workspace.Map.Ingame:WaitForChild("Map"):GetChildren()) do
+                        if not _G.AutoFarm then break end
                         if gen.Name == "Generator" and gen:FindFirstChild("Progress") and gen.Progress.Value ~= 100 then
-                            
+
                             local goalPos = gen:WaitForChild("Positions"):WaitForChild("Right").Position
-                            
-                            -- ⚠️ Anti-Killer check
+
+                            -- Anti-Killer check
                             if isKillerNearGenerator(goalPos, 50) then
                                 print("⚠️ Bỏ qua generator vì killer nguy hiểm ở gần!")
                                 continue
@@ -411,19 +426,22 @@ Tabs.Main:AddToggle("AutoExpMoney", {
                             if currentCharacter and currentCharacter:FindFirstChild("HumanoidRootPart") then
                                 currentCharacter:PivotTo(CFrame.new(goalPos + Vector3.new(0, 2, 0)))
                                 task.wait(0.25)
+
                                 local prompt = gen:FindFirstChild("Main") and gen.Main:FindFirstChild("Prompt")
                                 if prompt then
                                     prompt.HoldDuration = 0
                                     prompt.RequiresLineOfSight = false
                                     prompt.MaxActivationDistance = 99999
                                     task.wait(0.1)
+
                                     pcall(function()
                                         prompt:InputHoldBegin()
                                         prompt:InputHoldEnd()
                                     end)
+
                                     busy = true
                                     counter = 0
-                                    while gen.Progress.Value ~= 100 do
+                                    while _G.AutoFarm and gen.Progress.Value ~= 100 do
                                         pcall(function()
                                             prompt:InputHoldBegin()
                                             prompt:InputHoldEnd()
@@ -447,7 +465,6 @@ Tabs.Main:AddToggle("AutoExpMoney", {
         end
     end)
 end)
-
 
 
 
@@ -1509,6 +1526,35 @@ FogToggle:OnChanged(function(Value)
     end
 end)
 
+
+
+
+    Tabs.Misc:AddSection("↳ Bypass")
+
+Tabs.Misc:AddToggle("AntiAcid", {
+    Title = "Anti Acid",
+    Default = true -- ✅ Mặc định bật
+})
+:OnChanged(function(Value)
+    _G.AntiAcid = Value
+    task.spawn(function()
+        while _G.AntiAcid do
+            local mapFolder = workspace:FindFirstChild("Map") and workspace.Map:FindFirstChild("Ingame") and workspace.Map.Ingame:FindFirstChild("Map")
+            if mapFolder then
+                for _, obj in ipairs(mapFolder:GetChildren()) do
+                    if obj.Name == "AcidContainer" then
+                        for _, acidPart in ipairs(obj:GetChildren()) do
+                            if acidPart:IsA("BasePart") then
+                                acidPart.CanTouch = false
+                            end
+                        end
+                    end
+                end
+            end
+            task.wait()
+        end
+    end)
+end)
 
     Tabs.Misc:AddSection("↳ Show")
 
