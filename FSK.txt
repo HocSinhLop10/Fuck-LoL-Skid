@@ -233,7 +233,6 @@ end)
 
 
 
-
 local Players = game:GetService("Players")
 local PFS = game:GetService("PathfindingService")
 local VIM = game:GetService("VirtualInputManager")
@@ -415,7 +414,9 @@ Tabs.Main:AddToggle("AutoExpMoney", {
                         if not _G.AutoFarm then break end
                         if gen.Name == "Generator" and gen:FindFirstChild("Progress") and gen.Progress.Value ~= 100 then
 
-                            local goalPos = gen:WaitForChild("Positions"):WaitForChild("Right").Position
+                            -- Lấy vị trí phía trước generator
+                            local genCFrame = gen:GetPivot()
+                            local goalPos = (genCFrame * CFrame.new(0, 0, -3)).Position
 
                             -- Anti-Killer check
                             if isKillerNearGenerator(goalPos, 50) then
