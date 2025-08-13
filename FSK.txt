@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Free] | Forsaken",
-    SubTitle = "Version 2.3.8",
+    SubTitle = "Version 2.3.9",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -1436,112 +1436,178 @@ end)
 
 
 
--- ESP Highlight cho model "Generator"
-local RunService = game:GetService("RunService")
-local allowedName = "Generator"
-local highlights = {}
-local espConnections = {}
+-- === ESP Generator (ẩn khi sửa xong) ===
+local EspTab = EspTab or Tabs.Visual or Tabs.Main -- tuỳ lib; nếu đã có EspTab thì giữ nguyên
+local highlights = {}        -- [Model] = Highlight
+local progressConns = {}     -- [Model] = RBXScriptConnection
+local espLoop = nil
+local espEnabled = false
 
--- Tạo highlight cho model nếu chưa sửa xong
-local function createHighlight(model)
-    if not model or highlights[model] then return end
-    if not model:IsA("Model") or model.Name ~= allowedName then return end
+-- Trợ giúp: trả về list generator trong map
+local function getGenerators()
+    local list = {}
+    local mapRoot = workspace:FindFirstChild("Map")
+    local ingame = mapRoot and mapRoot:FindFirstChild("Ingame")
+    local mapFolder = ingame and ingame:FindFirstChild("Map")
 
-    local progress = model:FindFirstChild("Progress")
-    if progress and progress.Value >= 100 then
-        return -- Đã sửa xong => Không highlight
-    end
-
-    local highlight = Instance.new("Highlight")
-    highlight.FillColor = Color3.fromRGB(255, 255, 255)    -- Màu trắng
-    highlight.OutlineColor = Color3.fromRGB(255, 255, 255) -- Viền trắng
-    highlight.FillTransparency = 0.5
-    highlight.OutlineTransparency = 0
-    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-    highlight.Parent = model
-
-    highlights[model] = highlight
-
-    -- Lắng nghe thay đổi progress để tự ẩn/hiện highlight
-    if progress then
-        espConnections[model] = progress:GetPropertyChangedSignal("Value"):Connect(function()
-            if progress.Value >= 100 then
-                removeHighlight(model)
-            else
-                if not highlights[model] then
-                    createHighlight(model)
+    local function scan(root)
+        if not root then return end
+        for _, obj in ipairs(root:GetDescendants()) do
+            if obj:IsA("Model") and obj.Name == "Generator" and obj:FindFirstChild("PrimaryPart") or (obj:IsA("Model") and obj.Name == "Generator" and obj.PrimaryPart) then
+                table.insert(list, obj)
+            elseif obj:IsA("Model") and obj.Name == "Generator" and obj.PrimaryPart == nil then
+                -- cố gắng chọn một part làm PrimaryPart nếu thiếu
+                local hrp = obj:FindFirstChild("HumanoidRootPart") or obj:FindFirstChildWhichIsA("BasePart")
+                if hrp then
+                    pcall(function() obj.PrimaryPart = hrp end)
+                    table.insert(list, obj)
                 end
             end
-        end)
-    end
-end
-
--- Xoá highlight & ngắt kết nối
-function removeHighlight(model)
-    if highlights[model] then
-        highlights[model]:Destroy()
-        highlights[model] = nil
-    end
-    if espConnections[model] then
-        espConnections[model]:Disconnect()
-        espConnections[model] = nil
-    end
-end
-
--- Quét tất cả generator hiện tại
-local function scanWorkspace()
-    for _, obj in ipairs(workspace:GetDescendants()) do
-        if obj:IsA("Model") and obj.Name == allowedName then
-            createHighlight(obj)
         end
     end
+
+    scan(mapFolder or ingame or mapRoot or workspace)
+    return list
 end
 
--- Bắt đầu ESP
-local addedConn, removedConn
+local function isCompleted(gen)
+    local p = gen:FindFirstChild("Progress")
+    return p and tonumber(p.Value) and p.Value >= 100
+end
+
+local function hideHighlight(gen)
+    local h = highlights[gen]
+    if h then h.Enabled = false end
+end
+
+local function ensureHighlight(gen)
+    -- tạo nếu chưa có, đặt Adornee để nhiều model vẫn hiển thị đúng
+    local h = highlights[gen]
+    if not h then
+        h = Instance.new("Highlight")
+        h.Adornee = gen
+        h.FillColor = Color3.fromRGB(255, 255, 255)
+        h.OutlineColor = Color3.fromRGB(255, 255, 255)
+        h.FillTransparency = 0.5
+        h.OutlineTransparency = 0
+        h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+        h.Enabled = true
+        h.Parent = gen -- Parent về chính model để an toàn phạm vi
+        highlights[gen] = h
+    else
+        h.Enabled = true
+    end
+end
+
+local function disconnectProgress(gen)
+    if progressConns[gen] then
+        progressConns[gen]:Disconnect()
+        progressConns[gen] = nil
+    end
+end
+
+local function watchProgress(gen)
+    if progressConns[gen] then return end
+    local p = gen:FindFirstChild("Progress")
+    if not p then return end
+    progressConns[gen] = p.Changed:Connect(function()
+        if not espEnabled then return end
+        if isCompleted(gen) then
+            hideHighlight(gen)
+        else
+            ensureHighlight(gen)
+        end
+    end)
+end
+
+local function cleanupModel(gen)
+    disconnectProgress(gen)
+    if highlights[gen] then
+        highlights[gen]:Destroy()
+        highlights[gen] = nil
+    end
+end
+
 local function startESP()
-    scanWorkspace()
+    if espLoop then return end
+    espEnabled = true
 
-    addedConn = workspace.DescendantAdded:Connect(function(obj)
-        if obj:IsA("Model") and obj.Name == allowedName then
-            createHighlight(obj)
+    -- vòng quét dự phòng: đồng bộ trạng thái mỗi 0.5s (fix chỉ hiện 1 model)
+    espLoop = task.spawn(function()
+        while espEnabled do
+            for _, gen in ipairs(getGenerators()) do
+                if isCompleted(gen) then
+                    hideHighlight(gen)
+                else
+                    ensureHighlight(gen)
+                end
+                watchProgress(gen)
+            end
+
+            -- dọn rác: nếu generator biến mất
+            for gen,_ in pairs(highlights) do
+                if not gen:IsDescendantOf(workspace) then
+                    cleanupModel(gen)
+                end
+            end
+            task.wait(0.5)
         end
     end)
 
-    removedConn = workspace.DescendantRemoving:Connect(function(obj)
-        removeHighlight(obj)
+    -- Theo dõi spawn/remove generator để phản ứng nhanh
+    workspace.DescendantAdded:Connect(function(obj)
+        if not espEnabled then return end
+        if obj:IsA("Model") and obj.Name == "Generator" then
+            task.defer(function()
+                if isCompleted(obj) then
+                    hideHighlight(obj)
+                else
+                    ensureHighlight(obj)
+                end
+                watchProgress(obj)
+            end)
+        end
+    end)
+
+    workspace.DescendantRemoving:Connect(function(obj)
+        if highlights[obj] or progressConns[obj] then
+            cleanupModel(obj)
+        end
     end)
 end
 
--- Dừng ESP
 local function stopESP()
-    if addedConn then addedConn:Disconnect() addedConn = nil end
-    if removedConn then removedConn:Disconnect() removedConn = nil end
-
-    for model, hl in pairs(highlights) do
-        hl:Destroy()
+    espEnabled = false
+    if espLoop then
+        task.cancel(espLoop)
+        espLoop = nil
     end
-    table.clear(highlights)
-
-    for model, conn in pairs(espConnections) do
-        conn:Disconnect()
+    -- huỷ sạch để toggle lại không lỗi
+    for gen,_ in pairs(progressConns) do
+        disconnectProgress(gen)
     end
-    table.clear(espConnections)
+    for gen,_ in pairs(highlights) do
+        cleanupModel(gen)
+    end
 end
 
--- ==========================
--- TÍCH HỢP FLUENT GUI Toggle
--- ==========================
+-- ===== Toggle Fluent =====
 Tabs.Visual:AddToggle("ESPGeneratorToggle", {
     Title = "ESP Generator",
     Default = false,
-}):OnChanged(function(enabled)
-    if enabled then
-        startESP()
-    else
-        stopESP()
+    Callback = function(enabled)
+        local ok, err = pcall(function()
+            if enabled then
+                startESP()
+            else
+                stopESP()
+            end
+        end)
+        if not ok then
+            warn("[ESP Generator] Callback error: ", err)
+        end
     end
-end)
+})
 
 
 
