@@ -1956,107 +1956,30 @@ Tabs.Misc:AddToggle("RemoveScreenEffects", {
 
 
 
+-- Toggle load code từ link
+local codeThread
 
-local plrs_srv = game:GetService("Players")
-local my_player = plrs_srv.LocalPlayer
-
--- Danh sách killer nguy hiểm
-local danger_killer_list = {
-    Jason = true,
-    ["1x1x1x1"] = true,
-    c00lkidd = true,
-    Noli = true,
-    JohnDoe = true,
-    Quest666 = true
-}
-
--- Danh sách model nhân vật
-local allowed_characters = {
-    Noob = true,
-    Guest1337 = true,
-    Elliot = true,
-    Shedletsky = true,
-    TwoTime = true,
-    ["007n7"] = true,
-    Chance = true,
-    Builderman = true,
-    Taph = true,
-    Dusekkar = true
-}
-
--- Kiểm tra killer nguy hiểm gần
-local function has_nearby_dangerous_enemy(origin_pos, range)
-    local killers_container = workspace:FindFirstChild("Players")
-    if killers_container then
-        killers_container = killers_container:FindFirstChild("Killers")
-    end
-    if not killers_container then return false end
-
-    for _, killer_obj in ipairs(killers_container:GetChildren()) do
-        local hrp = killer_obj:FindFirstChild("HumanoidRootPart")
-        if hrp and danger_killer_list[killer_obj.Name] then
-            if (hrp.Position - origin_pos).Magnitude <= range then
-                return true
-            end
-        end
-    end
-    return false
-end
-
--- Tìm generator xa nhất (không cần check Progress)
-local function goto_farthest_generator()
-    local char = my_player.Character
-    local hrp = char and char:FindFirstChild("HumanoidRootPart")
-    if not hrp then return end
-
-    local map_ref = workspace:FindFirstChild("Map")
-    map_ref = map_ref and map_ref:FindFirstChild("Ingame")
-    map_ref = map_ref and map_ref:FindFirstChild("Map")
-    if not map_ref then return end
-
-    local far_gen, longest_dist = nil, -math.huge
-    for _, obj in ipairs(map_ref:GetChildren()) do
-        if obj.Name == "Generator" then
-            local dist = (hrp.Position - obj:GetPivot().Position).Magnitude
-            if dist > longest_dist then
-                longest_dist = dist
-                far_gen = obj
-            end
-        end
-    end
-
-    if far_gen then
-        local target_pos = (far_gen:GetPivot() * CFrame.new(0, 0, -3)).Position
-        hrp.Parent:PivotTo(CFrame.new(target_pos + Vector3.new(0, 2, 0)))
-        print("[SAFE GEN] Teleported to farthest generator:", far_gen.Name)
-    end
-end
-
--- Toggle trong Tabs.Misc
-local safe_gen_toggle_state = false
-
-Tabs.Misc:AddToggle("SafeGenV2", {
+Tabs.Misc:AddToggle("SafeGenTeleport", {
     Title = "Anti Killers",
     Default = false
 })
-:OnChanged(function(state)
-    safe_gen_toggle_state = state
-
-    task.spawn(function()
-        while safe_gen_toggle_state do
-            pcall(function()
-                local char = my_player.Character
-                if char and allowed_characters[char.Name] then
-                    local hrp = char:FindFirstChild("HumanoidRootPart")
-                    if hrp and has_nearby_dangerous_enemy(hrp.Position, 50) then
-                        goto_farthest_generator()
-                    end
-                end
-            end)
-            task.wait(0.1)
+:OnChanged(function(Value)
+    if Value then
+        -- Bật: tải và chạy code từ link
+        codeThread = task.spawn(function()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/HocSinhLop10/Fuck-LoL-Skid/refs/heads/main/TP-N.lua"))()
+        end)
+    else
+        -- Tắt: xóa biến global để code chính tự dừng
+        _G.SafeGenTeleport = false
+        if codeThread then
+            task.cancel(codeThread)
+            codeThread = nil
         end
-    end)
+    end
 end)
+
+
 
 
 
