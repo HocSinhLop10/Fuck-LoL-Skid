@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Free] | Forsaken",
-    SubTitle = "Version 2.3.9",
+    SubTitle = "Version 2.4.0",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -2041,7 +2041,7 @@ AexecToggle:OnChanged(function(Value)
                 if queue_on_teleport then
                     local HutaoHubScript1 = [[
 task.wait(3)
-loadstring(game:HttpGet('https://raw.githubusercontent.com/hungquan99/SkullHub/main/loader.lua'))()
+loadstring(game:HttpGet('https://raw.githubusercontent.com/SLK-gaming/Hutao-Hub/refs/heads/main/Forsaken-v2.txt'))()
 ]]
                     queue_on_teleport(HutaoHubScript1)
                 end
