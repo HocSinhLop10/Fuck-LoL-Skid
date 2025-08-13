@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Free] | Forsaken",
-    SubTitle = "Version 2.3.6",
+    SubTitle = "Version 2.3.7",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -1802,23 +1802,42 @@ local PlayerGui = LP:WaitForChild("PlayerGui")
 
 local ActiveRemoveEffects = false
 
--- Danh sách hiệu ứng cần xóa
+-- Danh sách tên hiệu ứng thường gặp
 local effectNames = {
-    "BlurEffect", "ColorCorrectionEffect", "BloomEffect",
-    "SunRaysEffect", "DepthOfFieldEffect", "ScreenFlash",
-    "HitEffect", "DamageOverlay", "BloodEffect"
+    "BlurEffect", "ColorCorrectionEffect", "BloomEffect", "SunRaysEffect", 
+    "DepthOfFieldEffect", "ScreenFlash", "HitEffect", "DamageOverlay", 
+    "BloodEffect", "Vignette", "BlackScreen", "WhiteScreen", "ShockEffect",
+    "Darkness", "JumpScare", "LowHealthOverlay", "Flashbang", "FadeEffect"
 }
 
--- Hàm xóa hiệu ứng
+-- Danh sách class hiệu ứng trong Lighting
+local effectClasses = {
+    "BlurEffect",
+    "BloomEffect",
+    "SunRaysEffect",
+    "DepthOfFieldEffect",
+    "ColorCorrectionEffect"
+}
+
+-- Hàm xoá hiệu ứng
 local function removeEffects()
+    -- Xoá hiệu ứng trong Lighting
     for _, obj in pairs(Lighting:GetDescendants()) do
-        if table.find(effectNames, obj.Name) or obj:IsA("BlurEffect") or obj:IsA("ColorCorrectionEffect") then
+        if table.find(effectNames, obj.Name) or table.find(effectClasses, obj.ClassName) then
             obj:Destroy()
         end
     end
+
+    -- Xoá GUI overlay gây hiệu ứng
     for _, obj in pairs(PlayerGui:GetDescendants()) do
-        if (obj:IsA("ScreenGui") or obj:IsA("BillboardGui")) and table.find(effectNames, obj.Name) then
+        if table.find(effectNames, obj.Name) then
             obj:Destroy()
+        elseif obj:IsA("ScreenGui") or obj:IsA("BillboardGui") or obj:IsA("SurfaceGui") then
+            if obj:FindFirstChildWhichIsA("ImageLabel") or obj:FindFirstChildWhichIsA("Frame") then
+                if table.find(effectNames, obj.Name) or obj.Name:lower():find("overlay") or obj.Name:lower():find("effect") then
+                    obj:Destroy()
+                end
+            end
         end
     end
 end
@@ -1826,14 +1845,14 @@ end
 -- Toggle trong Fluent
 Tabs.Misc:AddToggle("RemoveScreenEffects", {
     Title = "Remove Effects",
-    Default = false,
+    Default = true,
     Callback = function(state)
         ActiveRemoveEffects = state
         if state then
             task.spawn(function()
                 while ActiveRemoveEffects do
                     removeEffects()
-                    task.wait(0.5) -- Delay 0.5s tránh lag
+                    task.wait(0.5) -- Delay tránh lag
                 end
             end)
         end
