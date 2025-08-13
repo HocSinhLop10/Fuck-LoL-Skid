@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Free] | Forsaken",
-    SubTitle = "Version 2.3.7",
+    SubTitle = "Version 2.3.8",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -1440,33 +1440,55 @@ end)
 local RunService = game:GetService("RunService")
 local allowedName = "Generator"
 local highlights = {}
-local espConnection, addedConn, removedConn
+local espConnections = {}
 
--- Tạo highlight cho model
+-- Tạo highlight cho model nếu chưa sửa xong
 local function createHighlight(model)
     if not model or highlights[model] then return end
-    if not model:IsA("Model") then return end
+    if not model:IsA("Model") or model.Name ~= allowedName then return end
+
+    local progress = model:FindFirstChild("Progress")
+    if progress and progress.Value >= 100 then
+        return -- Đã sửa xong => Không highlight
+    end
 
     local highlight = Instance.new("Highlight")
     highlight.FillColor = Color3.fromRGB(255, 255, 255)    -- Màu trắng
     highlight.OutlineColor = Color3.fromRGB(255, 255, 255) -- Viền trắng
-    highlight.FillTransparency = 0.5                       -- Độ trong suốt bên trong
-    highlight.OutlineTransparency = 0                      -- Viền rõ nét
+    highlight.FillTransparency = 0.5
+    highlight.OutlineTransparency = 0
     highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
     highlight.Parent = model
 
     highlights[model] = highlight
+
+    -- Lắng nghe thay đổi progress để tự ẩn/hiện highlight
+    if progress then
+        espConnections[model] = progress:GetPropertyChangedSignal("Value"):Connect(function()
+            if progress.Value >= 100 then
+                removeHighlight(model)
+            else
+                if not highlights[model] then
+                    createHighlight(model)
+                end
+            end
+        end)
+    end
 end
 
--- Xoá highlight
-local function removeHighlight(model)
+-- Xoá highlight & ngắt kết nối
+function removeHighlight(model)
     if highlights[model] then
         highlights[model]:Destroy()
         highlights[model] = nil
     end
+    if espConnections[model] then
+        espConnections[model]:Disconnect()
+        espConnections[model] = nil
+    end
 end
 
--- Quét tất cả model hiện tại
+-- Quét tất cả generator hiện tại
 local function scanWorkspace()
     for _, obj in ipairs(workspace:GetDescendants()) do
         if obj:IsA("Model") and obj.Name == allowedName then
@@ -1476,6 +1498,7 @@ local function scanWorkspace()
 end
 
 -- Bắt đầu ESP
+local addedConn, removedConn
 local function startESP()
     scanWorkspace()
 
@@ -1486,9 +1509,7 @@ local function startESP()
     end)
 
     removedConn = workspace.DescendantRemoving:Connect(function(obj)
-        if highlights[obj] then
-            removeHighlight(obj)
-        end
+        removeHighlight(obj)
     end)
 end
 
@@ -1501,6 +1522,11 @@ local function stopESP()
         hl:Destroy()
     end
     table.clear(highlights)
+
+    for model, conn in pairs(espConnections) do
+        conn:Disconnect()
+    end
+    table.clear(espConnections)
 end
 
 -- ==========================
