@@ -590,7 +590,7 @@ local skillConfig = {
     ["Shedletsky"] = {skillName = "Slash", cooldown = 40},
     ["TwoTime"] = {skillName = "Dagger", cooldown = 30},
     ["Chance"] = {skillName = "Shoot", cooldown = 40},
-    ["Guest1337"] = {skillName = "Charge", cooldown = 45},
+    ["Guest1337"] = {skillName = "Punch", cooldown = 0.5},
     ["Dusekkar"] = {skillName = "PlasmaBeam", cooldown = 20}
 }
 
