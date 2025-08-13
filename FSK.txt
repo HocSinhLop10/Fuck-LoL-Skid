@@ -622,7 +622,7 @@ local function GetClosestKiller()
     return closest
 end
 
--- Hàm tấn công mục tiêu
+-- Hàm tấn công mục tiêu (spam skill + teleport)
 local function AttackTarget(target, skillName)
     if not target then return end
     local localChar = LocalPlayer.Character
@@ -638,23 +638,26 @@ local function AttackTarget(target, skillName)
         -- Lưu vị trí ban đầu
         local savedPosition = localChar.HumanoidRootPart.CFrame
 
-        -- Gọi skill
+        -- Lấy remote skill
         local remote = ReplicatedStorage:FindFirstChild("Modules")
             and ReplicatedStorage.Modules:FindFirstChild("Network")
             and ReplicatedStorage.Modules.Network:FindFirstChild("RemoteEvent")
-        if remote and typeof(remote.FireServer) == "function" then
-            remote:FireServer("UseActorAbility", skillName)
-        end
 
-        -- Spam teleport trong castTime
+        -- Spam teleport + skill trong castTime
         local startTime = tick()
         while tick() - startTime < config.castTime and Active do
             if target and target:FindFirstChild("HumanoidRootPart") then
+                -- Teleport đến mục tiêu
                 localChar.HumanoidRootPart.CFrame = target.HumanoidRootPart.CFrame
+
+                -- Spam skill
+                if remote and typeof(remote.FireServer) == "function" then
+                    remote:FireServer("UseActorAbility", skillName)
+                end
             else
                 break
             end
-            task.wait(0.05)
+            task.wait(0.05) -- spam nhanh nhưng tránh crash
         end
 
         -- Quay lại chỗ cũ
@@ -664,7 +667,7 @@ local function AttackTarget(target, skillName)
     end
 end
 
--- Vòng lặp Auto
+-- Vòng lặp Auto Attack
 local function StartLoop()
     if loopRunning then return end
     loopRunning = true
@@ -674,9 +677,14 @@ local function StartLoop()
             if char and skillConfig[char.Name] then
                 currentModelName = char.Name
                 local skillName = skillConfig[char.Name].skillName
-                if not CurrentTarget or not CurrentTarget.Parent or not CurrentTarget:FindFirstChildOfClass("Humanoid") or CurrentTarget:FindFirstChildOfClass("Humanoid").Health <= 0 then
+
+                -- Lấy mục tiêu mới nếu mục tiêu cũ chết/mất
+                if not CurrentTarget or not CurrentTarget.Parent
+                    or not CurrentTarget:FindFirstChildOfClass("Humanoid")
+                    or CurrentTarget:FindFirstChildOfClass("Humanoid").Health <= 0 then
                     CurrentTarget = GetClosestKiller()
                 end
+
                 if CurrentTarget then
                     AttackTarget(CurrentTarget, skillName)
                 end
