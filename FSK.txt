@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Free] | Forsaken",
-    SubTitle = "Version 2.4.3",
+    SubTitle = "Version 2.4.4",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -1889,33 +1889,6 @@ end)
 
     Tabs.Misc:AddSection("↳ Bypass")
 
-Tabs.Misc:AddToggle("AntiAcid", {
-    Title = "Anti Acid",
-    Default = true -- ✅ Mặc định bật
-})
-:OnChanged(function(Value)
-    _G.AntiAcid = Value
-    task.spawn(function()
-        while _G.AntiAcid do
-            local mapFolder = workspace:FindFirstChild("Map") and workspace.Map:FindFirstChild("Ingame") and workspace.Map.Ingame:FindFirstChild("Map")
-            if mapFolder then
-                for _, obj in ipairs(mapFolder:GetChildren()) do
-                    if obj.Name == "AcidContainer" then
-                        for _, acidPart in ipairs(obj:GetChildren()) do
-                            if acidPart:IsA("BasePart") then
-                                acidPart.CanTouch = false
-                            end
-                        end
-                    end
-                end
-            end
-            task.wait()
-        end
-    end)
-end)
-
-
-
 
 local Lighting = game:GetService("Lighting")
 local Players = game:GetService("Players")
@@ -1983,8 +1956,6 @@ Tabs.Misc:AddToggle("RemoveScreenEffects", {
 
 
 
-
--- ==== NEW SAFE GENERATOR TELEPORT ====
 
 local plrs_srv = game:GetService("Players")
 local my_player = plrs_srv.LocalPlayer
