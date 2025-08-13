@@ -1961,9 +1961,28 @@ local Terrain = workspace:FindFirstChildOfClass("Terrain")
 local ultraEnabled = false
 local lowEnabled = false
 
--- Hàm bật Ultra Graphics (PC-like)
-local function enableUltra()
-    settings().Rendering.QualityLevel = Enum.QualityLevel.Automatic
+-- Lưu Lighting gốc
+local originalSettings = {}
+for _, prop in ipairs({"GlobalShadows", "ShadowSoftness", "Brightness", "Ambient",
+    "EnvironmentSpecularScale", "EnvironmentDiffuseScale"}) do
+    originalSettings[prop] = Lighting[prop]
+end
+
+-- Skybox HDR đẹp
+local function applySkybox()
+    local sky = Instance.new("Sky", Lighting)
+    sky.SkyboxBk = "http://www.roblox.com/asset/?id=169210149"
+    sky.SkyboxDn = "http://www.roblox.com/asset/?id=169210133"
+    sky.SkyboxFt = "http://www.roblox.com/asset/?id=169210152"
+    sky.SkyboxLf = "http://www.roblox.com/asset/?id=169210143"
+    sky.SkyboxRt = "http://www.roblox.com/asset/?id=169210147"
+    sky.SkyboxUp = "http://www.roblox.com/asset/?id=169210155"
+    sky.SunAngularSize = 11
+    sky.MoonAngularSize = 0
+end
+
+-- Bật Ultra 4K
+local function enableUltra4K()
     Lighting.GlobalShadows = true
     Lighting.ShadowSoftness = 1
     Lighting.Brightness = 3
@@ -1972,39 +1991,37 @@ local function enableUltra()
     Lighting.Ambient = Color3.fromRGB(128, 128, 128)
 
     if Terrain then
-        Terrain.WaterWaveSize = 0.15
-        Terrain.WaterWaveSpeed = 12
+        Terrain.WaterWaveSize = 0.2
+        Terrain.WaterWaveSpeed = 15
         Terrain.WaterReflectance = 1
         Terrain.WaterTransparency = 0
     end
 
+    applySkybox()
+
     local bloom = Instance.new("BloomEffect", Lighting)
-    bloom.Intensity = 0.5
+    bloom.Intensity = 0.7
     bloom.Size = 56
     bloom.Threshold = 0.8
 
     local cc = Instance.new("ColorCorrectionEffect", Lighting)
-    cc.Saturation = 0.15
-    cc.Contrast = 0.1
-    cc.Brightness = 0.05
+    cc.Saturation = 0.3
+    cc.Contrast = 0.2
+    cc.Brightness = 0.1
 
     local sun = Instance.new("SunRaysEffect", Lighting)
-    sun.Intensity = 0.2
-    sun.Spread = 0.8
+    sun.Intensity = 0.25
+    sun.Spread = 0.7
+
+    local dof = Instance.new("DepthOfFieldEffect", Lighting)
+    dof.FarIntensity = 0.2
+    dof.FocusDistance = 50
+    dof.InFocusRadius = 20
+    dof.NearIntensity = 0.05
 end
 
--- Tắt Ultra
-local function disableUltra()
-    for _, obj in ipairs(Lighting:GetChildren()) do
-        if obj:IsA("BloomEffect") or obj:IsA("ColorCorrectionEffect") or obj:IsA("SunRaysEffect") then
-            obj:Destroy()
-        end
-    end
-end
-
--- Hàm bật Low Graphics (Mobile-like)
+-- Bật Low Graphics
 local function enableLow()
-    settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
     Lighting.GlobalShadows = false
     Lighting.ShadowSoftness = 0
     Lighting.Brightness = 1
@@ -2019,19 +2036,33 @@ local function enableLow()
         Terrain.WaterTransparency = 1
     end
 
-    -- Xóa toàn bộ hiệu ứng
     for _, obj in ipairs(Lighting:GetChildren()) do
-        if obj:IsA("PostEffect") or obj:IsA("BloomEffect") or obj:IsA("ColorCorrectionEffect") or obj:IsA("SunRaysEffect") then
+        if obj:IsA("PostEffect") or obj:IsA("Sky") then
             obj:Destroy()
         end
     end
+end
 
-    -- Giảm texture
-    settings().Rendering.TextureQuality = Enum.TextureQualityLevel.Low
+-- Restore mặc định
+local function restoreDefaults()
+    for k, v in pairs(originalSettings) do
+        Lighting[k] = v
+    end
+    if Terrain then
+        Terrain.WaterWaveSize = 0.1
+        Terrain.WaterWaveSpeed = 10
+        Terrain.WaterReflectance = 0.5
+        Terrain.WaterTransparency = 0.3
+    end
+    for _, obj in ipairs(Lighting:GetChildren()) do
+        if obj:IsA("PostEffect") or obj:IsA("Sky") then
+            obj:Destroy()
+        end
+    end
 end
 
 -- Toggle Fluent
-Tabs.Misc:AddToggle("UltraGraphicsToggle", {
+Tabs.Misc:AddToggle("Ultra4KToggle", {
     Title = "Ultra Graphics",
     Default = false,
     Callback = function(state)
@@ -2039,11 +2070,12 @@ Tabs.Misc:AddToggle("UltraGraphicsToggle", {
             ultraEnabled = true
             if lowEnabled then
                 lowEnabled = false
+                restoreDefaults()
             end
-            enableUltra()
+            enableUltra4K()
         else
             ultraEnabled = false
-            disableUltra()
+            restoreDefaults()
         end
     end
 })
@@ -2056,11 +2088,12 @@ Tabs.Misc:AddToggle("LowGraphicsToggle", {
             lowEnabled = true
             if ultraEnabled then
                 ultraEnabled = false
-                disableUltra()
+                restoreDefaults()
             end
             enableLow()
         else
             lowEnabled = false
+            restoreDefaults()
         end
     end
 })
