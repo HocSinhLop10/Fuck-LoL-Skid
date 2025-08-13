@@ -1982,77 +1982,44 @@ Tabs.Misc:AddToggle("RemoveScreenEffects", {
 })
 
 
+-- ===================== AUTO TP TOGGLE (FLUENT ONLY) =====================
+_G.AutoTP_AntiKiller = _G.AutoTP_AntiKiller or false
 
-local Players = game:GetService("Players")
-local LP = Players.LocalPlayer
-
-_G.AutoTP_AntiKiller = _G.AutoTP_AntiKiller or false -- mặc định tắt
-
--- =================== UI TOGGLE COMPAT WRAPPER ===================
-local function attachToggleIfPossible()
-    local ok = false
+-- Gắn toggle vào Fluent (chỉ khi Tabs.Misc có sẵn)
+local function attachFluentToggle()
     if typeof(Tabs) == "table" and Tabs.Misc then
-        -- Pattern A: Fluent style: AddToggle("Id", {Title=..., Default=...}):OnChanged(cb)
-        ok = pcall(function()
-            local t = Tabs.Misc:AddToggle("AutoTP_AntiKiller", {
-                Title = "Auto Teleport (Anti Killer)",
-                Default = _G.AutoTP_AntiKiller
-            })
-            if t and typeof(t.OnChanged) == "function" then
-                t:OnChanged(function(v) _G.AutoTP_AntiKiller = v end)
-            else
-                -- một số bản trả về object không có :OnChanged -> bỏ qua, sẽ thử pattern khác
-                ok = false
-            end
+        local toggle = Tabs.Misc:AddToggle("AutoTP_AntiKiller", {
+            Title = "Auto Teleport (Anti Killer)",
+            Default = _G.AutoTP_AntiKiller
+        })
+        toggle:OnChanged(function(v)
+            _G.AutoTP_AntiKiller = v
         end)
-        if ok then return end
-
-        -- Pattern B: Rayfield-like: AddToggle({Title=..., Default=..., Callback=function(v) end})
-        ok = pcall(function()
-            Tabs.Misc:AddToggle({
-                Title = "Anti Killers",
-                Default = _G.AutoTP_AntiKiller,
-                Callback = function(v) _G.AutoTP_AntiKiller = v end
-            })
-        end)
-        if ok then return end
-
-        -- Pattern C: CreateToggle({Name/CurrentValue/Flag/Callback})
-        ok = pcall(function()
-            local Toggle = Tabs.Misc:CreateToggle({
-                Name = "Auto Teleport (Anti Killer)",
-                CurrentValue = _G.AutoTP_AntiKiller,
-                Flag = "AutoTP_AntiKiller",
-                Callback = function(v) _G.AutoTP_AntiKiller = v end
-            })
-        end)
-        if ok then return end
-    end
-
-    -- Fallback: không có Tabs.Misc hoặc cả 3 pattern đều fail → không crash
-    if not ok then
-        warn("[AutoTP] Không tìm thấy Tabs.Misc hoặc API toggle không khớp. Tự bật AutoTP. Đặt _G.AutoTP_AntiKiller=false để tắt.")
-        _G.AutoTP_AntiKiller = true
+        print("[AutoTP] Toggle đã gắn vào Fluent.")
+    else
+        warn("[AutoTP] Tabs.Misc chưa sẵn sàng, vui lòng tạo GUI Fluent trước khi chạy script này.")
     end
 end
 
--- gọi sau khi bạn đã tạo Tabs.Misc ở code GUI của bạn
-task.defer(attachToggleIfPossible)
--- =================== /UI TOGGLE COMPAT WRAPPER ===================
+-- Gọi ngay khi load script
+attachFluentToggle()
+-- ===================== /AUTO TP TOGGLE =====================
 
--- Survivors
+
+-- ===================== LOGIC TELEPORT =====================
+local Players = game:GetService("Players")
+local LP = Players.LocalPlayer
+
 local SurvivorsList = {
     ["Noob"] = true, ["Guest1337"] = true, ["Elliot"] = true,
     ["Shedletsky"] = true, ["TwoTime"] = true, ["007n7"] = true,
     ["Chance"] = true, ["Builderman"] = true, ["Taph"] = true, ["Dusekkar"] = true
 }
--- Killers
 local KillersList = {
     ["Jason"] = true, ["1x1x1x1"] = true, ["c00lkidd"] = true,
     ["Noli"] = true, ["JohnDoe"] = true, ["Quest666"] = true
 }
 
--- Vai trò hiện tại (dựa trên model bạn hóa thân)
 local function getRole()
     local char = LP.Character
     if not char or not char.Name then return nil end
@@ -2061,7 +2028,6 @@ local function getRole()
     return nil
 end
 
--- Lấy killers đang có
 local function getKillers()
     local killers = {}
     local kFolder = workspace:FindFirstChild("Players") and workspace.Players:FindFirstChild("Killers")
@@ -2075,7 +2041,6 @@ local function getKillers()
     return killers
 end
 
--- Killer trong bán kính
 local function isKillerNear(pos, radius)
     for _, killer in ipairs(getKillers()) do
         local hrp = killer:FindFirstChild("HumanoidRootPart")
@@ -2086,7 +2051,6 @@ local function isKillerNear(pos, radius)
     return false
 end
 
--- Generator xa nhất, còn chưa xong
 local function getFurthestGenerator(fromPos)
     local mapFolder = workspace:FindFirstChild("Map")
         and workspace.Map:FindFirstChild("Ingame")
@@ -2107,7 +2071,6 @@ local function getFurthestGenerator(fromPos)
     return best
 end
 
--- Teleport tới trước generator một chút
 local function tpToGenerator(gen)
     local char = LP.Character
     if not gen or not char then return end
@@ -2117,7 +2080,15 @@ local function tpToGenerator(gen)
     char:PivotTo(CFrame.new(goalPos + Vector3.new(0, 2, 0)))
 end
 
--- Main loop (0.5s/lần)
+local lastTP = 0
+local function canTP()
+    if time() - lastTP >= 1.2 then
+        lastTP = time()
+        return true
+    end
+    return false
+end
+
 task.spawn(function()
     while task.wait(0.5) do
         if _G.AutoTP_AntiKiller and getRole() == "Survivor" then
@@ -2125,14 +2096,14 @@ task.spawn(function()
             local hrp = char and char:FindFirstChild("HumanoidRootPart")
             if hrp and isKillerNear(hrp.Position, 50) then
                 local farGen = getFurthestGenerator(hrp.Position)
-                if farGen then
+                if farGen and canTP() then
                     tpToGenerator(farGen)
                 end
             end
         end
     end
 end)
-
+-- ===================== /LOGIC TELEPORT =====================
 
 
     Tabs.Misc:AddSection("↳ graphics")
