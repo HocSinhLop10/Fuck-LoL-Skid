@@ -1951,6 +1951,112 @@ Tabs.Misc:AddToggle("RemoveScreenEffects", {
     end
 })
 
+
+
+    Tabs.Misc:AddSection("↳ graphics")
+
+local Lighting = game:GetService("Lighting")
+local RunService = game:GetService("RunService")
+
+local ultraEnabled = false
+local lowEnabled = false
+
+-- Hàm bật Ultra Graphics
+local function enableUltra()
+    -- Tăng chất lượng render
+    settings().Rendering.QualityLevel = Enum.QualityLevel.Level21 -- Max Quality
+    Lighting.GlobalShadows = true
+    Lighting.ShadowSoftness = 1
+    Lighting.Ambient = Color3.fromRGB(105, 105, 105)
+    Lighting.Brightness = 3
+    Lighting.EnvironmentSpecularScale = 1
+    Lighting.EnvironmentDiffuseScale = 1
+
+    -- Thêm hiệu ứng đẹp
+    local bloom = Instance.new("BloomEffect", Lighting)
+    bloom.Intensity = 0.3
+    bloom.Size = 24
+    bloom.Threshold = 0.8
+
+    local cc = Instance.new("ColorCorrectionEffect", Lighting)
+    cc.Saturation = 0.1
+    cc.Contrast = 0.05
+
+    local sun = Instance.new("SunRaysEffect", Lighting)
+    sun.Intensity = 0.15
+end
+
+-- Hàm tắt Ultra Graphics
+local function disableUltra()
+    for _, obj in ipairs(Lighting:GetChildren()) do
+        if obj:IsA("BloomEffect") or obj:IsA("ColorCorrectionEffect") or obj:IsA("SunRaysEffect") then
+            obj:Destroy()
+        end
+    end
+end
+
+-- Hàm bật Low Graphics
+local function enableLow()
+    settings().Rendering.QualityLevel = Enum.QualityLevel.Level01 -- Min Quality
+    Lighting.GlobalShadows = false
+    Lighting.ShadowSoftness = 0
+    Lighting.Ambient = Color3.fromRGB(255, 255, 255)
+    Lighting.Brightness = 1
+    Lighting.EnvironmentSpecularScale = 0
+    Lighting.EnvironmentDiffuseScale = 0
+
+    -- Xóa tất cả hiệu ứng
+    for _, obj in ipairs(Lighting:GetChildren()) do
+        if obj:IsA("PostEffect") or obj:IsA("BloomEffect") or obj:IsA("ColorCorrectionEffect") or obj:IsA("SunRaysEffect") then
+            obj:Destroy()
+        end
+    end
+end
+
+-- Hàm tắt Low Graphics
+local function disableLow()
+    -- Không cần làm gì đặc biệt, chỉ bật lại Ultra hoặc mặc định
+end
+
+-- Toggle Fluent
+Tabs.Misc:AddToggle("UltraGraphicsToggle", {
+    Title = "Ultra Graphics",
+    Default = false,
+    Callback = function(state)
+        if state then
+            ultraEnabled = true
+            lowEnabled = false
+            disableLow()
+            enableUltra()
+            -- Tắt toggle Low Graphics
+            library.flags.LowGraphicsToggle = false
+        else
+            ultraEnabled = false
+            disableUltra()
+        end
+    end
+})
+
+Tabs.Misc:AddToggle("LowGraphicsToggle", {
+    Title = "Low Graphics",
+    Default = false,
+    Callback = function(state)
+        if state then
+            lowEnabled = true
+            ultraEnabled = false
+            disableUltra()
+            enableLow()
+            -- Tắt toggle Ultra Graphics
+            library.flags.UltraGraphicsToggle = false
+        else
+            lowEnabled = false
+            disableLow()
+        end
+    end
+})
+
+
+
     Tabs.Misc:AddSection("↳ Show")
 
 -- FPS + Ping Drawing Setup
