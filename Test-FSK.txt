@@ -1982,128 +1982,101 @@ Tabs.Misc:AddToggle("RemoveScreenEffects", {
 })
 
 
--- ===================== AUTO TP TOGGLE (FLUENT ONLY) =====================
-_G.AutoTP_AntiKiller = _G.AutoTP_AntiKiller or false
-
--- Gắn toggle vào Fluent (chỉ khi Tabs.Misc có sẵn)
-local function attachFluentToggle()
-    if typeof(Tabs) == "table" and Tabs.Misc then
-        local toggle = Tabs.Misc:AddToggle("AutoTP_AntiKiller", {
-            Title = "Auto Teleport (Anti Killer)",
-            Default = _G.AutoTP_AntiKiller
-        })
-        toggle:OnChanged(function(v)
-            _G.AutoTP_AntiKiller = v
-        end)
-        print("[AutoTP] Toggle đã gắn vào Fluent.")
-    else
-        warn("[AutoTP] Tabs.Misc chưa sẵn sàng, vui lòng tạo GUI Fluent trước khi chạy script này.")
-    end
-end
-
--- Gọi ngay khi load script
-attachFluentToggle()
--- ===================== /AUTO TP TOGGLE =====================
-
-
--- ===================== LOGIC TELEPORT =====================
 local Players = game:GetService("Players")
 local LP = Players.LocalPlayer
 
-local SurvivorsList = {
-    ["Noob"] = true, ["Guest1337"] = true, ["Elliot"] = true,
-    ["Shedletsky"] = true, ["TwoTime"] = true, ["007n7"] = true,
-    ["Chance"] = true, ["Builderman"] = true, ["Taph"] = true, ["Dusekkar"] = true
+-- Danh sách killer nguy hiểm
+local DangerousKillers = {
+    ["Jason"] = true,
+    ["1x1x1x1"] = true,
+    ["c00lkidd"] = true,
+    ["Noli"] = true,
+    ["JohnDoe"] = true,
+    ["Quest666"] = true
 }
-local KillersList = {
-    ["Jason"] = true, ["1x1x1x1"] = true, ["c00lkidd"] = true,
-    ["Noli"] = true, ["JohnDoe"] = true, ["Quest666"] = true
+
+-- Danh sách model nhân vật cần check
+local TargetModels = {
+    ["Noob"] = true,
+    ["Guest1337"] = true,
+    ["Elliot"] = true,
+    ["Shedletsky"] = true,
+    ["TwoTime"] = true,
+    ["007n7"] = true,
+    ["Chance"] = true,
+    ["Builderman"] = true,
+    ["Taph"] = true,
+    ["Dusekkar"] = true
 }
 
-local function getRole()
-    local char = LP.Character
-    if not char or not char.Name then return nil end
-    if SurvivorsList[char.Name] then return "Survivor" end
-    if KillersList[char.Name] then return "Killer" end
-    return nil
-end
+-- Kiểm tra killer nguy hiểm gần vị trí
+local function isDangerousKillerNear(position, radius)
+    local killersFolder = workspace.Players:FindFirstChild("Killers")
+    if not killersFolder then return false end
 
-local function getKillers()
-    local killers = {}
-    local kFolder = workspace:FindFirstChild("Players") and workspace.Players:FindFirstChild("Killers")
-    if kFolder then
-        for _, k in ipairs(kFolder:GetChildren()) do
-            if k:FindFirstChild("HumanoidRootPart") and KillersList[k.Name] then
-                table.insert(killers, k)
-            end
-        end
-    end
-    return killers
-end
-
-local function isKillerNear(pos, radius)
-    for _, killer in ipairs(getKillers()) do
-        local hrp = killer:FindFirstChild("HumanoidRootPart")
-        if hrp and (hrp.Position - pos).Magnitude <= radius then
-            return true
-        end
-    end
-    return false
-end
-
-local function getFurthestGenerator(fromPos)
-    local mapFolder = workspace:FindFirstChild("Map")
-        and workspace.Map:FindFirstChild("Ingame")
-        and workspace.Map.Ingame:FindFirstChild("Map")
-    if not mapFolder then return nil end
-
-    local best, bestDist = nil, -math.huge
-    for _, g in ipairs(mapFolder:GetChildren()) do
-        local prog = g:FindFirstChild("Progress")
-        if g.Name == "Generator" and prog and prog.Value < 100 then
-            local pos = g:GetPivot().Position
-            local d = (pos - fromPos).Magnitude
-            if d > bestDist then
-                bestDist, best = d, g
-            end
-        end
-    end
-    return best
-end
-
-local function tpToGenerator(gen)
-    local char = LP.Character
-    if not gen or not char then return end
-    local hrp = char:FindFirstChild("HumanoidRootPart")
-    if not hrp then return end
-    local goalPos = (gen:GetPivot() * CFrame.new(0, 0, -3)).Position
-    char:PivotTo(CFrame.new(goalPos + Vector3.new(0, 2, 0)))
-end
-
-local lastTP = 0
-local function canTP()
-    if time() - lastTP >= 1.2 then
-        lastTP = time()
-        return true
-    end
-    return false
-end
-
-task.spawn(function()
-    while task.wait(0.5) do
-        if _G.AutoTP_AntiKiller and getRole() == "Survivor" then
-            local char = LP.Character
-            local hrp = char and char:FindFirstChild("HumanoidRootPart")
-            if hrp and isKillerNear(hrp.Position, 50) then
-                local farGen = getFurthestGenerator(hrp.Position)
-                if farGen and canTP() then
-                    tpToGenerator(farGen)
+    for _, killer in ipairs(killersFolder:GetChildren()) do
+        if killer:IsA("Model") and killer:FindFirstChild("HumanoidRootPart") then
+            if DangerousKillers[killer.Name] then
+                local dist = (killer.HumanoidRootPart.Position - position).Magnitude
+                if dist <= radius then
+                    return true
                 end
             end
         end
     end
+    return false
+end
+
+-- Teleport tới generator xa nhất
+local function teleportToFarthestGenerator()
+    local character = LP.Character
+    if not character or not character:FindFirstChild("HumanoidRootPart") then return end
+
+    local myPos = character.HumanoidRootPart.Position
+    local farthestGen = nil
+    local maxDistance = 0
+
+    for _, gen in ipairs(workspace.Map.Ingame.Map:GetChildren()) do
+        if gen.Name == "Generator" and gen:FindFirstChild("Progress") and gen.Progress.Value < 100 then
+            local genPos = gen:GetPivot().Position
+            local dist = (myPos - genPos).Magnitude
+            if dist > maxDistance then
+                maxDistance = dist
+                farthestGen = gen
+            end
+        end
+    end
+
+    if farthestGen then
+        local genCFrame = farthestGen:GetPivot()
+        local goalPos = (genCFrame * CFrame.new(0, 0, -3)).Position
+        character:PivotTo(CFrame.new(goalPos + Vector3.new(0, 2, 0)))
+        print("✅ Teleported to farthest generator:", farthestGen.Name)
+    else
+        print("❌ Không tìm thấy generator phù hợp!")
+    end
+end
+
+-- Toggle trong Tabs.Misc
+Tabs.Misc:AddToggle("SafeGenTeleport", {
+    Title = "Anti Killers",
+    Default = false
+})
+:OnChanged(function(Value)
+    _G.SafeGenTeleport = Value
+
+    task.spawn(function()
+        while _G.SafeGenTeleport do
+            local character = LP.Character
+            if character and TargetModels[character.Name] then
+                if isDangerousKillerNear(character.HumanoidRootPart.Position, 50) then
+                    teleportToFarthestGenerator()
+                end
+            end
+            task.wait(0.55) -- Kiểm tra mỗi 0.55 giây
+        end
+    end)
 end)
--- ===================== /LOGIC TELEPORT =====================
 
 
     Tabs.Misc:AddSection("↳ graphics")
