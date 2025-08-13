@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Free] | Forsaken",
-    SubTitle = "Version 2.4.0",
+    SubTitle = "Version 2.4.2",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -1980,6 +1980,84 @@ Tabs.Misc:AddToggle("RemoveScreenEffects", {
         end
     end
 })
+
+
+
+
+local Players = game:GetService("Players")
+local LP = Players.LocalPlayer
+local VIM = game:GetService("VirtualInputManager")
+
+-- Danh sách Killers nguy hiểm
+local DangerousKillers = {
+    ["Jason"] = true,
+    ["1x1x1x1"] = true,
+    ["c00lkidd"] = true,
+    ["Noli"] = true,
+    ["JohnDoe"] = true,
+    ["Quest666"] = true
+}
+
+-- Lấy generator xa nhất so với nhân vật
+local function getFarthestGenerator(charPos)
+    local farthestGen = nil
+    local maxDist = -math.huge
+    local mapFolder = workspace:FindFirstChild("Map") and workspace.Map:FindFirstChild("Ingame") and workspace.Map.Ingame:FindFirstChild("Map")
+    if not mapFolder then return nil end
+
+    for _, obj in ipairs(mapFolder:GetChildren()) do
+        if obj.Name == "Generator" and obj:IsA("Model") and obj:FindFirstChild("PrimaryPart") then
+            local dist = (obj.PrimaryPart.Position - charPos).Magnitude
+            if dist > maxDist then
+                maxDist = dist
+                farthestGen = obj
+            end
+        end
+    end
+    return farthestGen
+end
+
+-- Kiểm tra killer gần nhân vật
+local function isKillerNear(charPos, range)
+    local killersFolder = workspace:FindFirstChild("Players") and workspace.Players:FindFirstChild("Killers")
+    if not killersFolder then return false end
+
+    for _, killer in ipairs(killersFolder:GetChildren()) do
+        if killer:IsA("Model") and killer:FindFirstChild("HumanoidRootPart") and DangerousKillers[killer.Name] then
+            if (killer.HumanoidRootPart.Position - charPos).Magnitude <= range then
+                return true
+            end
+        end
+    end
+    return false
+end
+
+-- Toggle UI
+Tabs.Main:AddToggle("AntiKillers", {
+    Title = "Anti Killers",
+    Default = false
+})
+:OnChanged(function(state)
+    _G.AntiKillers = state
+
+    task.spawn(function()
+        while _G.AntiKillers do
+            local char = LP.Character or LP.CharacterAdded:Wait()
+            local hrp = char:FindFirstChild("HumanoidRootPart")
+
+            if hrp and isKillerNear(hrp.Position, 50) then
+                local gen = getFarthestGenerator(hrp.Position)
+                if gen and gen.PrimaryPart then
+                    char:PivotTo(CFrame.new(gen.PrimaryPart.Position + Vector3.new(0, 2, 0)))
+                    print("⚠️ Teleported to farthest generator to avoid killer!")
+                end
+            end
+
+            task.wait(0.5) -- Kiểm tra mỗi 0.5s
+        end
+    end)
+end)
+
 
 
     Tabs.Misc:AddSection("↳ graphics")
