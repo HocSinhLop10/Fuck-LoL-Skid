@@ -1985,115 +1985,225 @@ Tabs.Misc:AddToggle("RemoveScreenEffects", {
 
 
 
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
+--== Anti Killers (Safe, no GUI crash) ==--
+
+--// Services
+local Players   = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 
+local LP = Players.LocalPlayer
+
+--// Toggle state & config
 local ActiveAntiKiller = false
-local lastTP = 0
-local safeDistance = 50
-local detectRange = 100
-local checkInterval = 0.5
+local lastTP        = 0
+local safeDistance  = 50      -- dịch ra xa killer
+local detectRange   = 100     -- tầm phát hiện killer
+local checkInterval = 1.5     -- mỗi 1.5s mới TP 1 lần
 
--- Danh sách Survivors hợp lệ
+-- Giới hạn cao/thấp và ray
+local minY, maxY = 3, 150
+local groundUp, groundDown = 120, 350
+local angleSteps = 12         -- 360/12 = 30° mỗi bước
+
+-- Survivors hợp lệ (model bạn điều khiển)
 local allowedSurvivors = {
-    ["Noob"] = true,
-    ["Guest1337"] = true,
-    ["Elliot"] = true,
-    ["Shedletsky"] = true,
-    ["TwoTime"] = true,
-    ["007n7"] = true,
-    ["Chance"] = true,
-    ["Builderman"] = true,
-    ["Taph"] = true,
-    ["Dusekkar"] = true
+    ["Noob"]=true, ["Guest1337"]=true, ["Elliot"]=true, ["Shedletsky"]=true,
+    ["TwoTime"]=true, ["007n7"]=true, ["Chance"]=true, ["Builderman"]=true,
+    ["Taph"]=true, ["Dusekkar"]=true
 }
 
--- Danh sách Killers
+-- Killers cần tránh
 local killerModels = {
-    ["Jason"] = true,
-    ["1x1x1x1"] = true,
-    ["c00lkidd"] = true,
-    ["Noli"] = true,
-    ["JohnDoe"] = true,
-    ["Quest666"] = true
+    ["Jason"]=true, ["1x1x1x1"]=true, ["c00lkidd"]=true,
+    ["Noli"]=true, ["JohnDoe"]=true, ["Quest666"]=true
 }
 
--- Kiểm tra vị trí an toàn
-local function isSafePosition(pos)
-    if pos.Y < 3 or pos.Y > 100 then return false end
-    local map = Workspace:FindFirstChild("Map")
-    if map then
-        local mapSize = map:GetExtentsSize()
-        local mapCenter = map:GetModelCFrame().Position
-        if math.abs(pos.X - mapCenter.X) > mapSize.X / 2 or math.abs(pos.Z - mapCenter.Z) > mapSize.Z / 2 then
-            return false
+--==============================
+-- MAP HELPERS (an toàn, không crash GUI)
+--==============================
+local function getMapModel()
+    -- Ưu tiên: workspace.Map.Ingame.Map
+    local mapRoot = Workspace:FindFirstChild("Map")
+    if mapRoot then
+        local ingame = mapRoot:FindFirstChild("Ingame")
+        if ingame and ingame:FindFirstChild("Map") then
+            local m = ingame.Map
+            if m:IsA("Model") then return m end
         end
+        -- Fallback: nếu Map là Model dùng luôn
+        if mapRoot:IsA("Model") then return mapRoot end
+        -- Nếu Ingame là Model
+        if ingame and ingame:IsA("Model") then return ingame end
     end
+    -- Cùng lắm trả Workspace (ít chặt chẽ hơn nhưng không lỗi)
+    return Workspace
+end
+
+local function insideMapBounds(pos)
+    local mapModel = getMapModel()
+    if mapModel and mapModel:IsA("Model") then
+        local cf   = mapModel:GetPivot()
+        local size = mapModel:GetExtentsSize()
+        local halfX, halfZ = size.X/2, size.Z/2
+        local dx, dz = math.abs(pos.X - cf.Position.X), math.abs(pos.Z - cf.Position.Z)
+        return (dx <= halfX) and (dz <= halfZ)
+    end
+    -- nếu không xác định được model map, đừng siết chặt để tránh false negative
     return true
 end
 
--- Tìm Killer gần nhất
-local function getClosestKiller()
-    local char = LocalPlayer.Character
-    if not char or not char:FindFirstChild("HumanoidRootPart") then return nil end
-    local killersFolder = Workspace:FindFirstChild("Players") and Workspace.Players:FindFirstChild("Killers")
-    if not killersFolder then return nil end
+local function rayToGround(x, z)
+    local mapModel = getMapModel()
+    local origin    = Vector3.new(x, groundUp, z)
+    local direction = Vector3.new(0, -groundDown, 0)
+    local params    = RaycastParams.new()
+    if mapModel and mapModel:IsA("Model") then
+        params.FilterDescendantsInstances = { mapModel }
+        params.FilterType = Enum.RaycastFilterType.Include
+    else
+        -- Fallback: ray xuống cả Workspace
+        params.FilterDescendantsInstances = {}
+        params.FilterType = Enum.RaycastFilterType.Include
+    end
+    return Workspace:Raycast(origin, direction, params)
+end
 
-    local closest, minDist = nil, math.huge
-    for _, killer in ipairs(killersFolder:GetChildren()) do
-        if killerModels[killer.Name] then
-            local hrp = killer:FindFirstChild("HumanoidRootPart")
-            local hum = killer:FindFirstChildOfClass("Humanoid")
-            if hrp and hum and hum.Health > 0 then
-                local dist = (char.HumanoidRootPart.Position - hrp.Position).Magnitude
-                if dist < minDist then
-                    minDist = dist
-                    closest = killer
+local function isSafePosition(pos, killerPos)
+    if pos.Y < minY or pos.Y > maxY then return false end
+    if not insideMapBounds(pos)          then return false end
+
+    local result = rayToGround(pos.X, pos.Z)
+    if not result then return false end
+
+    local groundPos = result.Position
+    local normal    = result.Normal
+    if normal.Y < 0.6 then return false end  -- tránh dốc quá
+
+    local finalY = groundPos.Y + 3
+    if finalY < minY or finalY > maxY then return false end
+
+    if killerPos and (Vector3.new(pos.X, finalY, pos.Z) - killerPos).Magnitude < 20 then
+        return false
+    end
+    return true, Vector3.new(pos.X, finalY, pos.Z)
+end
+
+--==============================
+-- CHARACTER & KILLER HELPERS
+--==============================
+local function getMyCharacter()
+    -- 1) Thử character tiêu chuẩn
+    local ch = LP.Character
+    if ch and ch:FindFirstChild("HumanoidRootPart") and ch:FindFirstChildOfClass("Humanoid") then
+        return ch
+    end
+    -- 2) Thử lấy trong workspace.Players.Survivors (Username == LocalPlayer.Name)
+    local playersFolder = Workspace:FindFirstChild("Players")
+    if playersFolder then
+        local survivors = playersFolder:FindFirstChild("Survivors")
+        if survivors then
+            for _, m in ipairs(survivors:GetChildren()) do
+                if m:IsA("Model") and m:FindFirstChild("HumanoidRootPart") then
+                    local hum = m:FindFirstChildOfClass("Humanoid")
+                    if hum and hum.Health > 0 then
+                        local owner = m:GetAttribute("Username")
+                        if owner == LP.Name or m.Name == LP.Name then
+                            return m
+                        end
+                    end
                 end
             end
         end
     end
-    if minDist <= detectRange then
-        return closest
+    return nil
+end
+
+local function getClosestKiller(myChar)
+    if not myChar or not myChar:FindFirstChild("HumanoidRootPart") then return nil end
+    local killersFolder = Workspace:FindFirstChild("Players") and Workspace.Players:FindFirstChild("Killers")
+    if not killersFolder then return nil end
+
+    local myPos = myChar.HumanoidRootPart.Position
+    local closest, minDist = nil, math.huge
+
+    for _, k in ipairs(killersFolder:GetChildren()) do
+        if k:IsA("Model") and killerModels[k.Name] then
+            local hrp = k:FindFirstChild("HumanoidRootPart")
+            local hum = k:FindFirstChildOfClass("Humanoid")
+            if hrp and hum and hum.Health > 0 then
+                local d = (myPos - hrp.Position).Magnitude
+                if d < minDist then
+                    minDist, closest = d, k
+                end
+            end
+        end
+    end
+    if minDist <= detectRange then return closest end
+    return nil
+end
+
+-- Quét nhiều hướng để tìm điểm an toàn gần nhất
+local function findSafeSpot(myChar, killer)
+    local hrp  = myChar:FindFirstChild("HumanoidRootPart")
+    local khrp = killer and killer:FindFirstChild("HumanoidRootPart")
+    if not hrp or not khrp then return nil end
+
+    local from     = hrp.Position
+    local killerPos= khrp.Position
+
+    -- hướng ngược killer
+    local baseDir = (from - killerPos)
+    if baseDir.Magnitude < 1 then baseDir = Vector3.new(1,0,0) end
+    baseDir = baseDir.Unit
+
+    for i = 0, angleSteps - 1 do
+        local angle = (i % 2 == 0) and (i/2) or -(math.ceil(i/2)) -- 0,1,-1,2,-2...
+        local rad   = math.rad(angle * (360/angleSteps))
+        local cosA, sinA = math.cos(rad), math.sin(rad)
+        local dir = Vector3.new(
+            baseDir.X * cosA - baseDir.Z * sinA,
+            0,
+            baseDir.X * sinA + baseDir.Z * cosA
+        ).Unit
+
+        local candidate = from + dir * safeDistance
+        local ok, grounded = isSafePosition(candidate, killerPos)
+        if ok and grounded then
+            return CFrame.new(grounded)
+        end
+    end
+
+    -- Fallback: xa hơn chút theo trục chính
+    local farCandidate = from + baseDir * (safeDistance + 25)
+    local ok2, grounded2 = isSafePosition(farCandidate, killerPos)
+    if ok2 and grounded2 then
+        return CFrame.new(grounded2)
     end
     return nil
 end
 
--- Teleport tránh Killer
-local function teleportAway(killer)
-    local char = LocalPlayer.Character
-    if not char or not char:FindFirstChild("HumanoidRootPart") then return end
-    local hrp = char.HumanoidRootPart
-    local killerPos = killer.HumanoidRootPart.Position
-
-    local direction = (hrp.Position - killerPos).Unit
-    local targetPos = hrp.Position + (direction * safeDistance)
-
-    local rayOrigin = Vector3.new(targetPos.X, 100, targetPos.Z)
-    local rayDirection = Vector3.new(0, -200, 0)
-    local rayParams = RaycastParams.new()
-    rayParams.FilterDescendantsInstances = {char}
-    rayParams.FilterType = Enum.RaycastFilterType.Blacklist
-
-    local result = Workspace:Raycast(rayOrigin, rayDirection, rayParams)
-    if result then
-        local safePos = result.Position + Vector3.new(0, 3, 0)
-        if isSafePosition(safePos) then
-            hrp.CFrame = CFrame.new(safePos)
-        end
+local function teleportAway(myChar, killer)
+    local targetCF = findSafeSpot(myChar, killer)
+    if not targetCF then return end
+    if typeof(myChar.PivotTo) == "function" then
+        myChar:PivotTo(targetCF)
+    else
+        local hrp = myChar:FindFirstChild("HumanoidRootPart")
+        if hrp then hrp.CFrame = targetCF end
     end
 end
 
--- Vòng lặp Anti-Killer
+--==============================
+-- MAIN LOOP (không lỗi GUI)
+--==============================
 local function antiKillerLoop()
     while ActiveAntiKiller do
-        local char = LocalPlayer.Character
-        if char and allowedSurvivors[char.Name] then
-            if tick() - lastTP >= checkInterval then
-                local killer = getClosestKiller()
+        if tick() - lastTP >= checkInterval then
+            local me = getMyCharacter()
+            if me and allowedSurvivors[me.Name] then
+                local killer = getClosestKiller(me)
                 if killer then
-                    teleportAway(killer)
+                    teleportAway(me, killer)
                     lastTP = tick()
                 end
             end
@@ -2102,14 +2212,22 @@ local function antiKillerLoop()
     end
 end
 
--- Toggle Fluent
+--==============================
+-- FLUENT TOGGLE (bọc pcall để không “callback error”)
+--==============================
 Tabs.Misc:AddToggle("AntiKillers", {
     Title = "Anti Killers",
     Default = false,
     Callback = function(state)
-        ActiveAntiKiller = state
-        if state then
-            task.spawn(antiKillerLoop)
+        local ok, err = pcall(function()
+            ActiveAntiKiller = state
+            if state then
+                lastTP = 0 -- reset để chạy ngay
+                task.spawn(antiKillerLoop)
+            end
+        end)
+        if not ok then
+            warn("[AntiKillers] Callback error: ", err)
         end
     end
 })
