@@ -587,11 +587,11 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 -- Cấu hình skill cho từng model
 local skillConfig = {
-    ["Shedletsky"] = {skillName = "Slash", cooldown = 40},
-    ["TwoTime"] = {skillName = "Dagger", cooldown = 30},
-    ["Chance"] = {skillName = "Shoot", cooldown = 40},
-    ["Guest1337"] = {skillName = "Punch", cooldown = 0.5},
-    ["Dusekkar"] = {skillName = "PlasmaBeam", cooldown = 20}
+    ["Shedletsky"] = {skillName = "Slash", cooldown = 40, castTime = 2}, -- castTime = thời gian dùng xong skill
+    ["TwoTime"]    = {skillName = "Dagger", cooldown = 30, castTime = 2},
+    ["Chance"]     = {skillName = "Shoot", cooldown = 40, castTime = 3},
+    ["Guest1337"]  = {skillName = "Punch", cooldown = 50, castTime = 2},
+    ["Dusekkar"]   = {skillName = "PlasmaBeam", cooldown = 20, castTime = 2}
 }
 
 -- Biến điều khiển
@@ -600,6 +600,7 @@ local loopRunning = false
 local CurrentTarget = nil
 local lastAttack = 0
 local currentModelName = nil
+local savedPosition = nil
 
 -- Tìm Killer gần nhất
 local function GetClosestKiller()
@@ -628,18 +629,31 @@ local function AttackTarget(target, skillName)
     local localChar = LocalPlayer.Character
     if not (localChar and localChar:FindFirstChild("HumanoidRootPart")) then return end
 
+    local config = skillConfig[currentModelName]
+    if not config then return end
+
     -- Teleport tới mục tiêu
+    savedPosition = localChar.HumanoidRootPart.CFrame
     localChar.HumanoidRootPart.CFrame = target.HumanoidRootPart.CFrame
 
-    -- Tấn công nếu cooldown đã hết
-    if tick() - lastAttack >= skillConfig[currentModelName].cooldown then
+    -- Kiểm tra cooldown hồi chiêu
+    if tick() - lastAttack >= config.cooldown then
         lastAttack = tick()
+
+        -- Gọi skill
         local remote = ReplicatedStorage:FindFirstChild("Modules")
-                      and ReplicatedStorage.Modules:FindFirstChild("Network")
-                      and ReplicatedStorage.Modules.Network:FindFirstChild("RemoteEvent")
+            and ReplicatedStorage.Modules:FindFirstChild("Network")
+            and ReplicatedStorage.Modules.Network:FindFirstChild("RemoteEvent")
         if remote and typeof(remote.FireServer) == "function" then
             remote:FireServer("UseActorAbility", skillName)
         end
+
+        -- Đợi thời gian dùng skill xong rồi quay lại chỗ cũ
+        task.delay(config.castTime, function()
+            if localChar and localChar:FindFirstChild("HumanoidRootPart") and savedPosition then
+                localChar.HumanoidRootPart.CFrame = savedPosition
+            end
+        end)
     end
 end
 
@@ -666,7 +680,7 @@ local function StartLoop()
     end)
 end
 
--- Nút bấm tấn công 1 lần (đặt trước toggle)
+-- Nút bấm tấn công 1 lần
 Tabs.Main:AddButton({
     Title = "Attack Killers",
     Callback = function()
@@ -1951,6 +1965,114 @@ Tabs.Misc:AddToggle("RemoveScreenEffects", {
     end
 })
 
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local Workspace = game:GetService("Workspace")
+local RunService = game:GetService("RunService")
+
+local ActiveAntiKiller = false
+local lastTP = 0
+local safeDistance = 50 -- Khoảng cách dịch chuyển ra xa Killer
+local detectRange = 100 -- Khoảng cách phát hiện Killer
+local checkInterval = 0.5 -- Thời gian giữa các lần kiểm tra
+
+-- Hàm kiểm tra vị trí có an toàn không
+local function isSafePosition(pos)
+    -- Kiểm tra không quá cao hoặc quá thấp
+    if pos.Y < 3 or pos.Y > 100 then return false end
+
+    -- Kiểm tra không nằm ngoài map (cần có workspace.Map)
+    local map = Workspace:FindFirstChild("Map")
+    if map then
+        local mapSize = map:GetExtentsSize()
+        local mapCenter = map:GetModelCFrame().Position
+        if math.abs(pos.X - mapCenter.X) > mapSize.X/2 or math.abs(pos.Z - mapCenter.Z) > mapSize.Z/2 then
+            return false
+        end
+    end
+
+    return true
+end
+
+-- Hàm tìm Killer gần nhất
+local function getClosestKiller()
+    local char = LocalPlayer.Character
+    if not char or not char:FindFirstChild("HumanoidRootPart") then return nil end
+    local killersFolder = Workspace:FindFirstChild("Players") and Workspace.Players:FindFirstChild("Killers")
+    if not killersFolder then return nil end
+
+    local closest, minDist = nil, math.huge
+    for _, killer in ipairs(killersFolder:GetChildren()) do
+        local hrp = killer:FindFirstChild("HumanoidRootPart")
+        local hum = killer:FindFirstChildOfClass("Humanoid")
+        if hrp and hum and hum.Health > 0 then
+            local dist = (char.HumanoidRootPart.Position - hrp.Position).Magnitude
+            if dist < minDist then
+                minDist = dist
+                closest = killer
+            end
+        end
+    end
+
+    if minDist <= detectRange then
+        return closest
+    end
+    return nil
+end
+
+-- Hàm teleport tránh Killer
+local function teleportAway(killer)
+    local char = LocalPlayer.Character
+    if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+    local killerPos = killer.HumanoidRootPart.Position
+    local hrp = char.HumanoidRootPart
+
+    -- Chọn hướng ngược lại Killer
+    local direction = (hrp.Position - killerPos).Unit
+    local targetPos = hrp.Position + (direction * safeDistance)
+
+    -- Raycast để tìm mặt đất gần nhất
+    local rayOrigin = Vector3.new(targetPos.X, 100, targetPos.Z)
+    local rayDirection = Vector3.new(0, -200, 0)
+    local rayParams = RaycastParams.new()
+    rayParams.FilterDescendantsInstances = {char}
+    rayParams.FilterType = Enum.RaycastFilterType.Blacklist
+
+    local result = Workspace:Raycast(rayOrigin, rayDirection, rayParams)
+    if result then
+        local safePos = result.Position + Vector3.new(0, 3, 0) -- đứng cao hơn mặt đất một chút
+        if isSafePosition(safePos) then
+            hrp.CFrame = CFrame.new(safePos)
+        end
+    end
+end
+
+-- Vòng lặp Anti-Killer
+local function antiKillerLoop()
+    while ActiveAntiKiller do
+        if tick() - lastTP >= checkInterval then
+            local killer = getClosestKiller()
+            if killer then
+                teleportAway(killer)
+                lastTP = tick()
+            end
+        end
+        task.wait(0.1)
+    end
+end
+
+-- Toggle Fluent
+Tabs.Misc:AddToggle("AntiKillers", {
+    Title = "Anti Killers",
+    Default = false,
+    Callback = function(state)
+        ActiveAntiKiller = state
+        if state then
+            task.spawn(antiKillerLoop)
+        end
+    end
+})
 
 
     Tabs.Misc:AddSection("↳ graphics")
