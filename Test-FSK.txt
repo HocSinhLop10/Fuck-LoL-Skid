@@ -1986,6 +1986,60 @@ Tabs.Misc:AddToggle("RemoveScreenEffects", {
 local Players = game:GetService("Players")
 local LP = Players.LocalPlayer
 
+_G.AutoTP_AntiKiller = _G.AutoTP_AntiKiller or false -- mặc định tắt
+
+-- =================== UI TOGGLE COMPAT WRAPPER ===================
+local function attachToggleIfPossible()
+    local ok = false
+    if typeof(Tabs) == "table" and Tabs.Misc then
+        -- Pattern A: Fluent style: AddToggle("Id", {Title=..., Default=...}):OnChanged(cb)
+        ok = pcall(function()
+            local t = Tabs.Misc:AddToggle("AutoTP_AntiKiller", {
+                Title = "Auto Teleport (Anti Killer)",
+                Default = _G.AutoTP_AntiKiller
+            })
+            if t and typeof(t.OnChanged) == "function" then
+                t:OnChanged(function(v) _G.AutoTP_AntiKiller = v end)
+            else
+                -- một số bản trả về object không có :OnChanged -> bỏ qua, sẽ thử pattern khác
+                ok = false
+            end
+        end)
+        if ok then return end
+
+        -- Pattern B: Rayfield-like: AddToggle({Title=..., Default=..., Callback=function(v) end})
+        ok = pcall(function()
+            Tabs.Misc:AddToggle({
+                Title = "Anti Killers",
+                Default = _G.AutoTP_AntiKiller,
+                Callback = function(v) _G.AutoTP_AntiKiller = v end
+            })
+        end)
+        if ok then return end
+
+        -- Pattern C: CreateToggle({Name/CurrentValue/Flag/Callback})
+        ok = pcall(function()
+            local Toggle = Tabs.Misc:CreateToggle({
+                Name = "Auto Teleport (Anti Killer)",
+                CurrentValue = _G.AutoTP_AntiKiller,
+                Flag = "AutoTP_AntiKiller",
+                Callback = function(v) _G.AutoTP_AntiKiller = v end
+            })
+        end)
+        if ok then return end
+    end
+
+    -- Fallback: không có Tabs.Misc hoặc cả 3 pattern đều fail → không crash
+    if not ok then
+        warn("[AutoTP] Không tìm thấy Tabs.Misc hoặc API toggle không khớp. Tự bật AutoTP. Đặt _G.AutoTP_AntiKiller=false để tắt.")
+        _G.AutoTP_AntiKiller = true
+    end
+end
+
+-- gọi sau khi bạn đã tạo Tabs.Misc ở code GUI của bạn
+task.defer(attachToggleIfPossible)
+-- =================== /UI TOGGLE COMPAT WRAPPER ===================
+
 -- Survivors
 local SurvivorsList = {
     ["Noob"] = true, ["Guest1337"] = true, ["Elliot"] = true,
@@ -1998,7 +2052,7 @@ local KillersList = {
     ["Noli"] = true, ["JohnDoe"] = true, ["Quest666"] = true
 }
 
--- Lấy vai trò
+-- Vai trò hiện tại (dựa trên model bạn hóa thân)
 local function getRole()
     local char = LP.Character
     if not char or not char.Name then return nil end
@@ -2007,7 +2061,7 @@ local function getRole()
     return nil
 end
 
--- Lấy killers
+-- Lấy killers đang có
 local function getKillers()
     local killers = {}
     local kFolder = workspace:FindFirstChild("Players") and workspace.Players:FindFirstChild("Killers")
@@ -2021,64 +2075,58 @@ local function getKillers()
     return killers
 end
 
--- Kiểm tra killer gần
+-- Killer trong bán kính
 local function isKillerNear(pos, radius)
     for _, killer in ipairs(getKillers()) do
-        local dist = (killer.HumanoidRootPart.Position - pos).Magnitude
-        if dist <= radius then
+        local hrp = killer:FindFirstChild("HumanoidRootPart")
+        if hrp and (hrp.Position - pos).Magnitude <= radius then
             return true
         end
     end
     return false
 end
 
--- Generator xa nhất
+-- Generator xa nhất, còn chưa xong
 local function getFurthestGenerator(fromPos)
-    local gens = {}
-    local mapFolder = workspace:FindFirstChild("Map") 
-        and workspace.Map:FindFirstChild("Ingame") 
+    local mapFolder = workspace:FindFirstChild("Map")
+        and workspace.Map:FindFirstChild("Ingame")
         and workspace.Map.Ingame:FindFirstChild("Map")
     if not mapFolder then return nil end
 
+    local best, bestDist = nil, -math.huge
     for _, g in ipairs(mapFolder:GetChildren()) do
-        if g.Name == "Generator" and g:FindFirstChild("Progress") and g.Progress.Value < 100 then
-            table.insert(gens, g)
+        local prog = g:FindFirstChild("Progress")
+        if g.Name == "Generator" and prog and prog.Value < 100 then
+            local pos = g:GetPivot().Position
+            local d = (pos - fromPos).Magnitude
+            if d > bestDist then
+                bestDist, best = d, g
+            end
         end
     end
-
-    table.sort(gens, function(a, b)
-        return (a:GetPivot().Position - fromPos).Magnitude > (b:GetPivot().Position - fromPos).Magnitude
-    end)
-
-    return gens[1]
+    return best
 end
 
--- Teleport
+-- Teleport tới trước generator một chút
 local function tpToGenerator(gen)
-    if not gen or not LP.Character or not LP.Character:FindFirstChild("HumanoidRootPart") then return end
+    local char = LP.Character
+    if not gen or not char then return end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
     local goalPos = (gen:GetPivot() * CFrame.new(0, 0, -3)).Position
-    LP.Character:PivotTo(CFrame.new(goalPos + Vector3.new(0, 2, 0)))
+    char:PivotTo(CFrame.new(goalPos + Vector3.new(0, 2, 0)))
 end
 
--- Toggle trong Tabs.Misc
-Tabs.Misc:AddToggle("AutoTP_AntiKiller", {
-    Title = "Anti Killers",
-    Default = false
-}):OnChanged(function(state)
-    _G.AutoTP_AntiKiller = state
-end)
-
--- Main loop
+-- Main loop (0.5s/lần)
 task.spawn(function()
     while task.wait(0.5) do
-        if _G.AutoTP_AntiKiller then
-            if getRole() == "Survivor" and LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then
-                local myPos = LP.Character.HumanoidRootPart.Position
-                if isKillerNear(myPos, 50) then
-                    local farGen = getFurthestGenerator(myPos)
-                    if farGen then
-                        tpToGenerator(farGen)
-                    end
+        if _G.AutoTP_AntiKiller and getRole() == "Survivor" then
+            local char = LP.Character
+            local hrp = char and char:FindFirstChild("HumanoidRootPart")
+            if hrp and isKillerNear(hrp.Position, 50) then
+                local farGen = getFurthestGenerator(hrp.Position)
+                if farGen then
+                    tpToGenerator(farGen)
                 end
             end
         end
