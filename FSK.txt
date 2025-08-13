@@ -1983,6 +1983,139 @@ Tabs.Misc:AddToggle("RemoveScreenEffects", {
 
 
 
+
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local Workspace = game:GetService("Workspace")
+
+local ActiveAntiKiller = false
+local lastTP = 0
+local safeDistance = 50
+local detectRange = 100
+local checkInterval = 0.5
+
+-- Danh sách Survivors hợp lệ
+local allowedSurvivors = {
+    ["Noob"] = true,
+    ["Guest1337"] = true,
+    ["Elliot"] = true,
+    ["Shedletsky"] = true,
+    ["TwoTime"] = true,
+    ["007n7"] = true,
+    ["Chance"] = true,
+    ["Builderman"] = true,
+    ["Taph"] = true,
+    ["Dusekkar"] = true
+}
+
+-- Danh sách Killers
+local killerModels = {
+    ["Jason"] = true,
+    ["1x1x1x1"] = true,
+    ["c00lkidd"] = true,
+    ["Noli"] = true,
+    ["JohnDoe"] = true,
+    ["Quest666"] = true
+}
+
+-- Kiểm tra vị trí an toàn
+local function isSafePosition(pos)
+    if pos.Y < 3 or pos.Y > 100 then return false end
+    local map = Workspace:FindFirstChild("Map")
+    if map then
+        local mapSize = map:GetExtentsSize()
+        local mapCenter = map:GetModelCFrame().Position
+        if math.abs(pos.X - mapCenter.X) > mapSize.X / 2 or math.abs(pos.Z - mapCenter.Z) > mapSize.Z / 2 then
+            return false
+        end
+    end
+    return true
+end
+
+-- Tìm Killer gần nhất
+local function getClosestKiller()
+    local char = LocalPlayer.Character
+    if not char or not char:FindFirstChild("HumanoidRootPart") then return nil end
+    local killersFolder = Workspace:FindFirstChild("Players") and Workspace.Players:FindFirstChild("Killers")
+    if not killersFolder then return nil end
+
+    local closest, minDist = nil, math.huge
+    for _, killer in ipairs(killersFolder:GetChildren()) do
+        if killerModels[killer.Name] then
+            local hrp = killer:FindFirstChild("HumanoidRootPart")
+            local hum = killer:FindFirstChildOfClass("Humanoid")
+            if hrp and hum and hum.Health > 0 then
+                local dist = (char.HumanoidRootPart.Position - hrp.Position).Magnitude
+                if dist < minDist then
+                    minDist = dist
+                    closest = killer
+                end
+            end
+        end
+    end
+    if minDist <= detectRange then
+        return closest
+    end
+    return nil
+end
+
+-- Teleport tránh Killer
+local function teleportAway(killer)
+    local char = LocalPlayer.Character
+    if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+    local hrp = char.HumanoidRootPart
+    local killerPos = killer.HumanoidRootPart.Position
+
+    local direction = (hrp.Position - killerPos).Unit
+    local targetPos = hrp.Position + (direction * safeDistance)
+
+    local rayOrigin = Vector3.new(targetPos.X, 100, targetPos.Z)
+    local rayDirection = Vector3.new(0, -200, 0)
+    local rayParams = RaycastParams.new()
+    rayParams.FilterDescendantsInstances = {char}
+    rayParams.FilterType = Enum.RaycastFilterType.Blacklist
+
+    local result = Workspace:Raycast(rayOrigin, rayDirection, rayParams)
+    if result then
+        local safePos = result.Position + Vector3.new(0, 3, 0)
+        if isSafePosition(safePos) then
+            hrp.CFrame = CFrame.new(safePos)
+        end
+    end
+end
+
+-- Vòng lặp Anti-Killer
+local function antiKillerLoop()
+    while ActiveAntiKiller do
+        local char = LocalPlayer.Character
+        if char and allowedSurvivors[char.Name] then
+            if tick() - lastTP >= checkInterval then
+                local killer = getClosestKiller()
+                if killer then
+                    teleportAway(killer)
+                    lastTP = tick()
+                end
+            end
+        end
+        task.wait(0.1)
+    end
+end
+
+-- Toggle Fluent
+Tabs.Misc:AddToggle("AntiKillers", {
+    Title = "Anti Killers",
+    Default = false,
+    Callback = function(state)
+        ActiveAntiKiller = state
+        if state then
+            task.spawn(antiKillerLoop)
+        end
+    end
+})
+
+
+
     Tabs.Misc:AddSection("↳ graphics")
 
 local Lighting = game:GetService("Lighting")
