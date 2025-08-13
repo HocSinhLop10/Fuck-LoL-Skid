@@ -1982,6 +1982,8 @@ Tabs.Misc:AddToggle("RemoveScreenEffects", {
 })
 
 
+-- ====== TELEPORT SAFE GENERATOR TOGGLE ======
+
 local Players = game:GetService("Players")
 local LP = Players.LocalPlayer
 
@@ -2013,7 +2015,6 @@ local TargetModels = {
 local function isDangerousKillerNear(position, radius)
     local killersFolder = workspace:FindFirstChild("Players") and workspace.Players:FindFirstChild("Killers")
     if not killersFolder then return false end
-
     for _, killer in ipairs(killersFolder:GetChildren()) do
         if killer:IsA("Model") and killer:FindFirstChild("HumanoidRootPart") then
             if DangerousKillers[killer.Name] then
@@ -2032,7 +2033,9 @@ local function teleportToFarthestGenerator()
     local character = LP.Character
     if not (character and character:FindFirstChild("HumanoidRootPart")) then return end
 
-    local mapFolder = workspace:FindFirstChild("Map") and workspace.Map:FindFirstChild("Ingame") and workspace.Map.Ingame:FindFirstChild("Map")
+    local mapFolder = workspace:FindFirstChild("Map") 
+        and workspace.Map:FindFirstChild("Ingame") 
+        and workspace.Map.Ingame:FindFirstChild("Map")
     if not mapFolder then return end
 
     local myPos = character.HumanoidRootPart.Position
@@ -2057,28 +2060,36 @@ local function teleportToFarthestGenerator()
     end
 end
 
--- Toggle trong Tabs.Misc
-Tabs.Misc:AddToggle("SafeGenTeleport", {
-    Title = "Teleport tới Generator xa nhất khi có killer",
-    Default = false
-})
-:OnChanged(function(Value)
-    _G.SafeGenTeleport = Value
+-- Chờ Tabs.Misc rồi mới tạo nút
+task.defer(function()
+    repeat task.wait() until Tabs and Tabs.Misc
 
-    task.spawn(function()
-        while _G.SafeGenTeleport do
-            pcall(function()
-                local character = LP.Character
-                if character and TargetModels[character.Name] then
-                    if isDangerousKillerNear(character.HumanoidRootPart.Position, 50) then
-                        teleportToFarthestGenerator()
+    local safeGenEnabled = false
+
+    Tabs.Misc:AddToggle("SafeGenTeleport", {
+        Title = "Teleport tới Generator xa nhất khi có killer",
+        Default = false
+    })
+    :OnChanged(function(Value)
+        safeGenEnabled = Value
+
+        task.spawn(function()
+            while safeGenEnabled do
+                pcall(function()
+                    local character = LP.Character
+                    if character and TargetModels[character.Name] then
+                        if isDangerousKillerNear(character.HumanoidRootPart.Position, 50) then
+                            teleportToFarthestGenerator()
+                        end
                     end
-                end
-            end)
-            task.wait(0.5)
-        end
+                end)
+                task.wait(0.5)
+            end
+        end)
     end)
 end)
+
+
 
 
     Tabs.Misc:AddSection("↳ graphics")
