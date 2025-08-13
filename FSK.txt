@@ -657,7 +657,7 @@ local function AttackTarget(target, skillName)
             else
                 break
             end
-            task.wait(0.05) -- spam nhanh nhưng tránh crash
+            task.wait(0.05)
         end
 
         -- Quay lại chỗ cũ
@@ -717,6 +717,7 @@ Tabs.Main:AddToggle("AutoAttackKillers", {
     Callback = function(Value)
         Active = Value
         if Active then
+            lastAttack = -999 -- reset để tấn công ngay lập tức
             StartLoop()
         else
             CurrentTarget = nil
