@@ -1956,37 +1956,44 @@ Tabs.Misc:AddToggle("RemoveScreenEffects", {
     Tabs.Misc:AddSection("↳ graphics")
 
 local Lighting = game:GetService("Lighting")
-local RunService = game:GetService("RunService")
+local Terrain = workspace:FindFirstChildOfClass("Terrain")
 
 local ultraEnabled = false
 local lowEnabled = false
 
--- Hàm bật Ultra Graphics
+-- Hàm bật Ultra Graphics (PC-like)
 local function enableUltra()
-    -- Tăng chất lượng render
-    settings().Rendering.QualityLevel = Enum.QualityLevel.Level21 -- Max Quality
+    settings().Rendering.QualityLevel = Enum.QualityLevel.Automatic
     Lighting.GlobalShadows = true
     Lighting.ShadowSoftness = 1
-    Lighting.Ambient = Color3.fromRGB(105, 105, 105)
     Lighting.Brightness = 3
     Lighting.EnvironmentSpecularScale = 1
     Lighting.EnvironmentDiffuseScale = 1
+    Lighting.Ambient = Color3.fromRGB(128, 128, 128)
 
-    -- Thêm hiệu ứng đẹp
+    if Terrain then
+        Terrain.WaterWaveSize = 0.15
+        Terrain.WaterWaveSpeed = 12
+        Terrain.WaterReflectance = 1
+        Terrain.WaterTransparency = 0
+    end
+
     local bloom = Instance.new("BloomEffect", Lighting)
-    bloom.Intensity = 0.3
-    bloom.Size = 24
+    bloom.Intensity = 0.5
+    bloom.Size = 56
     bloom.Threshold = 0.8
 
     local cc = Instance.new("ColorCorrectionEffect", Lighting)
-    cc.Saturation = 0.1
-    cc.Contrast = 0.05
+    cc.Saturation = 0.15
+    cc.Contrast = 0.1
+    cc.Brightness = 0.05
 
     local sun = Instance.new("SunRaysEffect", Lighting)
-    sun.Intensity = 0.15
+    sun.Intensity = 0.2
+    sun.Spread = 0.8
 end
 
--- Hàm tắt Ultra Graphics
+-- Tắt Ultra
 local function disableUltra()
     for _, obj in ipairs(Lighting:GetChildren()) do
         if obj:IsA("BloomEffect") or obj:IsA("ColorCorrectionEffect") or obj:IsA("SunRaysEffect") then
@@ -1995,27 +2002,32 @@ local function disableUltra()
     end
 end
 
--- Hàm bật Low Graphics
+-- Hàm bật Low Graphics (Mobile-like)
 local function enableLow()
-    settings().Rendering.QualityLevel = Enum.QualityLevel.Level01 -- Min Quality
+    settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
     Lighting.GlobalShadows = false
     Lighting.ShadowSoftness = 0
-    Lighting.Ambient = Color3.fromRGB(255, 255, 255)
     Lighting.Brightness = 1
     Lighting.EnvironmentSpecularScale = 0
     Lighting.EnvironmentDiffuseScale = 0
+    Lighting.Ambient = Color3.fromRGB(255, 255, 255)
 
-    -- Xóa tất cả hiệu ứng
+    if Terrain then
+        Terrain.WaterWaveSize = 0
+        Terrain.WaterWaveSpeed = 0
+        Terrain.WaterReflectance = 0
+        Terrain.WaterTransparency = 1
+    end
+
+    -- Xóa toàn bộ hiệu ứng
     for _, obj in ipairs(Lighting:GetChildren()) do
         if obj:IsA("PostEffect") or obj:IsA("BloomEffect") or obj:IsA("ColorCorrectionEffect") or obj:IsA("SunRaysEffect") then
             obj:Destroy()
         end
     end
-end
 
--- Hàm tắt Low Graphics
-local function disableLow()
-    -- Không cần làm gì đặc biệt, chỉ bật lại Ultra hoặc mặc định
+    -- Giảm texture
+    settings().Rendering.TextureQuality = Enum.TextureQualityLevel.Low
 end
 
 -- Toggle Fluent
@@ -2025,11 +2037,10 @@ Tabs.Misc:AddToggle("UltraGraphicsToggle", {
     Callback = function(state)
         if state then
             ultraEnabled = true
-            lowEnabled = false
-            disableLow()
+            if lowEnabled then
+                lowEnabled = false
+            end
             enableUltra()
-            -- Tắt toggle Low Graphics
-            library.flags.LowGraphicsToggle = false
         else
             ultraEnabled = false
             disableUltra()
@@ -2043,14 +2054,13 @@ Tabs.Misc:AddToggle("LowGraphicsToggle", {
     Callback = function(state)
         if state then
             lowEnabled = true
-            ultraEnabled = false
-            disableUltra()
+            if ultraEnabled then
+                ultraEnabled = false
+                disableUltra()
+            end
             enableLow()
-            -- Tắt toggle Ultra Graphics
-            library.flags.UltraGraphicsToggle = false
         else
             lowEnabled = false
-            disableLow()
         end
     end
 })
