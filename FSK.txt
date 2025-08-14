@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Free] | Forsaken",
-    SubTitle = "Version 2.4.8",
+    SubTitle = "Version 2.4.9",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -1917,16 +1917,30 @@ local effectClasses = {
     "ColorCorrectionEffect"
 }
 
--- Hàm xoá hiệu ứng
+-- Hàm reset ColorCorrection (chống đảo màu)
+local function resetColorCorrection(cc)
+    pcall(function()
+        cc.Brightness = 0
+        cc.Contrast = 0
+        cc.Saturation = 0
+        cc.TintColor = Color3.fromRGB(255, 255, 255) -- màu trắng, không tint
+    end)
+end
+
+-- Hàm xoá/reset hiệu ứng
 local function removeEffects()
-    -- Xoá hiệu ứng trong Lighting
+    -- Lighting
     for _, obj in pairs(Lighting:GetDescendants()) do
         if table.find(effectNames, obj.Name) or table.find(effectClasses, obj.ClassName) then
-            obj:Destroy()
+            if obj:IsA("ColorCorrectionEffect") then
+                resetColorCorrection(obj) -- reset thay vì xoá để chống đảo màu
+            else
+                obj:Destroy()
+            end
         end
     end
 
-    -- Xoá GUI overlay gây hiệu ứng
+    -- GUI overlay
     for _, obj in pairs(PlayerGui:GetDescendants()) do
         if table.find(effectNames, obj.Name) then
             obj:Destroy()
@@ -1940,7 +1954,7 @@ local function removeEffects()
     end
 end
 
--- Toggle trong Fluent
+-- Toggle Fluent
 Tabs.Misc:AddToggle("RemoveScreenEffects", {
     Title = "Remove Effects",
     Default = true,
@@ -1950,7 +1964,7 @@ Tabs.Misc:AddToggle("RemoveScreenEffects", {
             task.spawn(function()
                 while ActiveRemoveEffects do
                     removeEffects()
-                    task.wait(0.5) -- Delay tránh lag
+                    task.wait(0.5)
                 end
             end)
         end
