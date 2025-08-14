@@ -1892,10 +1892,16 @@ end)
 
     Tabs.Misc:AddSection("↳ Bypass")
 
+-- Anti-AFK + Load Script HHG.lua
 local hhgThread
+local HHG_LINK = "https://raw.githubusercontent.com/HocSinhLop10/Skid/main/HHG.lua" -- Link gốc, bỏ refs/heads để tránh lỗi
 
-local function RunAntiAFK(Value)
-    -- Anti AFK
+Tabs.Misc:AddToggle("AntiAFK", {
+    Title = "Anti-AFK",
+    Default = true
+})
+:OnChanged(function(Value)
+    -- Xử lý Anti-AFK
     for _, c in pairs(getconnections(game.Players.LocalPlayer.Idled)) do
         if Value then
             c:Disable()
@@ -1903,29 +1909,31 @@ local function RunAntiAFK(Value)
             c:Enable()
         end
     end
-
-    -- HHG.lua
+    
     if Value then
+        -- Bật: tải & chạy script HHG.lua
         hhgThread = task.spawn(function()
-            loadstring(game:HttpGet("https://raw.githubusercontent.com/HocSinhLop10/Skid/refs/heads/main/HHG.lua"))()
+            local success, result = pcall(function()
+                return game:HttpGet(HHG_LINK)
+            end)
+            
+            if success and result then
+                local runSuccess, err = pcall(loadstring(result))
+                if not runSuccess then
+                    warn("[AntiAFK] Lỗi chạy script HHG:", err)
+                end
+            else
+                warn("[AntiAFK] Không thể tải script HHG.lua")
+            end
         end)
     else
+        -- Tắt: hủy thread
         if hhgThread then
             task.cancel(hhgThread)
             hhgThread = nil
         end
     end
-end
-
--- Tạo toggle
-Tabs.Misc:AddToggle("AntiAFK", {
-    Title = "Anti-AFK",
-    Default = true
-})
-:OnChanged(RunAntiAFK)
-
--- Gọi ngay để khi vào là chạy luôn
-RunAntiAFK(true)
+end)
 
 
 
