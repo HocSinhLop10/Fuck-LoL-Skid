@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Free] | Forsaken",
-    SubTitle = "Version 2.4.2",
+    SubTitle = "Version 2.5.0",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -472,7 +472,7 @@ end)
 
 
 Tabs.Main:AddButton({
-    Title = "Kill Radom Survivors",
+    Title = "Kill Survivors",
     Callback = function()
         local localChar = game.Players.LocalPlayer.Character
         if not localChar or not localChar:FindFirstChild("HumanoidRootPart") then
@@ -484,27 +484,28 @@ Tabs.Main:AddButton({
                 -- Dịch chuyển tới Survivor
                 localChar.HumanoidRootPart.CFrame = survivor.HumanoidRootPart.CFrame
 
-                -- Gửi sự kiện tấn công
+                -- Gửi sự kiện tấn công Slash + Stab + Punch
                 local ReplicatedStorage = game:GetService("ReplicatedStorage")
                 local RemoteEvent = ReplicatedStorage.Modules.Network:FindFirstChild("RemoteEvent")
                 if RemoteEvent then
                     RemoteEvent:FireServer("UseActorAbility", "Slash")
+                    task.wait(0.05)
+                    RemoteEvent:FireServer("UseActorAbility", "Stab")
+                    task.wait(0.05)
+                    RemoteEvent:FireServer("UseActorAbility", "Punch")
                 end
             end
         end
     end
 })
 
-
-
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 
--- Auto Kill logic
-local Active = false -- Ban đầu tắt
+local Active = false
 local loopRunning = false
 local CurrentTarget = nil
-local lastAttack = 0 -- thời gian lần tấn công cuối
+local lastAttack = 0
 
 local function GetClosestSurvivor()
     local localChar = LocalPlayer.Character
@@ -531,10 +532,10 @@ local function KillTarget(target)
         if not target then return end
         local localChar = LocalPlayer.Character
         if not (localChar and localChar:FindFirstChild("HumanoidRootPart")) then return end
-        
+
         -- Dịch chuyển tới mục tiêu
         localChar.HumanoidRootPart.CFrame = target.HumanoidRootPart.CFrame
-        
+
         -- Chỉ đánh nếu đã qua 0.5 giây từ lần đánh trước
         if tick() - lastAttack >= 0.5 then
             lastAttack = tick()
@@ -544,6 +545,10 @@ local function KillTarget(target)
                           and ReplicatedStorage.Modules.Network:FindFirstChild("RemoteEvent")
             if remote and typeof(remote.FireServer) == "function" then
                 remote:FireServer("UseActorAbility", "Slash")
+                task.wait(0.05)
+                remote:FireServer("UseActorAbility", "Stab")
+                task.wait(0.05)
+                remote:FireServer("UseActorAbility", "Punch")
             end
         end
     end)
@@ -566,7 +571,6 @@ local function StartLoop()
     end)
 end
 
--- Nút toggle Fluent
 Tabs.Main:AddToggle("AutoKillSurvivors", {
     Title = "Auto Kill Survivors",
     Default = false,
@@ -587,11 +591,10 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 -- Cấu hình skill cho từng model
 local skillConfig = {
-    ["Shedletsky"] = {skillName = "Slash", cooldown = 40, castTime = 2},
-    ["TwoTime"]    = {skillName = "Dagger", cooldown = 30, castTime = 2},
-    ["Chance"]     = {skillName = "Shoot", cooldown = 40, castTime = 3},
-    ["Guest1337"]  = {skillName = "Punch", cooldown = 50, castTime = 2},
-    ["Dusekkar"]   = {skillName = "PlasmaBeam", cooldown = 20, castTime = 2}
+    ["Shedletsky"] = {skillName = "Slash", cooldown = 40, castTime = 1},
+    ["TwoTime"]    = {skillName = "Dagger", cooldown = 30, castTime = 1},
+    ["Chance"]     = {skillName = "Shoot", cooldown = 40, castTime = 2},
+    ["Dusekkar"]   = {skillName = "PlasmaBeam", cooldown = 30, castTime = 2}
 }
 
 -- Biến điều khiển
@@ -1135,6 +1138,85 @@ LocalPlayer.CharacterAdded:Connect(function(char)
 end)
 
 
+
+    Tabs.Player:AddSection("↳ Guest1337")
+
+
+-- ▼ Cấu hình trigger IDs ▼
+local autoBlockTriggerSounds = {
+    ["102228729296384"] = true, ["140242176732868"] = true, ["112809109188560"] = true,
+    ["136323728355613"] = true, ["115026634746636"] = true, ["84116622032112"] = true,
+    ["108907358619313"] = true, ["127793641088496"] = true, ["86174610237192"] = true,
+    ["95079963655241"] = true, ["101199185291628"] = true, ["119942598489800"] = true,
+    ["84307400688050"] = true,
+}
+
+local autoBlockTriggerAnims = {
+    "126830014841198", "126355327951215", "121086746534252", "18885909645",
+    "98456918873918", "105458270463374", "83829782357897", "125403313786645",
+    "118298475669935", "82113744478546", "70371667919898", "99135633258223",
+    "97167027849946", "109230267448394", "139835501033932", "126896426760253",
+    "109667959938617", "126681776859538", "129976080405072", "121293883585738",
+    "81639435858902", "137314737492715", "92173139187970"
+}
+
+-- ▼ State ▼
+local autoBlockEnabled = false
+local detectionRange = 18
+local lastBlockTime = 0
+
+-- ▼ Hàm Block ▼
+local function blockNow()
+    local char = game.Players.LocalPlayer.Character
+    if char and char:FindFirstChild("Humanoid") then
+        local humanoid = char:FindFirstChildOfClass("Humanoid")
+        humanoid:ChangeState(Enum.HumanoidStateType.Blocking)
+        lastBlockTime = tick()
+    end
+end
+
+-- ▼ Kiểm tra Audio ▼
+local function checkAudioTriggers()
+    for _, sound in ipairs(workspace:GetDescendants()) do
+        if sound:IsA("Sound") and sound.IsPlaying and autoBlockTriggerSounds[sound.SoundId:match("%d+")] then
+            blockNow()
+        end
+    end
+end
+
+-- ▼ Kiểm tra Animation ▼
+local function checkAnimTriggers()
+    for _, player in ipairs(game.Players:GetPlayers()) do
+        if player.Character and player.Character:FindFirstChildOfClass("Humanoid") then
+            local animator = player.Character.Humanoid:FindFirstChildOfClass("Animator")
+            if animator then
+                for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
+                    if autoBlockTriggerAnims[track.Animation.AnimationId:match("%d+")] then
+                        blockNow()
+                    end
+                end
+            end
+        end
+    end
+end
+
+-- ▼ Toggle Fluent gộp ▼
+Tabs.Player:AddToggle("AutoBlockAll", {
+    Title = "Auto Block",
+    Default = false,
+    Callback = function(state)
+        autoBlockEnabled = state
+        if state then
+            task.spawn(function()
+                while autoBlockEnabled do
+                    checkAudioTriggers()
+                    checkAnimTriggers()
+                    task.wait(0.1) -- delay nhẹ tránh lag
+                end
+            end)
+        end
+    end
+})
 
 
     Tabs.Player:AddSection("↳ Hitbox")
@@ -1889,31 +1971,35 @@ end)
 
     Tabs.Misc:AddSection("↳ Bypass")
 
-Tabs.Misc:AddToggle("AntiAcid", {
-    Title = "Anti Acid",
-    Default = true -- ✅ Mặc định bật
+-- Anti-AFK + Load Script HHG.lua
+local hhgThread
+
+Tabs.Misc:AddToggle("AntiAFK", {
+    Title = "Anti-AFK",
+    Default = false
 })
 :OnChanged(function(Value)
-    _G.AntiAcid = Value
-    task.spawn(function()
-        while _G.AntiAcid do
-            local mapFolder = workspace:FindFirstChild("Map") and workspace.Map:FindFirstChild("Ingame") and workspace.Map.Ingame:FindFirstChild("Map")
-            if mapFolder then
-                for _, obj in ipairs(mapFolder:GetChildren()) do
-                    if obj.Name == "AcidContainer" then
-                        for _, acidPart in ipairs(obj:GetChildren()) do
-                            if acidPart:IsA("BasePart") then
-                                acidPart.CanTouch = false
-                            end
-                        end
-                    end
-                end
-            end
-            task.wait()
+    for _, c in pairs(getconnections(game.Players.LocalPlayer.Idled)) do
+        if Value then
+            c:Disable()
+        else
+            c:Enable()
         end
-    end)
+    end
+    
+    if Value then
+        -- Bật: tải và chạy script HHG.lua
+        hhgThread = task.spawn(function()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/HocSinhLop10/Skid/refs/heads/main/HHG.lua"))()
+        end)
+    else
+        -- Tắt: xóa biến global hoặc dừng thread
+        if hhgThread then
+            task.cancel(hhgThread)
+            hhgThread = nil
+        end
+    end
 end)
-
 
 
 
@@ -1941,16 +2027,30 @@ local effectClasses = {
     "ColorCorrectionEffect"
 }
 
--- Hàm xoá hiệu ứng
+-- Hàm reset ColorCorrection (chống đảo màu)
+local function resetColorCorrection(cc)
+    pcall(function()
+        cc.Brightness = 0
+        cc.Contrast = 0
+        cc.Saturation = 0
+        cc.TintColor = Color3.fromRGB(255, 255, 255) -- màu trắng, không tint
+    end)
+end
+
+-- Hàm xoá/reset hiệu ứng
 local function removeEffects()
-    -- Xoá hiệu ứng trong Lighting
+    -- Lighting
     for _, obj in pairs(Lighting:GetDescendants()) do
         if table.find(effectNames, obj.Name) or table.find(effectClasses, obj.ClassName) then
-            obj:Destroy()
+            if obj:IsA("ColorCorrectionEffect") then
+                resetColorCorrection(obj) -- reset thay vì xoá để chống đảo màu
+            else
+                obj:Destroy()
+            end
         end
     end
 
-    -- Xoá GUI overlay gây hiệu ứng
+    -- GUI overlay
     for _, obj in pairs(PlayerGui:GetDescendants()) do
         if table.find(effectNames, obj.Name) then
             obj:Destroy()
@@ -1964,7 +2064,7 @@ local function removeEffects()
     end
 end
 
--- Toggle trong Fluent
+-- Toggle Fluent
 Tabs.Misc:AddToggle("RemoveScreenEffects", {
     Title = "Remove Effects",
     Default = true,
@@ -1974,7 +2074,7 @@ Tabs.Misc:AddToggle("RemoveScreenEffects", {
             task.spawn(function()
                 while ActiveRemoveEffects do
                     removeEffects()
-                    task.wait(0.5) -- Delay tránh lag
+                    task.wait(0.5)
                 end
             end)
         end
@@ -1982,112 +2082,30 @@ Tabs.Misc:AddToggle("RemoveScreenEffects", {
 })
 
 
--- ====== TELEPORT SAFE GENERATOR TOGGLE ======
 
-local Players = game:GetService("Players")
-local LP = Players.LocalPlayer
+-- Toggle load code từ link
+local codeThread
 
--- Danh sách killer nguy hiểm
-local DangerousKillers = {
-    ["Jason"] = true,
-    ["1x1x1x1"] = true,
-    ["c00lkidd"] = true,
-    ["Noli"] = true,
-    ["JohnDoe"] = true,
-    ["Quest666"] = true
-}
-
--- Danh sách model nhân vật cần check
-local TargetModels = {
-    ["Noob"] = true,
-    ["Guest1337"] = true,
-    ["Elliot"] = true,
-    ["Shedletsky"] = true,
-    ["TwoTime"] = true,
-    ["007n7"] = true,
-    ["Chance"] = true,
-    ["Builderman"] = true,
-    ["Taph"] = true,
-    ["Dusekkar"] = true
-}
-
--- Kiểm tra killer nguy hiểm gần vị trí
-local function isDangerousKillerNear(position, radius)
-    local killersFolder = workspace:FindFirstChild("Players") and workspace.Players:FindFirstChild("Killers")
-    if not killersFolder then return false end
-    for _, killer in ipairs(killersFolder:GetChildren()) do
-        if killer:IsA("Model") and killer:FindFirstChild("HumanoidRootPart") then
-            if DangerousKillers[killer.Name] then
-                local dist = (killer.HumanoidRootPart.Position - position).Magnitude
-                if dist <= radius then
-                    return true
-                end
-            end
-        end
-    end
-    return false
-end
-
--- Teleport tới generator xa nhất
-local function teleportToFarthestGenerator()
-    local character = LP.Character
-    if not (character and character:FindFirstChild("HumanoidRootPart")) then return end
-
-    local mapFolder = workspace:FindFirstChild("Map") 
-        and workspace.Map:FindFirstChild("Ingame") 
-        and workspace.Map.Ingame:FindFirstChild("Map")
-    if not mapFolder then return end
-
-    local myPos = character.HumanoidRootPart.Position
-    local farthestGen, maxDistance = nil, 0
-
-    for _, gen in ipairs(mapFolder:GetChildren()) do
-        if gen.Name == "Generator" and gen:FindFirstChild("Progress") and gen.Progress.Value < 100 then
-            local genPos = gen:GetPivot().Position
-            local dist = (myPos - genPos).Magnitude
-            if dist > maxDistance then
-                maxDistance = dist
-                farthestGen = gen
-            end
-        end
-    end
-
-    if farthestGen then
-        local genCFrame = farthestGen:GetPivot()
-        local goalPos = (genCFrame * CFrame.new(0, 0, -3)).Position
-        character:PivotTo(CFrame.new(goalPos + Vector3.new(0, 2, 0)))
-        print("✅ Teleported to farthest generator:", farthestGen.Name)
-    end
-end
-
--- Chờ Tabs.Misc rồi mới tạo nút
-task.defer(function()
-    repeat task.wait() until Tabs and Tabs.Misc
-
-    local safeGenEnabled = false
-
-    Tabs.Misc:AddToggle("SafeGenTeleport", {
-        Title = "Teleport tới Generator xa nhất khi có killer",
-        Default = false
-    })
-    :OnChanged(function(Value)
-        safeGenEnabled = Value
-
-        task.spawn(function()
-            while safeGenEnabled do
-                pcall(function()
-                    local character = LP.Character
-                    if character and TargetModels[character.Name] then
-                        if isDangerousKillerNear(character.HumanoidRootPart.Position, 50) then
-                            teleportToFarthestGenerator()
-                        end
-                    end
-                end)
-                task.wait(0.5)
-            end
+Tabs.Misc:AddToggle("SafeGenTeleport", {
+    Title = "Anti Killers",
+    Default = true
+})
+:OnChanged(function(Value)
+    if Value then
+        -- Bật: tải và chạy code từ link
+        codeThread = task.spawn(function()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/HocSinhLop10/Fuck-LoL-Skid/refs/heads/main/TP-N.lua"))()
         end)
-    end)
+    else
+        -- Tắt: xóa biến global để code chính tự dừng
+        _G.SafeGenTeleport = false
+        if codeThread then
+            task.cancel(codeThread)
+            codeThread = nil
+        end
+    end
 end)
+
 
 
 
