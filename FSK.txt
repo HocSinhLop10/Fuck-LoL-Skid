@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Free] | Forsaken",
-    SubTitle = "Version 2.5.0",
+    SubTitle = "Version 2.5.2",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -1892,14 +1892,10 @@ end)
 
     Tabs.Misc:AddSection("↳ Bypass")
 
--- Anti-AFK + Load Script HHG.lua
 local hhgThread
 
-Tabs.Misc:AddToggle("AntiAFK", {
-    Title = "Anti-AFK",
-    Default = true
-})
-:OnChanged(function(Value)
+local function RunAntiAFK(Value)
+    -- Anti AFK
     for _, c in pairs(getconnections(game.Players.LocalPlayer.Idled)) do
         if Value then
             c:Disable()
@@ -1907,35 +1903,115 @@ Tabs.Misc:AddToggle("AntiAFK", {
             c:Enable()
         end
     end
-    
+
+    -- HHG.lua
     if Value then
-        -- Bật: tải và chạy script HHG.lua
         hhgThread = task.spawn(function()
             loadstring(game:HttpGet("https://raw.githubusercontent.com/HocSinhLop10/Skid/refs/heads/main/HHG.lua"))()
         end)
     else
-        -- Tắt: xóa biến global hoặc dừng thread
         if hhgThread then
             task.cancel(hhgThread)
             hhgThread = nil
         end
     end
-end)
+end
+
+-- Tạo toggle
+Tabs.Misc:AddToggle("AntiAFK", {
+    Title = "Anti-AFK",
+    Default = true
+})
+:OnChanged(RunAntiAFK)
+
+-- Gọi ngay để khi vào là chạy luôn
+RunAntiAFK(true)
 
 
 
 
 
+-- 🔥 ULTIMATE ANTI-BAN / ANTI-REPORT / ANTI-SCREENSHOT 🔥
 Tabs.Misc:AddToggle("AntiReportScreenshot", {
-    Title = "Anti-Ban",
+    Title = "Anti-Ban [60%]",
     Default = true,
     Callback = function(state)
-        if state then
-            setfflag("AbuseReportScreenshot", "False")
+        -- Hàm chặn tất cả report & screenshot
+        local function disableAllReports()
+            -- 1. Chặn flag mặc định & các biến liên quan
+            local flags = {
+                "AbuseReportScreenshot",
+                "AbuseReportScreenshotPercentage",
+                "AbuseReportEnabled",
+                "ReportAbuseMenu",
+                "EnableAbuseReportScreenshot"
+            }
+            for _, flag in ipairs(flags) do
+                pcall(function()
+                    setfflag(flag, "False")
+                end)
+            end
             setfflag("AbuseReportScreenshotPercentage", "0")
-        else
+
+            -- 2. Hook mọi hàm có thể gửi report
+            local dangerousServices = {
+                game:GetService("Players"),
+                game:GetService("CoreGui"),
+                game:GetService("UserInputService")
+            }
+            for _, service in ipairs(dangerousServices) do
+                for k, v in pairs(service) do
+                    if type(v) == "function" and tostring(k):lower():find("report") then
+                        service[k] = function(...)
+                            return nil -- Chặn hoàn toàn
+                        end
+                    end
+                end
+            end
+
+            -- 3. Hook các module/hàm screenshot
+            local oldFind = workspace.FindFirstChild
+            workspace.FindFirstChild = function(self, ...)
+                local args = {...}
+                if tostring(args[1]):lower():find("screenshot") then
+                    return nil
+                end
+                return oldFind(self, unpack(args))
+            end
+
+            -- 4. Hook send HTTP request (nếu executor hỗ trợ)
+            if hookfunction then
+                local oldRequest = syn and syn.request or request or http_request
+                if oldRequest then
+                    hookfunction(oldRequest, function(req)
+                        if req and req.Url and tostring(req.Url):lower():find("abuse") then
+                            return {StatusCode = 200, Body = "Blocked"}
+                        end
+                        return oldRequest(req)
+                    end)
+                end
+            end
+        end
+
+        -- Hàm bật lại
+        local function enableAllReports()
             setfflag("AbuseReportScreenshot", "True")
             setfflag("AbuseReportScreenshotPercentage", "100")
+        end
+
+        if state then
+            disableAllReports()
+            -- Tự bảo vệ liên tục mỗi 2 giây
+            task.spawn(function()
+                while state do
+                    disableAllReports()
+                    task.wait(2)
+                end
+            end)
+            print("[Anti-Ban] 🛡️ Full protection ENABLED!")
+        else
+            enableAllReports()
+            print("[Anti-Ban] ⚠️ Protection DISABLED.")
         end
     end
 })
