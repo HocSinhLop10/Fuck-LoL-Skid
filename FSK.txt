@@ -2013,7 +2013,7 @@ Tabs.Misc:AddToggle("AntiReportScreenshot", {
             task.spawn(function()
                 while state do
                     disableAllReports()
-                    task.wait(2)
+                    task.wait(0.01)
                 end
             end)
             print("[Anti-Ban] 🛡️ Full protection ENABLED!")
