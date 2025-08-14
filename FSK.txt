@@ -1897,7 +1897,7 @@ local hhgThread
 
 Tabs.Misc:AddToggle("AntiAFK", {
     Title = "Anti-AFK",
-    Default = false
+    Default = true
 })
 :OnChanged(function(Value)
     for _, c in pairs(getconnections(game.Players.LocalPlayer.Idled)) do
@@ -1921,6 +1921,26 @@ Tabs.Misc:AddToggle("AntiAFK", {
         end
     end
 end)
+
+
+
+
+
+Tabs.Misc:AddToggle("AntiReportScreenshot", {
+    Title = "Anti-Ban",
+    Default = true,
+    Callback = function(state)
+        if state then
+            setfflag("AbuseReportScreenshot", "False")
+            setfflag("AbuseReportScreenshotPercentage", "0")
+        else
+            setfflag("AbuseReportScreenshot", "True")
+            setfflag("AbuseReportScreenshotPercentage", "100")
+        end
+    end
+})
+
+
 
 
 
@@ -1948,30 +1968,16 @@ local effectClasses = {
     "ColorCorrectionEffect"
 }
 
--- Hàm reset ColorCorrection (chống đảo màu)
-local function resetColorCorrection(cc)
-    pcall(function()
-        cc.Brightness = 0
-        cc.Contrast = 0
-        cc.Saturation = 0
-        cc.TintColor = Color3.fromRGB(255, 255, 255) -- màu trắng, không tint
-    end)
-end
-
--- Hàm xoá/reset hiệu ứng
+-- Hàm xoá hiệu ứng
 local function removeEffects()
-    -- Lighting
+    -- Xoá hiệu ứng trong Lighting
     for _, obj in pairs(Lighting:GetDescendants()) do
         if table.find(effectNames, obj.Name) or table.find(effectClasses, obj.ClassName) then
-            if obj:IsA("ColorCorrectionEffect") then
-                resetColorCorrection(obj) -- reset thay vì xoá để chống đảo màu
-            else
-                obj:Destroy()
-            end
+            obj:Destroy()
         end
     end
 
-    -- GUI overlay
+    -- Xoá GUI overlay
     for _, obj in pairs(PlayerGui:GetDescendants()) do
         if table.find(effectNames, obj.Name) then
             obj:Destroy()
