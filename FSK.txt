@@ -1896,7 +1896,7 @@ end)
 local hhgThread
 
 Tabs.Misc:AddToggle("AntiAFK", {
-    Title = "Anti-AFK + HHG Loader",
+    Title = "Anti-AFK",
     Default = false
 })
 :OnChanged(function(Value)
