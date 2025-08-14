@@ -1939,14 +1939,12 @@ end)
 
 
 
--- 🔥 ULTIMATE ANTI-BAN / ANTI-REPORT / ANTI-SCREENSHOT 🔥
 Tabs.Misc:AddToggle("AntiReportScreenshot", {
     Title = "Anti-Ban [60%]",
     Default = true,
     Callback = function(state)
-        -- Hàm chặn tất cả report & screenshot
         local function disableAllReports()
-            -- 1. Chặn flag mặc định & các biến liên quan
+            -- Chặn flag
             local flags = {
                 "AbuseReportScreenshot",
                 "AbuseReportScreenshotPercentage",
@@ -1955,61 +1953,49 @@ Tabs.Misc:AddToggle("AntiReportScreenshot", {
                 "EnableAbuseReportScreenshot"
             }
             for _, flag in ipairs(flags) do
-                pcall(function()
-                    setfflag(flag, "False")
-                end)
-            end
-            setfflag("AbuseReportScreenshotPercentage", "0")
-
-            -- 2. Hook mọi hàm có thể gửi report
-            local dangerousServices = {
-                game:GetService("Players"),
-                game:GetService("CoreGui"),
-                game:GetService("UserInputService")
-            }
-            for _, service in ipairs(dangerousServices) do
-                for k, v in pairs(service) do
-                    if type(v) == "function" and tostring(k):lower():find("report") then
-                        service[k] = function(...)
-                            return nil -- Chặn hoàn toàn
-                        end
-                    end
-                end
-            end
-
-            -- 3. Hook các module/hàm screenshot
-            local oldFind = workspace.FindFirstChild
-            workspace.FindFirstChild = function(self, ...)
-                local args = {...}
-                if tostring(args[1]):lower():find("screenshot") then
-                    return nil
-                end
-                return oldFind(self, unpack(args))
-            end
-
-            -- 4. Hook send HTTP request (nếu executor hỗ trợ)
-            if hookfunction then
-                local oldRequest = syn and syn.request or request or http_request
-                if oldRequest then
-                    hookfunction(oldRequest, function(req)
-                        if req and req.Url and tostring(req.Url):lower():find("abuse") then
-                            return {StatusCode = 200, Body = "Blocked"}
-                        end
-                        return oldRequest(req)
+                if setfflag then
+                    pcall(function()
+                        setfflag(flag, "False")
                     end)
                 end
             end
+            if setfflag then
+                setfflag("AbuseReportScreenshotPercentage", "0")
+            end
+
+            -- Hook FindFirstChild
+            local oldFind = workspace.FindFirstChild
+            if oldFind and type(oldFind) == "function" then
+                workspace.FindFirstChild = function(self, ...)
+                    local args = {...}
+                    if tostring(args[1]):lower():find("screenshot") then
+                        return nil
+                    end
+                    return oldFind(self, unpack(args))
+                end
+            end
+
+            -- Hook HTTP request
+            local oldRequest = (syn and syn.request) or request or http_request
+            if hookfunction and oldRequest then
+                hookfunction(oldRequest, function(req)
+                    if req and req.Url and tostring(req.Url):lower():find("abuse") then
+                        return {StatusCode = 200, Body = "Blocked"}
+                    end
+                    return oldRequest(req)
+                end)
+            end
         end
 
-        -- Hàm bật lại
         local function enableAllReports()
-            setfflag("AbuseReportScreenshot", "True")
-            setfflag("AbuseReportScreenshotPercentage", "100")
+            if setfflag then
+                setfflag("AbuseReportScreenshot", "True")
+                setfflag("AbuseReportScreenshotPercentage", "100")
+            end
         end
 
         if state then
             disableAllReports()
-            -- Tự bảo vệ liên tục mỗi 2 giây
             task.spawn(function()
                 while state do
                     disableAllReports()
