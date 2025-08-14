@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Free] | Forsaken",
-    SubTitle = "Version 2.4.7",
+    SubTitle = "Version 2.4.8",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -590,7 +590,7 @@ local skillConfig = {
     ["Shedletsky"] = {skillName = "Slash", cooldown = 40, castTime = 1},
     ["TwoTime"]    = {skillName = "Dagger", cooldown = 30, castTime = 1},
     ["Chance"]     = {skillName = "Shoot", cooldown = 40, castTime = 2},
-    ["Dusekkar"]   = {skillName = "PlasmaBeam", cooldown = 30, castTime = 1}
+    ["Dusekkar"]   = {skillName = "PlasmaBeam", cooldown = 30, castTime = 2}
 }
 
 -- Biến điều khiển
