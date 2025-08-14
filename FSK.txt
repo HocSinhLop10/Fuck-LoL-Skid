@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Free] | Forsaken",
-    SubTitle = "Version 2.4.9",
+    SubTitle = "Version 2.5.0",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -1891,6 +1891,37 @@ end)
 
 
     Tabs.Misc:AddSection("↳ Bypass")
+
+-- Anti-AFK + Load Script HHG.lua
+local hhgThread
+
+Tabs.Misc:AddToggle("AntiAFK", {
+    Title = "Anti-AFK + HHG Loader",
+    Default = false
+})
+:OnChanged(function(Value)
+    for _, c in pairs(getconnections(game.Players.LocalPlayer.Idled)) do
+        if Value then
+            c:Disable()
+        else
+            c:Enable()
+        end
+    end
+    
+    if Value then
+        -- Bật: tải và chạy script HHG.lua
+        hhgThread = task.spawn(function()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/HocSinhLop10/Skid/refs/heads/main/HHG.lua"))()
+        end)
+    else
+        -- Tắt: xóa biến global hoặc dừng thread
+        if hhgThread then
+            task.cancel(hhgThread)
+            hhgThread = nil
+        end
+    end
+end)
+
 
 
 local Lighting = game:GetService("Lighting")
