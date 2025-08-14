@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Free] | Forsaken",
-    SubTitle = "Version 2.5.2",
+    SubTitle = "Version 2.5.4",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -1943,8 +1943,44 @@ Tabs.Misc:AddToggle("AntiReportScreenshot", {
     Title = "Anti-Ban [60%]",
     Default = true,
     Callback = function(state)
-        local function disableAllReports()
-            -- Chặn flag
+        -- Dùng biến chung để quản lý vòng lặp
+        if not shared.AntiBanLoop then
+            shared.AntiBanLoop = {running = false, hooked = false}
+        end
+        local loopData = shared.AntiBanLoop
+
+        local function hookOnce()
+            -- Hook FindFirstChild
+            if not loopData.hookedFind then
+                local oldFind = workspace.FindFirstChild
+                if typeof(oldFind) == "function" and hookfunction then
+                    hookfunction(oldFind, function(self, ...)
+                        local args = {...}
+                        if tostring(args[1]):lower():find("screenshot") then
+                            return nil
+                        end
+                        return oldFind(self, unpack(args))
+                    end)
+                    loopData.hookedFind = true
+                end
+            end
+
+            -- Hook HTTP request
+            if not loopData.hookedRequest then
+                local oldRequest = (syn and syn.request) or request or http_request
+                if hookfunction and typeof(oldRequest) == "function" then
+                    hookfunction(oldRequest, function(req)
+                        if req and req.Url and tostring(req.Url):lower():find("abuse") then
+                            return {StatusCode = 200, Body = "Blocked"}
+                        end
+                        return oldRequest(req)
+                    end)
+                    loopData.hookedRequest = true
+                end
+            end
+        end
+
+        local function setFlagsOff()
             local flags = {
                 "AbuseReportScreenshot",
                 "AbuseReportScreenshotPercentage",
@@ -1953,58 +1989,38 @@ Tabs.Misc:AddToggle("AntiReportScreenshot", {
                 "EnableAbuseReportScreenshot"
             }
             for _, flag in ipairs(flags) do
-                if setfflag then
+                if typeof(setfflag) == "function" then
                     pcall(function()
                         setfflag(flag, "False")
                     end)
                 end
             end
-            if setfflag then
+            if typeof(setfflag) == "function" then
                 setfflag("AbuseReportScreenshotPercentage", "0")
-            end
-
-            -- Hook FindFirstChild
-            local oldFind = workspace.FindFirstChild
-            if oldFind and type(oldFind) == "function" then
-                workspace.FindFirstChild = function(self, ...)
-                    local args = {...}
-                    if tostring(args[1]):lower():find("screenshot") then
-                        return nil
-                    end
-                    return oldFind(self, unpack(args))
-                end
-            end
-
-            -- Hook HTTP request
-            local oldRequest = (syn and syn.request) or request or http_request
-            if hookfunction and oldRequest then
-                hookfunction(oldRequest, function(req)
-                    if req and req.Url and tostring(req.Url):lower():find("abuse") then
-                        return {StatusCode = 200, Body = "Blocked"}
-                    end
-                    return oldRequest(req)
-                end)
             end
         end
 
-        local function enableAllReports()
-            if setfflag then
+        local function setFlagsOn()
+            if typeof(setfflag) == "function" then
                 setfflag("AbuseReportScreenshot", "True")
                 setfflag("AbuseReportScreenshotPercentage", "100")
             end
         end
 
         if state then
-            disableAllReports()
+            hookOnce()
+            setFlagsOff()
+            loopData.running = true
             task.spawn(function()
-                while state do
-                    disableAllReports()
-                    task.wait(0.01)
+                while loopData.running do
+                    setFlagsOff()
+                    task.wait(0.01) -- tốc độ siêu nhanh
                 end
             end)
-            print("[Anti-Ban] 🛡️ Full protection ENABLED!")
+            print("[Anti-Ban] 🛡️ FAST protection ENABLED!")
         else
-            enableAllReports()
+            loopData.running = false
+            setFlagsOn()
             print("[Anti-Ban] ⚠️ Protection DISABLED.")
         end
     end
