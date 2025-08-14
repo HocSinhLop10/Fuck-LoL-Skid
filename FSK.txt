@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Free] | Forsaken",
-    SubTitle = "Version 2.4.4",
+    SubTitle = "Version 2.4.5",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -472,7 +472,7 @@ end)
 
 
 Tabs.Main:AddButton({
-    Title = "Kill Radom Survivors",
+    Title = "Kill Random Survivors",
     Callback = function()
         local localChar = game.Players.LocalPlayer.Character
         if not localChar or not localChar:FindFirstChild("HumanoidRootPart") then
@@ -484,27 +484,26 @@ Tabs.Main:AddButton({
                 -- Dịch chuyển tới Survivor
                 localChar.HumanoidRootPart.CFrame = survivor.HumanoidRootPart.CFrame
 
-                -- Gửi sự kiện tấn công
+                -- Gửi sự kiện tấn công Slash + Stab
                 local ReplicatedStorage = game:GetService("ReplicatedStorage")
                 local RemoteEvent = ReplicatedStorage.Modules.Network:FindFirstChild("RemoteEvent")
                 if RemoteEvent then
                     RemoteEvent:FireServer("UseActorAbility", "Slash")
+                    task.wait(0.05) -- delay nhỏ
+                    RemoteEvent:FireServer("UseActorAbility", "Stab")
                 end
             end
         end
     end
 })
 
-
-
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 
--- Auto Kill logic
-local Active = false -- Ban đầu tắt
+local Active = false
 local loopRunning = false
 local CurrentTarget = nil
-local lastAttack = 0 -- thời gian lần tấn công cuối
+local lastAttack = 0
 
 local function GetClosestSurvivor()
     local localChar = LocalPlayer.Character
@@ -531,10 +530,10 @@ local function KillTarget(target)
         if not target then return end
         local localChar = LocalPlayer.Character
         if not (localChar and localChar:FindFirstChild("HumanoidRootPart")) then return end
-        
+
         -- Dịch chuyển tới mục tiêu
         localChar.HumanoidRootPart.CFrame = target.HumanoidRootPart.CFrame
-        
+
         -- Chỉ đánh nếu đã qua 0.5 giây từ lần đánh trước
         if tick() - lastAttack >= 0.5 then
             lastAttack = tick()
@@ -544,6 +543,8 @@ local function KillTarget(target)
                           and ReplicatedStorage.Modules.Network:FindFirstChild("RemoteEvent")
             if remote and typeof(remote.FireServer) == "function" then
                 remote:FireServer("UseActorAbility", "Slash")
+                task.wait(0.05) -- delay nhỏ
+                remote:FireServer("UseActorAbility", "Stab")
             end
         end
     end)
@@ -566,7 +567,6 @@ local function StartLoop()
     end)
 end
 
--- Nút toggle Fluent
 Tabs.Main:AddToggle("AutoKillSurvivors", {
     Title = "Auto Kill Survivors",
     Default = false,
