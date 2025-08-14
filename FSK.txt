@@ -472,7 +472,7 @@ end)
 
 
 Tabs.Main:AddButton({
-    Title = "Kill Random Survivors",
+    Title = "Kill Survivors",
     Callback = function()
         local localChar = game.Players.LocalPlayer.Character
         if not localChar or not localChar:FindFirstChild("HumanoidRootPart") then
@@ -484,13 +484,15 @@ Tabs.Main:AddButton({
                 -- Dịch chuyển tới Survivor
                 localChar.HumanoidRootPart.CFrame = survivor.HumanoidRootPart.CFrame
 
-                -- Gửi sự kiện tấn công Slash + Stab
+                -- Gửi sự kiện tấn công Slash + Stab + Punch
                 local ReplicatedStorage = game:GetService("ReplicatedStorage")
                 local RemoteEvent = ReplicatedStorage.Modules.Network:FindFirstChild("RemoteEvent")
                 if RemoteEvent then
                     RemoteEvent:FireServer("UseActorAbility", "Slash")
-                    task.wait(0.05) -- delay nhỏ
+                    task.wait(0.05)
                     RemoteEvent:FireServer("UseActorAbility", "Stab")
+                    task.wait(0.05)
+                    RemoteEvent:FireServer("UseActorAbility", "Punch")
                 end
             end
         end
@@ -543,8 +545,10 @@ local function KillTarget(target)
                           and ReplicatedStorage.Modules.Network:FindFirstChild("RemoteEvent")
             if remote and typeof(remote.FireServer) == "function" then
                 remote:FireServer("UseActorAbility", "Slash")
-                task.wait(0.05) -- delay nhỏ
+                task.wait(0.05)
                 remote:FireServer("UseActorAbility", "Stab")
+                task.wait(0.05)
+                remote:FireServer("UseActorAbility", "Punch")
             end
         end
     end)
@@ -1960,7 +1964,7 @@ local codeThread
 
 Tabs.Misc:AddToggle("SafeGenTeleport", {
     Title = "Anti Killers",
-    Default = false
+    Default = true
 })
 :OnChanged(function(Value)
     if Value then
