@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Free] | Forsaken",
-    SubTitle = "Version 2.5.4",
+    SubTitle = "Version 2.5.5",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -299,7 +299,7 @@ Tabs.Main:AddToggle("AutoExpMoney", {
                 table.insert(Spectators, v.Name)
             end
             isInGame = not table.find(Spectators, LP.Name)
-            task.wait(1)
+            task.wait(0.5)
         end
     end)
 
@@ -332,7 +332,7 @@ Tabs.Main:AddToggle("AutoExpMoney", {
                     Survivor = survivorsFolder:FindFirstChild(LP.Name) or table.find(survivorsFolder:GetChildren(), LP.Character)
                 end
             end
-            task.wait(1)
+            task.wait(0.5)
         end
     end)
 
@@ -347,7 +347,10 @@ Tabs.Main:AddToggle("AutoExpMoney", {
                 -- Theo dõi & tấn công Survivor
                 local target = nil
                 for _, survivor in ipairs(survivorsFolder:GetChildren()) do
-                    if survivor:IsA("Model") and survivor:FindFirstChild("HumanoidRootPart") then
+                    if survivor:IsA("Model")
+                    and survivor:FindFirstChild("HumanoidRootPart")
+                    and survivor:FindFirstChild("Humanoid")
+                    and survivor.Humanoid.Health > 0 then
                         target = survivor
                         break
                     end
@@ -356,7 +359,12 @@ Tabs.Main:AddToggle("AutoExpMoney", {
                 if target then
                     -- Dịch chuyển theo target
                     task.spawn(function()
-                        while _G.AutoFarm and target and target:IsDescendantOf(survivorsFolder) do
+                        while _G.AutoFarm
+                        and target
+                        and target:IsDescendantOf(survivorsFolder)
+                        and target:FindFirstChild("Humanoid")
+                        and target.Humanoid.Health > 0 do
+
                             local character = LP.Character
                             if character and character:FindFirstChild("HumanoidRootPart") and target:FindFirstChild("HumanoidRootPart") then
                                 character:PivotTo(target.HumanoidRootPart.CFrame)
@@ -367,7 +375,13 @@ Tabs.Main:AddToggle("AutoExpMoney", {
 
                     -- Tấn công target
                     task.spawn(function()
-                        while _G.AutoFarm and target and target:FindFirstChild("HumanoidRootPart") and target:IsDescendantOf(survivorsFolder) do
+                        while _G.AutoFarm
+                        and target
+                        and target:IsDescendantOf(survivorsFolder)
+                        and target:FindFirstChild("Humanoid")
+                        and target.Humanoid.Health > 0
+                        and target:FindFirstChild("HumanoidRootPart") do
+
                             for _, key in ipairs({Enum.KeyCode.Q, Enum.KeyCode.E, Enum.KeyCode.R}) do
                                 if not _G.AutoFarm then break end
                                 VIM:SendMouseButtonEvent(0, 0, 0, true, game, 0)
