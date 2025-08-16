@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Free] | Forsaken",
-    SubTitle = "Version 2.5.6",
+    SubTitle = "Version 2.5.7",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -1153,33 +1153,6 @@ end)
 
 
 
-
-
-
-
-
-
--- LocalScript trong StarterGui
-local player = game.Players.LocalPlayer
-local TweenService = game:GetService("TweenService")
-local RunService = game:GetService("RunService")
-
--- ================== FLUENT UI ==================
-local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
-
-local Window = Fluent:CreateWindow({
-    Title = "Hutao GUI",
-    SubTitle = "Teleport Script",
-    TabWidth = 160,
-    Size = UDim2.fromOffset(520, 350),
-    Acrylic = true,
-    Theme = "Dark",
-})
-
-local Tabs = {
-    Main = Window:AddTab({ Title = "Main", Icon = "rbxassetid://10734950020" }),
-    Player = Window:AddTab({ Title = "Player", Icon = "rbxassetid://10734950346" }),
-}
 -- =======================================================
 
 local gui = Instance.new("ScreenGui")
