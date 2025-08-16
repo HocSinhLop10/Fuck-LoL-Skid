@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Free] | Forsaken",
-    SubTitle = "Version 2.5.7",
+    SubTitle = "Version 2.5.8",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -1153,8 +1153,15 @@ end)
 
 
 
--- =======================================================
 
+
+-- =======================================================
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local player = Players.LocalPlayer
+
+-- ================== GUI BUTTON ==================
 local gui = Instance.new("ScreenGui")
 gui.Name = "CoolGui"
 gui.ResetOnSpawn = false
@@ -1169,7 +1176,6 @@ button.Image = "rbxassetid://102274458242775"
 button.ImageTransparency = 0.15
 button.Parent = gui
 
--- Bo tròn nút
 local corner = Instance.new("UICorner")
 corner.CornerRadius = UDim.new(1, 0)
 corner.Parent = button
@@ -1179,11 +1185,10 @@ local label = Instance.new("TextLabel")
 label.Size = UDim2.new(1, 0, 1, 0)
 label.BackgroundTransparency = 1
 label.TextColor3 = Color3.fromRGB(255, 255, 255)
-label.TextScaled = false
+label.Font = Enum.Font.GothamBold
 label.FontSize = Enum.FontSize.Size18
 label.Visible = false
 label.ZIndex = 3
-label.Font = Enum.Font.GothamBold
 label.TextStrokeTransparency = 0.5
 label.Parent = button
 
@@ -1248,7 +1253,6 @@ local BOARD_TOTAL_TIME = 5
 local LOADING_TIME = BOARD_TOTAL_TIME - 0.5 -- 4.5s
 local IMAGE_ID = "rbxassetid://121468019965670"
 
--- Danh sách Killers cần tránh
 local DangerousKillers = {
     ["Jason"] = true,
     ["1x1x1x1"] = true,
@@ -1406,7 +1410,6 @@ local function create3DModel()
     local upOffset = Vector3.new(0, 0.1, 0)
     local forwardOffset = 1.8
     local tiltAngleX = math.rad(-30)
-    local tiltAngleZ = math.rad(0)
 
     local rsConn
     rsConn = RunService.RenderStepped:Connect(function()
@@ -1415,7 +1418,7 @@ local function create3DModel()
             local flatLook = Vector3.new(lv.X, 0, lv.Z).Unit
             local targetPos = hrp.Position + upOffset + flatLook * forwardOffset
             part.CFrame = CFrame.new(targetPos, targetPos + flatLook)
-                * CFrame.Angles(tiltAngleX, math.rad(180), tiltAngleZ)
+                * CFrame.Angles(tiltAngleX, math.rad(180), 0)
         end
     end)
 
@@ -1456,8 +1459,8 @@ local function create3DModel()
         end)
     end)
 end
--- =======================================================
 
+-- ================== CLICK EVENT ==================
 button.MouseButton1Click:Connect(function()
     if cooldown then return end
     print("Đang chạy script teleport ...")
@@ -2221,16 +2224,15 @@ end)
 
     Tabs.Misc:AddSection("↳ Bypass")
 
--- Anti-AFK + Load Script HHG.lua
+-- Anti-AFK (Không cần HHG nữa)
 local hhgThread
-local HHG_LINK = "https://raw.githubusercontent.com/HocSinhLop10/Skid/main/HHG.lua" -- Link gốc, bỏ refs/heads để tránh lỗi
 
 Tabs.Misc:AddToggle("AntiAFK", {
     Title = "Anti-AFK",
     Default = true
 })
 :OnChanged(function(Value)
-    -- Xử lý Anti-AFK
+    -- Xử lý Anti-AFK Roblox
     for _, c in pairs(getconnections(game.Players.LocalPlayer.Idled)) do
         if Value then
             c:Disable()
@@ -2239,28 +2241,11 @@ Tabs.Misc:AddToggle("AntiAFK", {
         end
     end
     
+    -- HHG animation script đã bị bỏ
     if Value then
-        -- Bật: tải & chạy script HHG.lua
-        hhgThread = task.spawn(function()
-            local success, result = pcall(function()
-                return game:HttpGet(HHG_LINK)
-            end)
-            
-            if success and result then
-                local runSuccess, err = pcall(loadstring(result))
-                if not runSuccess then
-                    warn("[AntiAFK] Lỗi chạy script HHG:", err)
-                end
-            else
-                warn("[AntiAFK] Không thể tải script HHG.lua")
-            end
-        end)
+        print("[AntiAFK] Đã bật, HHG script bị bỏ qua.")
     else
-        -- Tắt: hủy thread
-        if hhgThread then
-            task.cancel(hhgThread)
-            hhgThread = nil
-        end
+        print("[AntiAFK] Đã tắt.")
     end
 end)
 
