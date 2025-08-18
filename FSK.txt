@@ -232,6 +232,7 @@ end)
 
 
 
+
 local Players = game:GetService("Players")
 local PFS = game:GetService("PathfindingService")
 local VIM = game:GetService("VirtualInputManager")
@@ -303,23 +304,7 @@ Tabs.Main:AddToggle("AutoExpMoney", {
         end
     end)
 
-    -- Auto sprint nếu đủ stamina
-    task.spawn(function()
-        while _G.AutoFarm do
-            if isInGame and currentCharacter and currentCharacter:FindFirstChild("Humanoid") then
-                pcall(function()
-                    currentCharacter.Humanoid:SetAttribute("BaseSpeed", 14)
-                    local barText = LP:WaitForChild("PlayerGui"):WaitForChild("TemporaryUI"):WaitForChild("PlayerInfo").Bars.Stamina.Amount.Text
-                    stamina = tonumber(string.split(barText, "/")[1]) or 100
-                    local fovMult = currentCharacter:FindFirstChild("FOVMultipliers") and currentCharacter.FOVMultipliers:FindFirstChild("Sprinting")
-                    if fovMult and fovMult.Value ~= 1.125 and stamina >= 70 and not busy then
-                        VIM:SendKeyEvent(true, Enum.KeyCode.LeftShift, false, game)
-                    end
-                end)
-            end
-            task.wait(1)
-        end
-    end)
+    -- ⚠️ ĐÃ XOÁ CHỨC NĂNG AUTO SPRINT
 
     -- Xác định mình là Killer hay Survivor
     task.spawn(function()
