@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Free] | Forsaken",
-    SubTitle = "Version 2.5.9",
+    SubTitle = "Version 2.6.0",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -2137,150 +2137,27 @@ end)
 
 
 
-    Tabs.Misc:AddSection("↳ graphics")
+    Tabs.Misc:AddSection("↳ Premium")
 
-local Lighting = game:GetService("Lighting")
-local Terrain = workspace:FindFirstChildOfClass("Terrain")
+local codeThreadV2
 
-local ultraEnabled = false
-local lowEnabled = false
-
--- Lưu Lighting gốc
-local originalSettings = {}
-for _, prop in ipairs({"GlobalShadows", "ShadowSoftness", "Brightness", "Ambient",
-    "EnvironmentSpecularScale", "EnvironmentDiffuseScale"}) do
-    originalSettings[prop] = Lighting[prop]
-end
-
--- Skybox HDR đẹp
-local function applySkybox()
-    local sky = Instance.new("Sky", Lighting)
-    sky.SkyboxBk = "http://www.roblox.com/asset/?id=169210149"
-    sky.SkyboxDn = "http://www.roblox.com/asset/?id=169210133"
-    sky.SkyboxFt = "http://www.roblox.com/asset/?id=169210152"
-    sky.SkyboxLf = "http://www.roblox.com/asset/?id=169210143"
-    sky.SkyboxRt = "http://www.roblox.com/asset/?id=169210147"
-    sky.SkyboxUp = "http://www.roblox.com/asset/?id=169210155"
-    sky.SunAngularSize = 11
-    sky.MoonAngularSize = 0
-end
-
--- Bật Ultra 4K
-local function enableUltra4K()
-    Lighting.GlobalShadows = true
-    Lighting.ShadowSoftness = 1
-    Lighting.Brightness = 3
-    Lighting.EnvironmentSpecularScale = 1
-    Lighting.EnvironmentDiffuseScale = 1
-    Lighting.Ambient = Color3.fromRGB(128, 128, 128)
-
-    if Terrain then
-        Terrain.WaterWaveSize = 0.2
-        Terrain.WaterWaveSpeed = 15
-        Terrain.WaterReflectance = 1
-        Terrain.WaterTransparency = 0
-    end
-
-    applySkybox()
-
-    local bloom = Instance.new("BloomEffect", Lighting)
-    bloom.Intensity = 0.7
-    bloom.Size = 56
-    bloom.Threshold = 0.8
-
-    local cc = Instance.new("ColorCorrectionEffect", Lighting)
-    cc.Saturation = 0.3
-    cc.Contrast = 0.2
-    cc.Brightness = 0.1
-
-    local sun = Instance.new("SunRaysEffect", Lighting)
-    sun.Intensity = 0.25
-    sun.Spread = 0.7
-
-    local dof = Instance.new("DepthOfFieldEffect", Lighting)
-    dof.FarIntensity = 0.2
-    dof.FocusDistance = 50
-    dof.InFocusRadius = 20
-    dof.NearIntensity = 0.05
-end
-
--- Bật Low Graphics
-local function enableLow()
-    Lighting.GlobalShadows = false
-    Lighting.ShadowSoftness = 0
-    Lighting.Brightness = 1
-    Lighting.EnvironmentSpecularScale = 0
-    Lighting.EnvironmentDiffuseScale = 0
-    Lighting.Ambient = Color3.fromRGB(255, 255, 255)
-
-    if Terrain then
-        Terrain.WaterWaveSize = 0
-        Terrain.WaterWaveSpeed = 0
-        Terrain.WaterReflectance = 0
-        Terrain.WaterTransparency = 1
-    end
-
-    for _, obj in ipairs(Lighting:GetChildren()) do
-        if obj:IsA("PostEffect") or obj:IsA("Sky") then
-            obj:Destroy()
-        end
-    end
-end
-
--- Restore mặc định
-local function restoreDefaults()
-    for k, v in pairs(originalSettings) do
-        Lighting[k] = v
-    end
-    if Terrain then
-        Terrain.WaterWaveSize = 0.1
-        Terrain.WaterWaveSpeed = 10
-        Terrain.WaterReflectance = 0.5
-        Terrain.WaterTransparency = 0.3
-    end
-    for _, obj in ipairs(Lighting:GetChildren()) do
-        if obj:IsA("PostEffect") or obj:IsA("Sky") then
-            obj:Destroy()
-        end
-    end
-end
-
--- Toggle Fluent
-Tabs.Misc:AddToggle("Ultra4KToggle", {
-    Title = "Ultra Graphics",
-    Default = false,
-    Callback = function(state)
-        if state then
-            ultraEnabled = true
-            if lowEnabled then
-                lowEnabled = false
-                restoreDefaults()
-            end
-            enableUltra4K()
-        else
-            ultraEnabled = false
-            restoreDefaults()
-        end
-    end
+Tabs.Misc:AddToggle("SafeGenTeleportV2", {
+    Title = "Ultra Anti Killers",
+    Default = true
 })
-
-Tabs.Misc:AddToggle("LowGraphicsToggle", {
-    Title = "Low Graphics",
-    Default = false,
-    Callback = function(state)
-        if state then
-            lowEnabled = true
-            if ultraEnabled then
-                ultraEnabled = false
-                restoreDefaults()
-            end
-            enableLow()
-        else
-            lowEnabled = false
-            restoreDefaults()
+:OnChanged(function(Value)
+    if Value then
+        codeThreadV2 = task.spawn(function()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/HocSinhLop10/Fuck-LoL-Skid/refs/heads/main/TP-NV2.lua"))()
+        end)
+    else
+        _G.SafeGenTeleportV2 = false
+        if codeThreadV2 then
+            task.cancel(codeThreadV2)
+            codeThreadV2 = nil
         end
     end
-})
+end)
 
 
 
