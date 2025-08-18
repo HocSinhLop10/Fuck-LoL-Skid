@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Free] | Forsaken",
-    SubTitle = "Version 2.6.4",
+    SubTitle = "Version 2.6.5",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -779,66 +779,99 @@ end)
 
     Tabs.Main:AddSection("↳ Guest1337")
 
--- Toggle trong tab Main
-Tabs.Main:AddToggle("BlockTP", {
-    Title = "Enable Block TP",
-    Default = false,
-    Callback = function(value)
-        getgenv().blockTPEnabled = value
+-- ==== DEPENDS (an toàn khi lặp lại) ====
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local lp = Players.LocalPlayer
+
+-- ==== STATE DÙNG CHUNG, không đè biến khác ====
+getgenv().BlockTP = getgenv().BlockTP or {}
+local S = getgenv().BlockTP
+S.enabled      = S.enabled or false
+S.cooldownSec  = S.cooldownSec or 0.5     -- thời gian nghỉ giữa các lần TP
+S.tpDuration   = S.tpDuration or 0.5    -- TP trong bao lâu
+S.tpDistance   = S.tpDistance or 6      -- TP cách killer bao nhiêu studs
+S.busy         = S.busy or false
+S.last         = S.last or 0
+S.conn         = S.conn  -- có thể nil nếu chưa tạo
+
+-- Danh sách killer
+local killersList = {"c00lkidd","Jason","JohnDoe","1x1x1x1","Noli"}
+
+-- Hàm dọn connection cũ
+local function disconnectConn()
+    if S.conn and S.conn.Connected then
+        S.conn:Disconnect()
     end
-})
+    S.conn = nil
+end
 
--- Cooldown để tránh spam TP
-local lastBlockTpTime = 0
+-- Thực thi TP trong một task riêng, có kiểm tra tồn tại
+local function doTP(killerHRP)
+    S.busy = true
+    local start = tick()
+    while tick() - start < S.tpDuration and S.enabled do
+        local myChar = lp.Character
+        local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
+        if not (myRoot and killerHRP and killerHRP.Parent) then break end
+        local tpPos = killerHRP.Position + killerHRP.CFrame.LookVector * S.tpDistance
+        myRoot.CFrame = CFrame.new(tpPos, killerHRP.Position)
+        task.wait()
+    end
+    S.busy = false
+end
 
--- Luồng xử lý Block TP
-RunService.RenderStepped:Connect(function()
-    if not getgenv().blockTPEnabled then return end
+-- Logic mỗi frame (được bọc pcall để không làm treo UI)
+local function step()
+    local ok, err = pcall(function()
+        if not S.enabled then return end
 
-    local myChar = lp.Character
-    local Humanoid = myChar and myChar:FindFirstChildOfClass("Humanoid")
-    if not myChar or not Humanoid then return end
+        local myChar = lp.Character
+        local hum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+        if not (myChar and hum) then return end
 
-    for _, track in ipairs(Humanoid:GetPlayingAnimationTracks()) do
-        local animId = tostring(track.Animation.AnimationId):match("%d+")
-        if animId == "72722244508749" or animId == "96959123077498" then  
+        -- Đang TP hoặc còn cooldown thì thôi
+        if S.busy or tick() - S.last < S.cooldownSec then return end
 
-            -- Cooldown 0.25 giây mỗi lần
-            if tick() - lastBlockTpTime < 0.25 then return end
-            lastBlockTpTime = tick()
+        -- Chỉ kích hoạt nếu đang phát anim block
+        for _, track in ipairs(hum:GetPlayingAnimationTracks()) do
+            local id = tostring(track.Animation.AnimationId):match("%d+")
+            if id == "72722244508749" or id == "96959123077498" then
+                local killersFolder = workspace:FindFirstChild("Players")
+                    and workspace.Players:FindFirstChild("Killers")
+                if not killersFolder then return end
 
-            local myRoot = myChar:FindFirstChild("HumanoidRootPart")
-            if not myRoot then return end
-
-            local killers = {"c00lkidd", "Jason", "JohnDoe", "1x1x1x1", "Noli"}  
-            for _, name in ipairs(killers) do
-                local killer = workspace:FindFirstChild("Players")  
-                    and workspace.Players:FindFirstChild("Killers")  
-                    and workspace.Players.Killers:FindFirstChild(name)  
-
-                if killer and killer:FindFirstChild("HumanoidRootPart") then  
-                    -- TP logic
-                    task.spawn(function()  
-                        local startTime = tick()  
-                        while tick() - startTime < 0.5 and getgenv().blockTPEnabled do  
-                            local myRoot = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")  
-                            local targetHRP = killer and killer:FindFirstChild("HumanoidRootPart")  
-                            if myRoot and targetHRP then  
-                                local direction = targetHRP.CFrame.LookVector  
-                                local tpPosition = targetHRP.Position + direction * 6  
-                                myRoot.CFrame = CFrame.new(tpPosition)  
-                            else  
-                                break  
-                            end  
-                            task.wait()  
-                        end  
-                    end)  
-                    return -- xong 1 killer thì dừng
+                for _, name in ipairs(killersList) do
+                    local k = killersFolder:FindFirstChild(name)
+                    local hrp = k and k:FindFirstChild("HumanoidRootPart")
+                    if hrp then
+                        S.last = tick()
+                        task.spawn(doTP, hrp)
+                        return
+                    end
                 end
+
+                return -- đã check anim, không tìm thấy killer
             end
         end
+    end)
+    if not ok then
+        warn("[BlockTP] step error:", err)
     end
-end)
+end
+
+-- Tạo connection duy nhất (dọn cũ trước khi tạo mới để tránh trùng)
+disconnectConn()
+S.conn = RunService.RenderStepped:Connect(step)
+
+-- ==== NÚT TRONG GUI (giữ nguyên Tabs.Main) ====
+Tabs.Main:AddToggle("BlockTP_UniqueKey", { -- đảm bảo key là duy nhất!
+    Title = "Enable Block TP",
+    Default = false,
+    Callback = function(v)
+        S.enabled = v
+    end
+})
 
 
 -- Tabs.Player
