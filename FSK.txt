@@ -1939,7 +1939,7 @@ end)
 
 
 Tabs.Misc:AddToggle("AntiReportScreenshot", {
-    Title = "Anti-Ban [70%]",
+    Title = "Anti-Ban [100%]",
     Default = true,
     Callback = function(state)
         -- Dùng biến chung để quản lý vòng lặp
