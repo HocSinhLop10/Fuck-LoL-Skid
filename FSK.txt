@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Free] | Forsaken",
-    SubTitle = "Version 2.6.2",
+    SubTitle = "Version 2.6.3",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -773,6 +773,71 @@ Tabs.Main:AddToggle("ItemPick", {
             task.wait(0.2) -- delay giữa mỗi lần nhặt
         end
     end)
+end)
+
+
+
+    Tabs.Main:AddSection("↳ Guest1337")
+
+-- Toggle trong tab Main
+Tabs.Main:AddToggle("BlockTP", {
+    Title = "Enable Block TP",
+    Default = false,
+    Callback = function(value)
+        getgenv().blockTPEnabled = value
+    end
+})
+
+-- Cooldown để tránh spam TP
+local lastBlockTpTime = 0
+
+-- Luồng xử lý Block TP
+RunService.RenderStepped:Connect(function()
+    if not getgenv().blockTPEnabled then return end
+
+    local myChar = lp.Character
+    local Humanoid = myChar and myChar:FindFirstChildOfClass("Humanoid")
+    if not myChar or not Humanoid then return end
+
+    for _, track in ipairs(Humanoid:GetPlayingAnimationTracks()) do
+        local animId = tostring(track.Animation.AnimationId):match("%d+")
+        if animId == "72722244508749" or animId == "96959123077498" then  
+
+            -- Cooldown 0.01 giây mỗi lần
+            if tick() - lastBlockTpTime < 0.01 then return end
+            lastBlockTpTime = tick()
+
+            local myRoot = myChar:FindFirstChild("HumanoidRootPart")
+            if not myRoot then return end
+
+            local killers = {"c00lkidd", "Jason", "JohnDoe", "1x1x1x1", "Noli"}  
+            for _, name in ipairs(killers) do
+                local killer = workspace:FindFirstChild("Players")  
+                    and workspace.Players:FindFirstChild("Killers")  
+                    and workspace.Players.Killers:FindFirstChild(name)  
+
+                if killer and killer:FindFirstChild("HumanoidRootPart") then  
+                    -- TP logic
+                    task.spawn(function()  
+                        local startTime = tick()  
+                        while tick() - startTime < 0.5 and getgenv().blockTPEnabled do  
+                            local myRoot = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")  
+                            local targetHRP = killer and killer:FindFirstChild("HumanoidRootPart")  
+                            if myRoot and targetHRP then  
+                                local direction = targetHRP.CFrame.LookVector  
+                                local tpPosition = targetHRP.Position + direction * 6  
+                                myRoot.CFrame = CFrame.new(tpPosition)  
+                            else  
+                                break  
+                            end  
+                            task.wait()  
+                        end  
+                    end)  
+                    return -- xong 1 killer thì dừng
+                end
+            end
+        end
+    end
 end)
 
 
