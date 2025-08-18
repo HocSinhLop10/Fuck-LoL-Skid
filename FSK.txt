@@ -803,8 +803,8 @@ RunService.RenderStepped:Connect(function()
         local animId = tostring(track.Animation.AnimationId):match("%d+")
         if animId == "72722244508749" or animId == "96959123077498" then  
 
-            -- Cooldown 0.01 giây mỗi lần
-            if tick() - lastBlockTpTime < 0.01 then return end
+            -- Cooldown 0.25 giây mỗi lần
+            if tick() - lastBlockTpTime < 0.25 then return end
             lastBlockTpTime = tick()
 
             local myRoot = myChar:FindFirstChild("HumanoidRootPart")
