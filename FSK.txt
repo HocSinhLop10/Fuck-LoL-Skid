@@ -1459,7 +1459,7 @@ local function stopESP(drawings, espConnectionVar, addedConnVar, removedConnVar)
 end
 
 Tabs.Visual:AddToggle("ESPModelWhiteToggle", {
-    Title = "ESP Player",
+    Title = "ESP Survivors",
     Default = false,
 }):OnChanged(function(enabled)
     if enabled then
