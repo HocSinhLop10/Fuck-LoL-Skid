@@ -141,7 +141,7 @@ end)
 -- 📌 Nút Auto Aim (Slider + Toggle)
 local predictionValue = 4 -- mặc định
 
-Tabs.Visual:AddSlider("PredictionSlider", {
+Tabs.Main:AddSlider("PredictionSlider", {
     Title = "Prediction",
     Default = 4,
     Min = 0,
@@ -154,7 +154,7 @@ Tabs.Visual:AddSlider("PredictionSlider", {
     end
 end)
 
-Tabs.Visual:AddToggle("AutoAimToggle", {
+Tabs.Main:AddToggle("AutoAimToggle", {
     Title = "Auto Aim Shoot",
     Default = false,
 }):OnChanged(function(enabled)
