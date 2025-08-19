@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Free] | Forsaken",
-    SubTitle = "Version 2.6.4",
+    SubTitle = "Version 2.6.5",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -135,6 +135,41 @@ Tabs.Main:AddToggle("AutoUseCoinFlip", {
         end
     end
 end)
+
+    Tabs.Main:AddSection("↳ Chance")
+
+-- 📌 Nút Auto Aim (Slider + Toggle)
+local predictionValue = 4 -- mặc định
+
+Tabs.Visual:AddSlider("PredictionSlider", {
+    Title = "Prediction",
+    Default = 4,
+    Min = 0,
+    Max = 10,
+    Rounding = 1,
+}):OnChanged(function(val)
+    predictionValue = val
+    if setPredictionValue then
+        setPredictionValue(val) -- gọi hàm bên code link để cập nhật
+    end
+end)
+
+Tabs.Visual:AddToggle("AutoAimToggle", {
+    Title = "Auto Aim Shoot",
+    Default = false,
+}):OnChanged(function(enabled)
+    if enabled then
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/HocSinhLop10/OMG2/refs/heads/main/Chance.lua"))() -- tải code Auto Aim
+        if startAutoAim then
+            startAutoAim()
+        end
+    else
+        if stopAutoAim then
+            stopAutoAim()
+        end
+    end
+end)
+
 
     Tabs.Main:AddSection("↳ Generator")
 
