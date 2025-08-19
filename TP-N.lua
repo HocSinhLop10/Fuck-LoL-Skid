@@ -20,7 +20,8 @@ local DangerousKillers = {
 local DangerousClones = {
     PizzaDeliveryRig = true,
     Mafia1 = true,
-    Mafia2 = true
+    Mafia2 = true,
+    ["1x1x1x1Zombie"] = true
 }
 
 -- Danh sách NPC/Model Survivors
