@@ -13,8 +13,8 @@ local AllowedPlayers = {
 -- Danh sách killers nguy hiểm
 local DangerousKillers = {
     Jason = true, ["1x1x1x1"] = true, c00lkidd = true,
-    Noli = true, JohnDoe = true, Quest666 = true, Britalian = true,
-    DebtCollector = true, MadeMan = true
+    Noli = true, JohnDoe = true, Quest666 = true, Mafia2 = true,
+    Mafia1 = true, PizzaDeliveryRig = true
 }
 
 -- Danh sách NPC/Model trong map
