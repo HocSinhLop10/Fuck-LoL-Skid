@@ -1,4 +1,4 @@
--- 🔥 SafeGenTeleport (Auto Detect V1/V2)
+-- 🔥 SafeGenTeleport (Auto Detect V1/V2 Updated)
 _G.SafeGenTeleport = true
 
 local Players = game:GetService("Players")
@@ -13,38 +13,50 @@ local AllowedPlayers = {
 -- Danh sách killers nguy hiểm
 local DangerousKillers = {
     Jason = true, ["1x1x1x1"] = true, c00lkidd = true,
-    Noli = true, JohnDoe = true, Quest666 = true, Mafia2 = true,
-    Mafia1 = true, PizzaDeliveryRig = true
+    Noli = true, JohnDoe = true, Quest666 = true
 }
 
--- Danh sách NPC/Model trong map
+-- Danh sách Clone (cũng coi là nguy hiểm)
+local DangerousClones = {
+    PizzaDeliveryRig = true,
+    Mafia1 = true,
+    Mafia2 = true
+}
+
+-- Danh sách NPC/Model Survivors
 local TargetModels = {
     Noob = true, Guest1337 = true, Elliot = true, Shedletsky = true,
     TwoTime = true, ["007n7"] = true, Chance = true,
     Builderman = true, Taph = true, Dusekkar = true
 }
 
--- Hàm check killer
-local function isDangerousKillerNear(position, radius)
+-- ✅ Hàm check có killer hoặc clone gần không
+local function isDangerNear(position, radius, includeClones)
     local killersFolder = workspace:FindFirstChild("Players") and workspace.Players:FindFirstChild("Killers")
-    if not killersFolder then return false end
-    for _, killer in ipairs(killersFolder:GetChildren()) do
-        local hrp = killer:FindFirstChild("HumanoidRootPart")
-        if hrp and DangerousKillers[killer.Name] then
-            if (hrp.Position - position).Magnitude <= radius then
-                return true
+    if killersFolder then
+        for _, killer in ipairs(killersFolder:GetChildren()) do
+            local hrp = killer:FindFirstChild("HumanoidRootPart")
+            if hrp and DangerousKillers[killer.Name] then
+                if (hrp.Position - position).Magnitude <= radius then
+                    return true
+                end
+            end
+            if includeClones and hrp and DangerousClones[killer.Name] then
+                if (hrp.Position - position).Magnitude <= radius then
+                    return true
+                end
             end
         end
     end
     return false
 end
 
--- Hàm teleport
-local function teleportToFarthestGenerator()
+-- ✅ Teleport đến generator xa & an toàn nhất
+local function teleportToSafeGenerator(includeClones)
     local character = LP.Character
     if not character or not character:FindFirstChild("HumanoidRootPart") then return end
     local myPos = character.HumanoidRootPart.Position
-    local farthestGen, maxDistance = nil, 0
+    local bestGen, bestDistance = nil, 0
 
     local mapFolder = workspace:FindFirstChild("Map")
         and workspace.Map:FindFirstChild("Ingame")
@@ -55,17 +67,18 @@ local function teleportToFarthestGenerator()
         if gen.Name == "Generator" and gen:FindFirstChild("Progress") then
             local genPos = gen:GetPivot().Position
             local dist = (myPos - genPos).Magnitude
-            if dist > maxDistance then
-                maxDistance = dist
-                farthestGen = gen
+            -- chỉ chọn generator an toàn
+            if dist > bestDistance and not isDangerNear(genPos, 50, includeClones) then
+                bestDistance = dist
+                bestGen = gen
             end
         end
     end
 
-    if farthestGen then
-        local goalPos = (farthestGen:GetPivot() * CFrame.new(0, 0, -3)).Position
+    if bestGen then
+        local goalPos = (bestGen:GetPivot() * CFrame.new(0, 0, -3)).Position
         character:PivotTo(CFrame.new(goalPos + Vector3.new(0, 2, 0)))
-        print("✅ Teleported to farthest generator:", farthestGen.Name)
+        print("✅ Teleported to safe generator:", bestGen.Name)
     end
 end
 
@@ -81,9 +94,21 @@ task.spawn(function()
 
     while _G.SafeGenTeleport do
         local character = LP.Character
-        if character and TargetModels[character.Name] then
-            if isDangerousKillerNear(character.HumanoidRootPart.Position, 50) then
-                teleportToFarthestGenerator()
+        if character and character:FindFirstChild("HumanoidRootPart") then
+            local charName = character.Name
+
+            -- Nếu là Killer
+            if DangerousKillers[charName] or DangerousClones[charName] then
+                -- KHÔNG teleport nếu có killer hoặc clone gần
+                if not isDangerNear(character.HumanoidRootPart.Position, 50, true) then
+                    teleportToSafeGenerator(false) -- killers chỉ né killers, không cần né clone
+                end
+
+            -- Nếu là Survivor
+            elseif TargetModels[charName] then
+                if isDangerNear(character.HumanoidRootPart.Position, 50, true) then
+                    teleportToSafeGenerator(true) -- survivors né cả killers + clone
+                end
             end
         end
         task.wait(delayTime)
