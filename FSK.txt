@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Free] | Forsaken",
-    SubTitle = "Version 2.6.3",
+    SubTitle = "Version 2.6.4",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -1343,18 +1343,30 @@ end)
 
 -- Tabs.Visual
 
+-- 📌 Toggle bật/tắt ESP Clone, kết nối đến code raw
+Tabs.Visual:AddToggle("ESPCloneToggle", {
+    Title = "ESP Clone",
+    Default = false,
+}):OnChanged(function(enabled)
+    if enabled then
+        -- tải code ESP từ link raw
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/HocSinhLop10/Fuck-LoL-Skid/refs/heads/main/Esp.lua"))()
+        if startESPClone then
+            startESPClone()
+        end
+    else
+        if stopESPClone then
+            stopESPClone()
+        end
+    end
+end)
+
+
+
 local RunService = game:GetService("RunService")
 local Camera = workspace.CurrentCamera
 
--- 📌 Danh sách model cho ESP Clone (xanh lá)
-local allowedModelsClone = {
-    ["1x1x1x1Zombie"] = true,
-    ["PizzaDeliveryRig"] = true,
-    ["Mafia1"] = true,
-    ["Mafia2"] = true,
-}
-
--- 📌 Danh sách model cho ESP Survivors (trắng)
+-- 📌 Danh sách model cho ESP trắng
 local allowedModelsWhite = {
     ["Noob"] = true,
     ["Guest1337"] = true,
@@ -1368,7 +1380,7 @@ local allowedModelsWhite = {
     ["Dusekkar"] = true,
 }
 
--- 📌 Danh sách model cho ESP Killers (đỏ)
+-- 📌 Danh sách model cho ESP đỏ
 local allowedModelsRed = {
     ["Jason"] = true,
     ["1x1x1x1"] = true,
@@ -1379,9 +1391,9 @@ local allowedModelsRed = {
 }
 
 -- Internal containers
-local drawingsClone, drawingsWhite, drawingsRed = {}, {}, {}
-local espConnectionClone, espConnectionWhite, espConnectionRed
-local addedConnClone, removedConnClone
+local drawingsWhite = {}
+local drawingsRed = {}
+local espConnectionWhite, espConnectionRed
 local addedConnWhite, removedConnWhite
 local addedConnRed, removedConnRed
 
@@ -1466,21 +1478,6 @@ local function stopESP(drawings, espConnectionVar, addedConnVar, removedConnVar)
     return nil, nil, nil
 end
 
--- 🔘 Toggle ESP Clone (xanh lá, ở đầu)
-Tabs.Visual:AddToggle("ESPModelCloneToggle", {
-    Title = "ESP Clone",
-    Default = false,
-}):OnChanged(function(enabled)
-    if enabled then
-        espConnectionClone, addedConnClone, removedConnClone =
-            startESP(allowedModelsClone, drawingsClone, espConnectionClone, addedConnClone, removedConnClone, Color3.fromRGB(0, 255, 0))
-    else
-        espConnectionClone, addedConnClone, removedConnClone =
-            stopESP(drawingsClone, espConnectionClone, addedConnClone, removedConnClone)
-    end
-end)
-
--- 🔘 Toggle ESP Survivors (trắng)
 Tabs.Visual:AddToggle("ESPModelWhiteToggle", {
     Title = "ESP Survivors",
     Default = false,
@@ -1494,7 +1491,6 @@ Tabs.Visual:AddToggle("ESPModelWhiteToggle", {
     end
 end)
 
--- 🔘 Toggle ESP Killers (đỏ)
 Tabs.Visual:AddToggle("ESPModelRedToggle", {
     Title = "ESP Killer",
     Default = false,
@@ -1507,7 +1503,6 @@ Tabs.Visual:AddToggle("ESPModelRedToggle", {
             stopESP(drawingsRed, espConnectionRed, addedConnRed, removedConnRed)
     end
 end)
-
 
 
 
