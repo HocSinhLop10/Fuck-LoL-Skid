@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Free] | Forsaken",
-    SubTitle = "Version 2.5.0",
+    SubTitle = "Version 2.6.5",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -136,6 +136,139 @@ Tabs.Main:AddToggle("AutoUseCoinFlip", {
     end
 end)
 
+    Tabs.Main:AddSection("↳ Chance")
+
+-- Services
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+
+-- Config
+local active = false
+local aimDuration = 1.7
+local aimTargets = { "Jason", "c00lkidd", "JohnDoe", "1x1x1x1", "Noli" }
+local trackedAnimations = {
+    ["103601716322988"] = true,
+    ["133491532453922"] = true,
+    ["86371356500204"] = true,
+    ["76649505662612"] = true,
+    ["81698196845041"] = true
+}
+
+-- State
+local Humanoid, HRP = nil, nil
+local lastTriggerTime = 0
+local aiming = false
+local originalWS, originalJP, originalAutoRotate = nil, nil, nil
+local predictionValue = 4 -- mặc định 4
+
+-- 🎚️ Fluent UI Slider (Prediction max 10)
+Tabs.Main:AddSlider("PredictionSlider", {
+    Title = "Prediction",
+    Default = 4,
+    Min = 0,
+    Max = 10,
+    Rounding = 1,
+}):OnChanged(function(val)
+    predictionValue = val
+end)
+
+-- 🔥 Fluent UI Toggle (ở dưới Slider)
+Tabs.Main:AddToggle("AutoAimToggle", {
+    Title = "Auto Aim Shoot",
+    Default = false,
+}):OnChanged(function(enabled)
+    active = enabled
+end)
+
+-- 🧍 Setup Character
+local function setupCharacter(char)
+    Humanoid = char:WaitForChild("Humanoid")
+    HRP = char:WaitForChild("HumanoidRootPart")
+end
+if LocalPlayer.Character then
+    setupCharacter(LocalPlayer.Character)
+end
+LocalPlayer.CharacterAdded:Connect(setupCharacter)
+
+-- 🎯 Target Check
+local function getValidTarget()
+    local killersFolder = workspace:FindFirstChild("Players") and workspace.Players:FindFirstChild("Killers")
+    if killersFolder then
+        for _, name in ipairs(aimTargets) do
+            local target = killersFolder:FindFirstChild(name)
+            if target and target:FindFirstChild("HumanoidRootPart") then
+                return target.HumanoidRootPart
+            end
+        end
+    end
+    return nil
+end
+
+-- 🔍 Playing Animations
+local function getPlayingAnimationIds()
+    local ids = {}
+    if Humanoid then
+        for _, track in ipairs(Humanoid:GetPlayingAnimationTracks()) do
+            if track.Animation and track.Animation.AnimationId then
+                local id = track.Animation.AnimationId:match("%d+")
+                if id then
+                    ids[id] = true
+                end
+            end
+        end
+    end
+    return ids
+end
+
+-- 🚀 Main Loop
+RunService.RenderStepped:Connect(function()
+    if not active or not Humanoid or not HRP then return end
+
+    local playing = getPlayingAnimationIds()
+    local triggered = false
+    for id in pairs(trackedAnimations) do
+        if playing[id] then
+            triggered = true
+            break
+        end
+    end
+
+    if triggered then
+        lastTriggerTime = tick()
+        aiming = true
+    end
+
+    if aiming and tick() - lastTriggerTime <= aimDuration then
+        if not originalWS then
+            originalWS = Humanoid.WalkSpeed
+            originalJP = Humanoid.JumpPower
+            originalAutoRotate = Humanoid.AutoRotate
+        end
+
+        -- Freeze but keep upright
+        Humanoid.AutoRotate = false
+        HRP.AssemblyAngularVelocity = Vector3.zero
+
+        local targetHRP = getValidTarget()
+        if targetHRP then
+            local predictedPos = targetHRP.Position + (targetHRP.CFrame.LookVector * predictionValue)
+            local direction = (predictedPos - HRP.Position).Unit
+            local yRot = math.atan2(-direction.X, -direction.Z)
+            HRP.CFrame = CFrame.new(HRP.Position) * CFrame.Angles(0, yRot, 0)
+        end
+    elseif aiming then
+        aiming = false
+        if originalWS and originalJP and originalAutoRotate ~= nil then
+            Humanoid.WalkSpeed = originalWS
+            Humanoid.JumpPower = originalJP
+            Humanoid.AutoRotate = originalAutoRotate
+            originalWS, originalJP, originalAutoRotate = nil, nil, nil
+        end
+    end
+end)
+
+
     Tabs.Main:AddSection("↳ Generator")
 
 local solveGeneratorCooldown = false
@@ -232,6 +365,7 @@ end)
 
 
 
+
 local Players = game:GetService("Players")
 local PFS = game:GetService("PathfindingService")
 local VIM = game:GetService("VirtualInputManager")
@@ -299,27 +433,11 @@ Tabs.Main:AddToggle("AutoExpMoney", {
                 table.insert(Spectators, v.Name)
             end
             isInGame = not table.find(Spectators, LP.Name)
-            task.wait(1)
+            task.wait(0.5)
         end
     end)
 
-    -- Auto sprint nếu đủ stamina
-    task.spawn(function()
-        while _G.AutoFarm do
-            if isInGame and currentCharacter and currentCharacter:FindFirstChild("Humanoid") then
-                pcall(function()
-                    currentCharacter.Humanoid:SetAttribute("BaseSpeed", 14)
-                    local barText = LP:WaitForChild("PlayerGui"):WaitForChild("TemporaryUI"):WaitForChild("PlayerInfo").Bars.Stamina.Amount.Text
-                    stamina = tonumber(string.split(barText, "/")[1]) or 100
-                    local fovMult = currentCharacter:FindFirstChild("FOVMultipliers") and currentCharacter.FOVMultipliers:FindFirstChild("Sprinting")
-                    if fovMult and fovMult.Value ~= 1.125 and stamina >= 70 and not busy then
-                        VIM:SendKeyEvent(true, Enum.KeyCode.LeftShift, false, game)
-                    end
-                end)
-            end
-            task.wait(1)
-        end
-    end)
+    -- ⚠️ ĐÃ XOÁ CHỨC NĂNG AUTO SPRINT
 
     -- Xác định mình là Killer hay Survivor
     task.spawn(function()
@@ -332,7 +450,7 @@ Tabs.Main:AddToggle("AutoExpMoney", {
                     Survivor = survivorsFolder:FindFirstChild(LP.Name) or table.find(survivorsFolder:GetChildren(), LP.Character)
                 end
             end
-            task.wait(1)
+            task.wait(0.5)
         end
     end)
 
@@ -347,7 +465,10 @@ Tabs.Main:AddToggle("AutoExpMoney", {
                 -- Theo dõi & tấn công Survivor
                 local target = nil
                 for _, survivor in ipairs(survivorsFolder:GetChildren()) do
-                    if survivor:IsA("Model") and survivor:FindFirstChild("HumanoidRootPart") then
+                    if survivor:IsA("Model")
+                    and survivor:FindFirstChild("HumanoidRootPart")
+                    and survivor:FindFirstChild("Humanoid")
+                    and survivor.Humanoid.Health > 0 then
                         target = survivor
                         break
                     end
@@ -356,7 +477,12 @@ Tabs.Main:AddToggle("AutoExpMoney", {
                 if target then
                     -- Dịch chuyển theo target
                     task.spawn(function()
-                        while _G.AutoFarm and target and target:IsDescendantOf(survivorsFolder) do
+                        while _G.AutoFarm
+                        and target
+                        and target:IsDescendantOf(survivorsFolder)
+                        and target:FindFirstChild("Humanoid")
+                        and target.Humanoid.Health > 0 do
+
                             local character = LP.Character
                             if character and character:FindFirstChild("HumanoidRootPart") and target:FindFirstChild("HumanoidRootPart") then
                                 character:PivotTo(target.HumanoidRootPart.CFrame)
@@ -367,7 +493,13 @@ Tabs.Main:AddToggle("AutoExpMoney", {
 
                     -- Tấn công target
                     task.spawn(function()
-                        while _G.AutoFarm and target and target:FindFirstChild("HumanoidRootPart") and target:IsDescendantOf(survivorsFolder) do
+                        while _G.AutoFarm
+                        and target
+                        and target:IsDescendantOf(survivorsFolder)
+                        and target:FindFirstChild("Humanoid")
+                        and target.Humanoid.Health > 0
+                        and target:FindFirstChild("HumanoidRootPart") do
+
                             for _, key in ipairs({Enum.KeyCode.Q, Enum.KeyCode.E, Enum.KeyCode.R}) do
                                 if not _G.AutoFarm then break end
                                 VIM:SendMouseButtonEvent(0, 0, 0, true, game, 0)
@@ -1139,81 +1271,20 @@ end)
 
 
 
-    Tabs.Player:AddSection("↳ Guest1337")
+-- File: Toggle.lua
+-- Đây là toggle trong Fluent GUI, gọi script chính từ Github
 
+-- Giả sử bạn đã load module Hutao từ GitHub:
+local Hutao = loadstring(game:HttpGet("https://raw.githubusercontent.com/HocSinhLop10/Skid/refs/heads/main/SFSK.lua"))()
 
--- ▼ Cấu hình trigger IDs ▼
-local autoBlockTriggerSounds = {
-    ["102228729296384"] = true, ["140242176732868"] = true, ["112809109188560"] = true,
-    ["136323728355613"] = true, ["115026634746636"] = true, ["84116622032112"] = true,
-    ["108907358619313"] = true, ["127793641088496"] = true, ["86174610237192"] = true,
-    ["95079963655241"] = true, ["101199185291628"] = true, ["119942598489800"] = true,
-    ["84307400688050"] = true,
-}
-
-local autoBlockTriggerAnims = {
-    "126830014841198", "126355327951215", "121086746534252", "18885909645",
-    "98456918873918", "105458270463374", "83829782357897", "125403313786645",
-    "118298475669935", "82113744478546", "70371667919898", "99135633258223",
-    "97167027849946", "109230267448394", "139835501033932", "126896426760253",
-    "109667959938617", "126681776859538", "129976080405072", "121293883585738",
-    "81639435858902", "137314737492715", "92173139187970"
-}
-
--- ▼ State ▼
-local autoBlockEnabled = false
-local detectionRange = 18
-local lastBlockTime = 0
-
--- ▼ Hàm Block ▼
-local function blockNow()
-    local char = game.Players.LocalPlayer.Character
-    if char and char:FindFirstChild("Humanoid") then
-        local humanoid = char:FindFirstChildOfClass("Humanoid")
-        humanoid:ChangeState(Enum.HumanoidStateType.Blocking)
-        lastBlockTime = tick()
-    end
-end
-
--- ▼ Kiểm tra Audio ▼
-local function checkAudioTriggers()
-    for _, sound in ipairs(workspace:GetDescendants()) do
-        if sound:IsA("Sound") and sound.IsPlaying and autoBlockTriggerSounds[sound.SoundId:match("%d+")] then
-            blockNow()
-        end
-    end
-end
-
--- ▼ Kiểm tra Animation ▼
-local function checkAnimTriggers()
-    for _, player in ipairs(game.Players:GetPlayers()) do
-        if player.Character and player.Character:FindFirstChildOfClass("Humanoid") then
-            local animator = player.Character.Humanoid:FindFirstChildOfClass("Animator")
-            if animator then
-                for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
-                    if autoBlockTriggerAnims[track.Animation.AnimationId:match("%d+")] then
-                        blockNow()
-                    end
-                end
-            end
-        end
-    end
-end
-
--- ▼ Toggle Fluent gộp ▼
-Tabs.Player:AddToggle("AutoBlockAll", {
-    Title = "Auto Block",
-    Default = false,
-    Callback = function(state)
-        autoBlockEnabled = state
-        if state then
-            task.spawn(function()
-                while autoBlockEnabled do
-                    checkAudioTriggers()
-                    checkAnimTriggers()
-                    task.wait(0.1) -- delay nhẹ tránh lag
-                end
-            end)
+Tabs.Player:AddToggle("ToggleCoolButton", {
+    Title = "Use Hutao Skill",
+    Default = true,
+    Callback = function(Value)
+        if Value then
+            Hutao.Enable()
+        else
+            Hutao.Disable()
         end
     end
 })
@@ -1405,6 +1476,26 @@ end)
 
 -- Tabs.Visual
 
+-- 📌 Toggle bật/tắt ESP Clone, kết nối đến code raw
+Tabs.Visual:AddToggle("ESPCloneToggle", {
+    Title = "ESP Clone",
+    Default = false,
+}):OnChanged(function(enabled)
+    if enabled then
+        -- tải code ESP từ link raw
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/HocSinhLop10/Fuck-LoL-Skid/refs/heads/main/Esp.lua"))()
+        if startESPClone then
+            startESPClone()
+        end
+    else
+        if stopESPClone then
+            stopESPClone()
+        end
+    end
+end)
+
+
+
 local RunService = game:GetService("RunService")
 local Camera = workspace.CurrentCamera
 
@@ -1521,7 +1612,7 @@ local function stopESP(drawings, espConnectionVar, addedConnVar, removedConnVar)
 end
 
 Tabs.Visual:AddToggle("ESPModelWhiteToggle", {
-    Title = "ESP Player",
+    Title = "ESP Survivors",
     Default = false,
 }):OnChanged(function(enabled)
     if enabled then
@@ -1971,14 +2062,15 @@ end)
 
     Tabs.Misc:AddSection("↳ Bypass")
 
--- Anti-AFK + Load Script HHG.lua
+-- Anti-AFK (Không cần HHG nữa)
 local hhgThread
 
 Tabs.Misc:AddToggle("AntiAFK", {
     Title = "Anti-AFK",
-    Default = false
+    Default = true
 })
 :OnChanged(function(Value)
+    -- Xử lý Anti-AFK Roblox
     for _, c in pairs(getconnections(game.Players.LocalPlayer.Idled)) do
         if Value then
             c:Disable()
@@ -1987,19 +2079,106 @@ Tabs.Misc:AddToggle("AntiAFK", {
         end
     end
     
+    -- HHG animation script đã bị bỏ
     if Value then
-        -- Bật: tải và chạy script HHG.lua
-        hhgThread = task.spawn(function()
-            loadstring(game:HttpGet("https://raw.githubusercontent.com/HocSinhLop10/Skid/refs/heads/main/HHG.lua"))()
-        end)
+        print("[AntiAFK] Đã bật, HHG script bị bỏ qua.")
     else
-        -- Tắt: xóa biến global hoặc dừng thread
-        if hhgThread then
-            task.cancel(hhgThread)
-            hhgThread = nil
-        end
+        print("[AntiAFK] Đã tắt.")
     end
 end)
+
+
+
+
+
+Tabs.Misc:AddToggle("AntiReportScreenshot", {
+    Title = "Anti-Ban [100%]",
+    Default = true,
+    Callback = function(state)
+        -- Dùng biến chung để quản lý vòng lặp
+        if not shared.AntiBanLoop then
+            shared.AntiBanLoop = {running = false, hooked = false}
+        end
+        local loopData = shared.AntiBanLoop
+
+        local function hookOnce()
+            -- Hook FindFirstChild
+            if not loopData.hookedFind then
+                local oldFind = workspace.FindFirstChild
+                if typeof(oldFind) == "function" and hookfunction then
+                    hookfunction(oldFind, function(self, ...)
+                        local args = {...}
+                        if tostring(args[1]):lower():find("screenshot") then
+                            return nil
+                        end
+                        return oldFind(self, unpack(args))
+                    end)
+                    loopData.hookedFind = true
+                end
+            end
+
+            -- Hook HTTP request
+            if not loopData.hookedRequest then
+                local oldRequest = (syn and syn.request) or request or http_request
+                if hookfunction and typeof(oldRequest) == "function" then
+                    hookfunction(oldRequest, function(req)
+                        if req and req.Url and tostring(req.Url):lower():find("abuse") then
+                            return {StatusCode = 200, Body = "Blocked"}
+                        end
+                        return oldRequest(req)
+                    end)
+                    loopData.hookedRequest = true
+                end
+            end
+        end
+
+        local function setFlagsOff()
+            local flags = {
+                "AbuseReportScreenshot",
+                "AbuseReportScreenshotPercentage",
+                "AbuseReportEnabled",
+                "ReportAbuseMenu",
+                "EnableAbuseReportScreenshot"
+            }
+            for _, flag in ipairs(flags) do
+                if typeof(setfflag) == "function" then
+                    pcall(function()
+                        setfflag(flag, "False")
+                    end)
+                end
+            end
+            if typeof(setfflag) == "function" then
+                setfflag("AbuseReportScreenshotPercentage", "0")
+            end
+        end
+
+        local function setFlagsOn()
+            if typeof(setfflag) == "function" then
+                setfflag("AbuseReportScreenshot", "True")
+                setfflag("AbuseReportScreenshotPercentage", "100")
+            end
+        end
+
+        if state then
+            hookOnce()
+            setFlagsOff()
+            loopData.running = true
+            task.spawn(function()
+                while loopData.running do
+                    setFlagsOff()
+                    task.wait(0.01) -- tốc độ siêu nhanh
+                end
+            end)
+            print("[Anti-Ban] 🛡️ FAST protection ENABLED!")
+        else
+            loopData.running = false
+            setFlagsOn()
+            print("[Anti-Ban] ⚠️ Protection DISABLED.")
+        end
+    end
+})
+
+
 
 
 
@@ -2027,30 +2206,16 @@ local effectClasses = {
     "ColorCorrectionEffect"
 }
 
--- Hàm reset ColorCorrection (chống đảo màu)
-local function resetColorCorrection(cc)
-    pcall(function()
-        cc.Brightness = 0
-        cc.Contrast = 0
-        cc.Saturation = 0
-        cc.TintColor = Color3.fromRGB(255, 255, 255) -- màu trắng, không tint
-    end)
-end
-
--- Hàm xoá/reset hiệu ứng
+-- Hàm xoá hiệu ứng
 local function removeEffects()
-    -- Lighting
+    -- Xoá hiệu ứng trong Lighting
     for _, obj in pairs(Lighting:GetDescendants()) do
         if table.find(effectNames, obj.Name) or table.find(effectClasses, obj.ClassName) then
-            if obj:IsA("ColorCorrectionEffect") then
-                resetColorCorrection(obj) -- reset thay vì xoá để chống đảo màu
-            else
-                obj:Destroy()
-            end
+            obj:Destroy()
         end
     end
 
-    -- GUI overlay
+    -- Xoá GUI overlay
     for _, obj in pairs(PlayerGui:GetDescendants()) do
         if table.find(effectNames, obj.Name) then
             obj:Destroy()
@@ -2083,21 +2248,20 @@ Tabs.Misc:AddToggle("RemoveScreenEffects", {
 
 
 
--- Toggle load code từ link
 local codeThread
 
 Tabs.Misc:AddToggle("SafeGenTeleport", {
-    Title = "Anti Killers",
+    Title = "Anti Killers V2",
     Default = true
 })
 :OnChanged(function(Value)
     if Value then
-        -- Bật: tải và chạy code từ link
+        -- Bật: tải và chạy code gộp (Auto detect V1/V2)
         codeThread = task.spawn(function()
             loadstring(game:HttpGet("https://raw.githubusercontent.com/HocSinhLop10/Fuck-LoL-Skid/refs/heads/main/TP-N.lua"))()
         end)
     else
-        -- Tắt: xóa biến global để code chính tự dừng
+        -- Tắt: dừng loop
         _G.SafeGenTeleport = false
         if codeThread then
             task.cancel(codeThread)
