@@ -784,15 +784,15 @@ RunService.RenderStepped:Connect(function()
 end)
 
 -- ✅ Fluent GUI
-Tabs.Combat:AddToggle("AutoBackstab", {
-	Title = "Auto Backstab",
+Tabs.Main:AddToggle("AutoBackstab", {
+	Title = "Auto Dagger",
 	Default = false
 }):OnChanged(function(val)
 	enabled = val
 end)
 
-Tabs.Combat:AddSlider("BackstabRange", {
-	Title = "Backstab Range",
+Tabs.Main:AddSlider("BackstabRange", {
+	Title = "Dagger Range",
 	Min = 1, Max = 15,
 	Default = 4,
 	Rounding = 0
@@ -800,8 +800,8 @@ Tabs.Combat:AddSlider("BackstabRange", {
 	range = val
 end)
 
-Tabs.Combat:AddDropdown("BackstabMode", {
-	Title = "Backstab Mode",
+Tabs.Main:AddDropdown("BackstabMode", {
+	Title = "Dagger Mode",
 	Values = {"Normal", "Counter", "Legit"},
 	Default = "Normal",
 	Multi = false
@@ -809,7 +809,7 @@ Tabs.Combat:AddDropdown("BackstabMode", {
 	mode = val
 end)
 
-Tabs.Combat:AddToggle("MatchFacing", {
+Tabs.Main:AddToggle("MatchFacing", {
 	Title = "Legit Match Facing",
 	Default = false
 }):OnChanged(function(val)
