@@ -813,34 +813,44 @@ pcall(function()
     end
 end)
 
+-- Hàm hồi stamina an toàn
+local function restoreStamina()
+    if not StaminaModule then return end
+    if StaminaModule.Stamina and StaminaModule.MaxStamina then
+        StaminaModule.Stamina = StaminaModule.MaxStamina
+        if StaminaModule.StaminaChanged and typeof(StaminaModule.StaminaChanged.Fire) == "function" then
+            StaminaModule.StaminaChanged:Fire()
+        end
+    end
+end
+
 -- Chỉ tạo toggle nếu module tồn tại
 if StaminaModule then
     Tabs.Player:AddToggle("InfStamina", {
         Title = "Infinite Stamina",
         Default = false
     }):OnChanged(function(value)
-        InfStaminaEnabled = value
-        StaminaModule.StaminaLossDisabled = value
-
-        if value then
-            -- Hồi ngay khi bật
-            StaminaModule.Stamina = StaminaModule.MaxStamina
-            StaminaModule.StaminaChanged:Fire()
-
-            -- Nếu chưa có loop thì mới tạo
-            if not staminaLoop then
-                staminaLoop = task.spawn(function()
-                    while InfStaminaEnabled do
-                        task.wait(0.5) -- hồi mỗi 0.5s
-                        StaminaModule.Stamina = StaminaModule.MaxStamina
-                        StaminaModule.StaminaChanged:Fire()
-                    end
-                    staminaLoop = nil
-                end)
+        -- luôn bọc trong pcall để Fluent không báo "Callback error"
+        local ok = pcall(function()
+            InfStaminaEnabled = value
+            if StaminaModule.StaminaLossDisabled ~= nil then
+                StaminaModule.StaminaLossDisabled = value
             end
-        else
-            InfStaminaEnabled = false -- flag sẽ tắt loop
-        end
+
+            if value then
+                restoreStamina()
+                if not staminaLoop then
+                    staminaLoop = task.spawn(function()
+                        while InfStaminaEnabled do
+                            task.wait(0.5)
+                            restoreStamina()
+                        end
+                        staminaLoop = nil
+                    end)
+                end
+            end
+        end)
+        -- Không in warn nữa, im lặng bỏ qua nếu có lỗi
     end)
 else
     warn("[InfStamina] Sprinting module not found, toggle disabled.")
@@ -1052,8 +1062,6 @@ Tabs.Visual:AddToggle("ESPCloneToggle", {
 end)
 
 
-
-
 local RunService = game:GetService("RunService")
 local Camera = workspace.CurrentCamera
 
@@ -1078,34 +1086,38 @@ local conRed, conRedAdded, conRedRemoved
 local function createESP(model, drawings, color)
     if not model or drawings[model] then return end
     local hrp = model:FindFirstChild("HumanoidRootPart")
-    if not hrp then return end
+    local humanoid = model:FindFirstChildOfClass("Humanoid")
+    if not hrp or not humanoid then return end
+
     local text = Drawing.new("Text")
     text.Size = 14
     text.Center = true
     text.Outline = true
     text.Visible = false
     text.Color = color
-    drawings[model] = text
+    drawings[model] = {text = text, humanoid = humanoid}
 end
 
 local function removeESP(model, drawings)
-    if drawings[model] then
-        pcall(function() drawings[model]:Remove() end)
-        drawings[model] = nil
+    local data = drawings[model]
+    if data and data.text then
+        pcall(function() data.text:Remove() end)
     end
+    drawings[model] = nil
 end
 
 -- === White ESP (Survivors) ===
 local function startESPWhite()
     if conWhite then return end
     for _, obj in ipairs(workspace:GetDescendants()) do
-        if obj:IsA("Model") and allowedModelsWhite[obj.Name] and obj:FindFirstChild("HumanoidRootPart") then
+        if obj:IsA("Model") and allowedModelsWhite[obj.Name] then
             createESP(obj, drawingsWhite, Color3.fromRGB(255, 255, 255))
         end
     end
     conWhite = RunService.RenderStepped:Connect(function()
-        for model, text in pairs(drawingsWhite) do
-            if model.Parent and model:FindFirstChild("HumanoidRootPart") then
+        for model, data in pairs(drawingsWhite) do
+            local text, humanoid = data.text, data.humanoid
+            if model.Parent and humanoid and humanoid.Health > 0 and model:FindFirstChild("HumanoidRootPart") then
                 local hrp = model.HumanoidRootPart
                 local pos, onScreen = Camera:WorldToViewportPoint(hrp.Position + Vector3.new(0,2.5,0))
                 local dist = (hrp.Position - Camera.CFrame.Position).Magnitude
@@ -1118,7 +1130,7 @@ local function startESPWhite()
         end
     end)
     conWhiteAdded = workspace.DescendantAdded:Connect(function(obj)
-        if obj:IsA("Model") and allowedModelsWhite[obj.Name] and obj:FindFirstChild("HumanoidRootPart") then
+        if obj:IsA("Model") and allowedModelsWhite[obj.Name] then
             createESP(obj, drawingsWhite, Color3.fromRGB(255, 255, 255))
         end
     end)
@@ -1131,7 +1143,7 @@ local function stopESPWhite()
     if conWhite then conWhite:Disconnect(); conWhite = nil end
     if conWhiteAdded then conWhiteAdded:Disconnect(); conWhiteAdded = nil end
     if conWhiteRemoved then conWhiteRemoved:Disconnect(); conWhiteRemoved = nil end
-    for _, t in pairs(drawingsWhite) do pcall(function() t:Remove() end) end
+    for _, d in pairs(drawingsWhite) do pcall(function() d.text:Remove() end) end
     drawingsWhite = {}
 end
 
@@ -1139,13 +1151,14 @@ end
 local function startESPRed()
     if conRed then return end
     for _, obj in ipairs(workspace:GetDescendants()) do
-        if obj:IsA("Model") and allowedModelsRed[obj.Name] and obj:FindFirstChild("HumanoidRootPart") then
+        if obj:IsA("Model") and allowedModelsRed[obj.Name] then
             createESP(obj, drawingsRed, Color3.fromRGB(255, 0, 0))
         end
     end
     conRed = RunService.RenderStepped:Connect(function()
-        for model, text in pairs(drawingsRed) do
-            if model.Parent and model:FindFirstChild("HumanoidRootPart") then
+        for model, data in pairs(drawingsRed) do
+            local text, humanoid = data.text, data.humanoid
+            if model.Parent and humanoid and humanoid.Health > 0 and model:FindFirstChild("HumanoidRootPart") then
                 local hrp = model.HumanoidRootPart
                 local pos, onScreen = Camera:WorldToViewportPoint(hrp.Position + Vector3.new(0,2.5,0))
                 local dist = (hrp.Position - Camera.CFrame.Position).Magnitude
@@ -1158,7 +1171,7 @@ local function startESPRed()
         end
     end)
     conRedAdded = workspace.DescendantAdded:Connect(function(obj)
-        if obj:IsA("Model") and allowedModelsRed[obj.Name] and obj:FindFirstChild("HumanoidRootPart") then
+        if obj:IsA("Model") and allowedModelsRed[obj.Name] then
             createESP(obj, drawingsRed, Color3.fromRGB(255, 0, 0))
         end
     end)
@@ -1171,7 +1184,7 @@ local function stopESPRed()
     if conRed then conRed:Disconnect(); conRed = nil end
     if conRedAdded then conRedAdded:Disconnect(); conRedAdded = nil end
     if conRedRemoved then conRedRemoved:Disconnect(); conRedRemoved = nil end
-    for _, t in pairs(drawingsRed) do pcall(function() t:Remove() end) end
+    for _, d in pairs(drawingsRed) do pcall(function() d.text:Remove() end) end
     drawingsRed = {}
 end
 
