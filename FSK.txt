@@ -757,6 +757,44 @@ end)
 
 
     Tabs.Player:AddSection("↳ Cheats")
+local ActiveNoStun = false
+local noStunLoop
+
+Tabs.Player:AddToggle("NoStunToggle", {
+    Title = "No Stun",
+    Default = false,
+}):OnChanged(function(value)
+    ActiveNoStun = value
+
+    if value then
+        -- Nếu có loop cũ thì dừng
+        if noStunLoop then
+            task.cancel(noStunLoop)
+            noStunLoop = nil
+        end
+
+        -- Tạo loop mới liên tục đảm bảo HumanoidRootPart không bị anchore
+        noStunLoop = task.spawn(function()
+            while ActiveNoStun do
+                local character = game.Players.LocalPlayer.Character
+                local hrp = character and character:FindFirstChild("HumanoidRootPart")
+                if hrp then
+                    hrp.Anchored = false
+                end
+                task.wait(0.1) -- Không cần quá nhanh, tránh lag
+            end
+        end)
+    else
+        -- Tắt loop khi toggle off
+        if noStunLoop then
+            task.cancel(noStunLoop)
+            noStunLoop = nil
+        end
+    end
+end)
+
+
+
 
 local InfStaminaEnabled = false
 local staminaLoop
@@ -807,241 +845,6 @@ if StaminaModule then
 else
     warn("[InfStamina] Sprinting module not found, toggle disabled.")
 end
-
-
-
--- ================== Hutao Module ==================
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local TweenService = game:GetService("TweenService")
-local player = Players.LocalPlayer
-
-local Hutao = {}
-local button, title, gui
-local cooldown = false
-
--- ================== Cooldown ==================
-local function startCooldown()
-    local label = button:FindFirstChild("TextLabel")
-    cooldown = true
-    button.Active = false
-    label.Visible = true
-
-    -- 20 giây đầu
-    for i = 20, 6, -1 do
-        label.Text = tostring(i)
-        task.wait(1)
-    end
-
-    -- 5 giây cuối (miligiây)
-    local startTime = os.clock()
-    while os.clock() - startTime < 5 do
-        local remaining = 5 - (os.clock() - startTime)
-        label.Text = string.format("%.1f", remaining)
-        task.wait(0.05)
-    end
-
-    -- Reset
-    label.Visible = false
-    button.Active = true
-    cooldown = false
-end
-
--- ================== Teleport logic ==================
-local HAND_HOLD_TIME = 2
-local BOARD_TOTAL_TIME = 5
-local LOADING_TIME = BOARD_TOTAL_TIME - 0.5 -- 4.5s
-local IMAGE_ID = "rbxassetid://121468019965670"
-
-local DangerousKillers = {
-    ["Jason"] = true, ["1x1x1x1"] = true, ["c00lkidd"] = true,
-    ["Noli"] = true, ["JohnDoe"] = true, ["Quest666"] = true
-}
-
-local KillerModels = {
-    ["Noob"] = true, ["Guest1337"] = true, ["Elliot"] = true, ["Shedletsky"] = true,
-    ["TwoTime"] = true, ["007n7"] = true, ["Chance"] = true,
-    ["Builderman"] = true, ["Taph"] = true, ["Dusekkar"] = true,
-}
-
-local function nearestKillerDistance(pos)
-    local killersFolder = workspace:FindFirstChild("Players") and workspace.Players:FindFirstChild("Killers")
-    if not killersFolder then return 0 end
-    local minDist = math.huge
-    for _, killer in ipairs(killersFolder:GetChildren()) do
-        if DangerousKillers[killer.Name] then
-            local hrp = killer:FindFirstChild("HumanoidRootPart")
-            if hrp then
-                minDist = math.min(minDist, (pos - hrp.Position).Magnitude)
-            end
-        end
-    end
-    return minDist
-end
-
-local function nearestSurvivorDistance(pos)
-    local survivorsFolder = workspace:FindFirstChild("Players") and workspace.Players:FindFirstChild("Survivors")
-    if not survivorsFolder then return math.huge end
-    local minDist = math.huge
-    for _, survivor in ipairs(survivorsFolder:GetChildren()) do
-        local hrp = survivor:FindFirstChild("HumanoidRootPart")
-        if hrp then
-            minDist = math.min(minDist, (pos - hrp.Position).Magnitude)
-        end
-    end
-    return minDist
-end
-
-local function teleportSmart()
-    local character = player.Character
-    if not character or not character:FindFirstChild("HumanoidRootPart") then return end
-
-    local mapFolder = workspace:FindFirstChild("Map")
-        and workspace.Map:FindFirstChild("Ingame")
-        and workspace.Map.Ingame:FindFirstChild("Map")
-    if not mapFolder then return end
-
-    local bestGen, bestScore = nil, -math.huge
-    local mode = KillerModels[character.Name] and "Killer" or "Survivor"
-
-    for _, gen in ipairs(mapFolder:GetChildren()) do
-        if gen.Name == "Generator" and gen:FindFirstChild("Progress") then
-            local genPos = gen:GetPivot().Position
-            local score = (mode == "Survivor") and nearestKillerDistance(genPos) or -nearestSurvivorDistance(genPos)
-            if score > bestScore then
-                bestScore, bestGen = score, gen
-            end
-        end
-    end
-
-    if bestGen then
-        local goalPos = (bestGen:GetPivot() * CFrame.new(0, 0, -3)).Position
-        character:PivotTo(CFrame.new(goalPos + Vector3.new(0, 2, 0)))
-        print(("✅ Teleported (%s mode) -> %s"):format(mode, bestGen.Name))
-    end
-end
-
-local function createLoadingBar()
-    local gui = Instance.new("ScreenGui")
-    gui.Name = "LoadingGui"
-    gui.ResetOnSpawn = false
-    gui.IgnoreGuiInset = true
-    gui.Parent = player:WaitForChild("PlayerGui")
-
-    local container = Instance.new("Frame")
-    container.Size = UDim2.new(0.42, 0, 0.06, 0)
-    container.Position = UDim2.new(0.29, 0, 0.7, 0)
-    container.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-    container.BorderSizePixel = 0
-    container.Parent = gui
-
-    local bar = Instance.new("Frame")
-    bar.Size = UDim2.new(0, 0, 1, 0)
-    bar.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    bar.BorderSizePixel = 0
-    bar.Parent = container
-
-    local label = Instance.new("TextLabel")
-    label.AnchorPoint = Vector2.new(0.5, 1)
-    label.Position = UDim2.new(0.5, 0, 0, -8)
-    label.Size = UDim2.new(1, 0, 0, 24)
-    label.BackgroundTransparency = 1
-    label.TextColor3 = Color3.new(1,1,1)
-    label.Font = Enum.Font.SourceSansBold
-    label.TextSize = 22
-    label.Text = "Loading..."
-    label.Parent = container
-
-    TweenService:Create(bar, TweenInfo.new(LOADING_TIME, Enum.EasingStyle.Linear), {Size = UDim2.new(1, 0, 1, 0)}):Play()
-    task.delay(LOADING_TIME, teleportSmart)
-
-    return gui, bar, label, container
-end
-
-local function create3DModel()
-    local char = player.Character or player.CharacterAdded:Wait()
-    local hrp = char:WaitForChild("HumanoidRootPart")
-
-    local part = Instance.new("Part")
-    part.Size = Vector3.new(2, 1.5, 0.1)
-    part.Anchored, part.CanCollide = true, false
-    part.Color = Color3.new(0,0,0)
-    part.Parent = workspace
-
-    local decal = Instance.new("Decal")
-    decal.Texture = IMAGE_ID
-    decal.Face = Enum.NormalId.Front
-    decal.Parent = part
-
-    RunService.RenderStepped:Connect(function()
-        if part.Parent and hrp then
-            local lv = hrp.CFrame.LookVector
-            local flatLook = Vector3.new(lv.X, 0, lv.Z).Unit
-            local targetPos = hrp.Position + Vector3.new(0,0.1,0) + flatLook * 1.8
-            part.CFrame = CFrame.new(targetPos, targetPos + flatLook) * CFrame.Angles(math.rad(-30), math.rad(180), 0)
-        end
-    end)
-
-    createLoadingBar()
-end
-
--- ================== GUI ==================
-local function createGui()
-    gui = Instance.new("ScreenGui")
-    gui.Name = "HutaoGui"
-    gui.ResetOnSpawn = false
-    gui.Parent = player:WaitForChild("PlayerGui")
-
-    button = Instance.new("ImageButton")
-    button.Size = UDim2.new(0, 75, 0, 75)
-    button.Position = UDim2.new(0.58, 0, 0.535, 0)
-    button.BackgroundTransparency = 1
-    button.Image = "rbxassetid://102274458242775"
-    button.ImageTransparency = 0.15
-    button.Parent = gui
-
-    local label = Instance.new("TextLabel")
-    label.Size = UDim2.new(1, 0, 1, 0)
-    label.BackgroundTransparency = 1
-    label.TextColor3 = Color3.new(1,1,1)
-    label.Font = Enum.Font.GothamBold
-    label.TextSize = 18
-    label.Visible = false
-    label.Parent = button
-
-    button.MouseButton1Click:Connect(function()
-        if cooldown then return end
-        create3DModel()
-        startCooldown()
-    end)
-end
-
--- ================== Public APIs ==================
-function Hutao.Enable()
-    if not gui then
-        createGui()
-    else
-        gui.Enabled = true
-    end
-end
-function Hutao.Disable()
-    if gui then
-        gui.Enabled = false
-    end
-end
-
--- ================== Toggle Fluent ==================
-Tabs.Player:AddToggle("ToggleCoolButton", {
-    Title = "Use Hutao Skill",
-    Default = true,
-}):OnChanged(function(Value)
-    if Value then
-        Hutao.Enable()
-    else
-        Hutao.Disable()
-    end
-end)
-
 
 
     Tabs.Player:AddSection("↳ Hitbox")
