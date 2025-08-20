@@ -1082,26 +1082,40 @@ local drawingsWhite, drawingsRed = {}, {}
 local conWhite, conWhiteAdded, conWhiteRemoved
 local conRed, conRedAdded, conRedRemoved
 
--- Utility tạo text
+-- Utility tạo ESP
 local function createESP(model, drawings, color)
     if not model or drawings[model] then return end
     local hrp = model:FindFirstChild("HumanoidRootPart")
     local humanoid = model:FindFirstChildOfClass("Humanoid")
     if not hrp or not humanoid then return end
 
+    -- Text
     local text = Drawing.new("Text")
     text.Size = 14
     text.Center = true
     text.Outline = true
     text.Visible = false
     text.Color = color
-    drawings[model] = {text = text, humanoid = humanoid}
+
+    -- Highlight
+    local highlight = Instance.new("Highlight")
+    highlight.Adornee = model
+    highlight.FillColor = color
+    highlight.OutlineColor = color
+    highlight.FillTransparency = 0.7
+    highlight.OutlineTransparency = 0
+    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+    highlight.Enabled = false
+    highlight.Parent = model
+
+    drawings[model] = {text = text, humanoid = humanoid, highlight = highlight}
 end
 
 local function removeESP(model, drawings)
     local data = drawings[model]
-    if data and data.text then
-        pcall(function() data.text:Remove() end)
+    if data then
+        if data.text then pcall(function() data.text:Remove() end) end
+        if data.highlight then pcall(function() data.highlight:Destroy() end) end
     end
     drawings[model] = nil
 end
@@ -1116,7 +1130,7 @@ local function startESPWhite()
     end
     conWhite = RunService.RenderStepped:Connect(function()
         for model, data in pairs(drawingsWhite) do
-            local text, humanoid = data.text, data.humanoid
+            local text, humanoid, highlight = data.text, data.humanoid, data.highlight
             if model.Parent and humanoid and humanoid.Health > 0 and model:FindFirstChild("HumanoidRootPart") then
                 local hrp = model.HumanoidRootPart
                 local pos, onScreen = Camera:WorldToViewportPoint(hrp.Position + Vector3.new(0,2.5,0))
@@ -1124,8 +1138,10 @@ local function startESPWhite()
                 text.Text = string.format("%s [%.0fm]", model.Name, dist)
                 text.Position = Vector2.new(pos.X, pos.Y)
                 text.Visible = onScreen
+                highlight.Enabled = true
             else
                 text.Visible = false
+                if highlight then highlight.Enabled = false end
             end
         end
     end)
@@ -1143,7 +1159,10 @@ local function stopESPWhite()
     if conWhite then conWhite:Disconnect(); conWhite = nil end
     if conWhiteAdded then conWhiteAdded:Disconnect(); conWhiteAdded = nil end
     if conWhiteRemoved then conWhiteRemoved:Disconnect(); conWhiteRemoved = nil end
-    for _, d in pairs(drawingsWhite) do pcall(function() d.text:Remove() end) end
+    for _, d in pairs(drawingsWhite) do
+        pcall(function() d.text:Remove() end)
+        pcall(function() d.highlight:Destroy() end)
+    end
     drawingsWhite = {}
 end
 
@@ -1157,7 +1176,7 @@ local function startESPRed()
     end
     conRed = RunService.RenderStepped:Connect(function()
         for model, data in pairs(drawingsRed) do
-            local text, humanoid = data.text, data.humanoid
+            local text, humanoid, highlight = data.text, data.humanoid, data.highlight
             if model.Parent and humanoid and humanoid.Health > 0 and model:FindFirstChild("HumanoidRootPart") then
                 local hrp = model.HumanoidRootPart
                 local pos, onScreen = Camera:WorldToViewportPoint(hrp.Position + Vector3.new(0,2.5,0))
@@ -1165,8 +1184,10 @@ local function startESPRed()
                 text.Text = string.format("%s [%.0fm]", model.Name, dist)
                 text.Position = Vector2.new(pos.X, pos.Y)
                 text.Visible = onScreen
+                highlight.Enabled = true
             else
                 text.Visible = false
+                if highlight then highlight.Enabled = false end
             end
         end
     end)
@@ -1184,7 +1205,10 @@ local function stopESPRed()
     if conRed then conRed:Disconnect(); conRed = nil end
     if conRedAdded then conRedAdded:Disconnect(); conRedAdded = nil end
     if conRedRemoved then conRedRemoved:Disconnect(); conRedRemoved = nil end
-    for _, d in pairs(drawingsRed) do pcall(function() d.text:Remove() end) end
+    for _, d in pairs(drawingsRed) do
+        pcall(function() d.text:Remove() end)
+        pcall(function() d.highlight:Destroy() end)
+    end
     drawingsRed = {}
 end
 
@@ -1197,7 +1221,7 @@ Tabs.Visual:AddToggle("ESPModelWhiteToggle", {
 end)
 
 Tabs.Visual:AddToggle("ESPModelRedToggle", {
-    Title = "ESP Killer",
+    Title = "ESP Killers",
     Default = false,
 }):OnChanged(function(enabled)
     if enabled then startESPRed() else stopESPRed() end
