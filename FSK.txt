@@ -1043,21 +1043,129 @@ end)
 
 -- Tabs.Visual
 
--- 📌 Toggle bật/tắt ESP Clone, kết nối đến code raw
+local RunService = game:GetService("RunService")
+local Camera = workspace.CurrentCamera
+
+-- 📌 Danh sách model Clone
+local allowedModelsClone = {
+    ["1x1x1x1Zombie"] = true,
+    ["PizzaDeliveryRig"] = true,
+    ["Mafia1"] = true,
+    ["Mafia2"] = true,
+}
+
+-- Internal containers
+local drawingsClone = {}
+local espConnectionClone
+local addedConnClone, removedConnClone
+
+-- Tạo ESP + Highlight
+local function createESP(model, drawings, color)
+    if not model or drawings[model] then return end
+    local hrp = model:FindFirstChild("HumanoidRootPart")
+    local humanoid = model:FindFirstChildOfClass("Humanoid")
+    if not hrp or not humanoid then return end
+
+    -- Text
+    local text = Drawing.new("Text")
+    text.Size = 14
+    text.Center = true
+    text.Outline = true
+    text.Visible = false
+    text.Color = color
+
+    -- Highlight
+    local highlight = Instance.new("Highlight")
+    highlight.Adornee = model
+    highlight.FillColor = color
+    highlight.OutlineColor = color
+    highlight.FillTransparency = 0.7
+    highlight.OutlineTransparency = 0
+    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+    highlight.Enabled = false
+    highlight.Parent = model
+
+    drawings[model] = {text = text, humanoid = humanoid, highlight = highlight}
+end
+
+-- Xoá ESP
+local function removeESP(model, drawings)
+    local data = drawings[model]
+    if data then
+        if data.text then pcall(function() data.text:Remove() end) end
+        if data.highlight then pcall(function() data.highlight:Destroy() end) end
+    end
+    drawings[model] = nil
+end
+
+-- Quét workspace và tạo ESP
+local function scanWorkspaceForAllowed(allowedList, drawings, color)
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        if obj:IsA("Model") and allowedList[obj.Name] and obj:FindFirstChild("HumanoidRootPart") then
+            createESP(obj, drawings, color)
+        end
+    end
+end
+
+-- 🔥 Bắt đầu ESP Clone
+function startESPClone()
+    if espConnectionClone then return end
+    scanWorkspaceForAllowed(allowedModelsClone, drawingsClone, Color3.fromRGB(0, 255, 0)) -- màu xanh lá
+
+    espConnectionClone = RunService.RenderStepped:Connect(function()
+        for model, data in pairs(drawingsClone) do
+            local text, humanoid, highlight = data.text, data.humanoid, data.highlight
+            if model.Parent and humanoid and humanoid.Health > 0 and model:FindFirstChild("HumanoidRootPart") then
+                local hrp = model.HumanoidRootPart
+                local pos, onScreen = Camera:WorldToViewportPoint(hrp.Position + Vector3.new(0, 2.5, 0))
+                local dist = (hrp.Position - Camera.CFrame.Position).Magnitude
+                text.Text = string.format("%s [%.0fm]", model.Name, dist)
+                text.Position = Vector2.new(pos.X, pos.Y)
+                text.Visible = onScreen
+                highlight.Enabled = true
+            else
+                text.Visible = false
+                if highlight then highlight.Enabled = false end
+            end
+        end
+    end)
+
+    addedConnClone = workspace.DescendantAdded:Connect(function(obj)
+        local model = obj:IsA("Model") and obj or obj:FindFirstAncestorOfClass("Model")
+        if model and allowedModelsClone[model.Name] and model:FindFirstChild("HumanoidRootPart") then
+            createESP(model, drawingsClone, Color3.fromRGB(0, 255, 0))
+        end
+    end)
+
+    removedConnClone = workspace.DescendantRemoving:Connect(function(obj)
+        if obj:IsA("Model") and drawingsClone[obj] then
+            removeESP(obj, drawingsClone)
+        end
+    end)
+end
+
+-- 🛑 Dừng ESP Clone
+function stopESPClone()
+    if espConnectionClone then espConnectionClone:Disconnect() end
+    if addedConnClone then addedConnClone:Disconnect() end
+    if removedConnClone then removedConnClone:Disconnect() end
+    for _, data in pairs(drawingsClone) do
+        if data.text then pcall(function() data.text:Remove() end) end
+        if data.highlight then pcall(function() data.highlight:Destroy() end) end
+    end
+    table.clear(drawingsClone)
+    espConnectionClone, addedConnClone, removedConnClone = nil, nil, nil
+end
+
+-- 📌 Toggle ESP Clone
 Tabs.Visual:AddToggle("ESPCloneToggle", {
     Title = "ESP Clone",
     Default = false,
 }):OnChanged(function(enabled)
     if enabled then
-        -- tải code ESP từ link raw
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/HocSinhLop10/Fuck-LoL-Skid/refs/heads/main/Esp.lua"))()
-        if startESPClone then
-            startESPClone()
-        end
+        startESPClone()
     else
-        if stopESPClone then
-            stopESPClone()
-        end
+        stopESPClone()
     end
 end)
 
