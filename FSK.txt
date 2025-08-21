@@ -660,6 +660,101 @@ end)
 
     Tabs.Main:AddSection("↳ Two Time")
 
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+-- Skill duy nhất của TwoTime
+local skillConfig = {
+    ["TwoTime"] = {skillName = "Dagger", castTime = 1}
+}
+
+-- Danh sách boss đặc biệt cần teleport ra sau lưng
+local BackstabTargets = {"Jason", "Noli", "John Doe", "Quest666", "c00lkidd"}
+
+-- Biến điều khiển
+local AutoBackstab = false
+local TeleportDistance = 5 -- mặc định 5m
+
+-- Kiểm tra model có trong danh sách backstab không
+local function IsBackstabTarget(model)
+    for _, name in ipairs(BackstabTargets) do
+        if model.Name == name then
+            return true
+        end
+    end
+    return false
+end
+
+-- Teleport ra sau lưng và xoay mặt nhìn vào lưng mục tiêu
+local function TeleportBehindTarget(target)
+    local char = LocalPlayer.Character
+    if not (char and char:FindFirstChild("HumanoidRootPart")) then return end
+    if not (target and target:FindFirstChild("HumanoidRootPart")) then return end
+
+    local hrp = target.HumanoidRootPart
+    -- vị trí sau lưng mục tiêu (càng xa thì tăng số Z)
+    local backPos = hrp.CFrame * CFrame.new(0, 0, 2)
+
+    -- Teleport + xoay mặt về phía lưng
+    char.HumanoidRootPart.CFrame = CFrame.new(backPos.Position, hrp.Position)
+end
+
+-- Hàm cast skill (chỉ cho TwoTime)
+local function CastSkill(skillName)
+    local remote = ReplicatedStorage:FindFirstChild("Modules")
+        and ReplicatedStorage.Modules:FindFirstChild("Network")
+        and ReplicatedStorage.Modules.Network:FindFirstChild("RemoteEvent")
+
+    if remote and typeof(remote.FireServer) == "function" then
+        remote:FireServer("UseActorAbility", skillName)
+
+        -- Nếu bật AutoBackstab và là TwoTime
+        if AutoBackstab and LocalPlayer.Character and LocalPlayer.Character.Name == "TwoTime" then
+            local localChar = LocalPlayer.Character
+            if localChar and localChar:FindFirstChild("HumanoidRootPart") then
+                -- tìm boss gần nhất trong danh sách
+                local closest, minDist = nil, math.huge
+                for _, bossName in ipairs(BackstabTargets) do
+                    local boss = workspace:FindFirstChild(bossName)
+                    if boss and boss:FindFirstChild("HumanoidRootPart") then
+                        local dist = (localChar.HumanoidRootPart.Position - boss.HumanoidRootPart.Position).Magnitude
+                        if dist < minDist and dist <= TeleportDistance then
+                            minDist = dist
+                            closest = boss
+                        end
+                    end
+                end
+                -- Nếu tìm thấy thì teleport ra sau lưng
+                if closest then
+                    TeleportBehindTarget(closest)
+                end
+            end
+        end
+    end
+end
+
+-- =========================
+-- UI: Toggle + Slider (Fluent GUI)
+-- =========================
+
+Tabs.Main:AddToggle("AutoBackstabToggle", {
+    Title = "Auto Backstab",
+    Default = false,
+    Callback = function(Value)
+        AutoBackstab = Value
+    end
+})
+
+Tabs.Main:AddSlider("TeleportDistanceSlider", {
+    Title = "Backstab Range",
+    Default = 5,
+    Min = 1,
+    Max = 10,
+    Rounding = 0
+}):OnChanged(function(Value)
+    TeleportDistance = Value
+end)
 
 
 -- Tabs.Player
