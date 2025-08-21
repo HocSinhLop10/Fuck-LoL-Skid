@@ -154,12 +154,11 @@ local function safe(pos)
     return false
 end
 
--- Nút Toggle Fluent UI
+-- ✅ Toggle Fluent UI (đã fix cú pháp)
 Tabs.Farm:AddToggle("AutoExpMoney", {
     Title = "Auto Farm Exp / Money",
     Default = false
-})
-:OnChanged(function(Value)
+}):OnChanged(function(Value)
     _G.AutoFarm = Value
 
     -- Cập nhật Spectators / InGame
