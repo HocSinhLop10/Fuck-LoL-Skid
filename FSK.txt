@@ -1163,7 +1163,7 @@ local allowedModelsClone = {
 -- Internal containers
 local drawingsClone = {}
 local espConnectionClone
-local addedConnClone, removedConnClone
+local updateInterval = 0.5 -- cập nhật mỗi 0.5 giây
 
 -- Tạo ESP + Highlight
 local function createESP(model, drawings, color)
@@ -1204,7 +1204,7 @@ local function removeESP(model, drawings)
     drawings[model] = nil
 end
 
--- Quét workspace và tạo ESP
+-- Quét workspace và tạo ESP nếu chưa có
 local function scanWorkspaceForAllowed(allowedList, drawings, color)
     for _, obj in ipairs(workspace:GetDescendants()) do
         if obj:IsA("Model") and allowedList[obj.Name] and obj:FindFirstChild("HumanoidRootPart") then
@@ -1216,9 +1216,17 @@ end
 -- 🔥 Bắt đầu ESP Clone
 function startESPClone()
     if espConnectionClone then return end
-    scanWorkspaceForAllowed(allowedModelsClone, drawingsClone, Color3.fromRGB(0, 255, 0)) -- màu xanh lá
 
-    espConnectionClone = RunService.RenderStepped:Connect(function()
+    local lastUpdate = 0
+    espConnectionClone = RunService.Heartbeat:Connect(function(dt)
+        lastUpdate = lastUpdate + dt
+        if lastUpdate < updateInterval then return end
+        lastUpdate = 0
+
+        -- Quét workspace để tạo ESP cho model mới
+        scanWorkspaceForAllowed(allowedModelsClone, drawingsClone, Color3.fromRGB(0, 255, 0))
+
+        -- Cập nhật ESP
         for model, data in pairs(drawingsClone) do
             local text, humanoid, highlight = data.text, data.humanoid, data.highlight
             if model.Parent and humanoid and humanoid.Health > 0 and model:FindFirstChild("HumanoidRootPart") then
@@ -1232,20 +1240,11 @@ function startESPClone()
             else
                 text.Visible = false
                 if highlight then highlight.Enabled = false end
+                -- Xóa ESP nếu model chết hoặc không tồn tại
+                if not model.Parent or (humanoid and humanoid.Health <= 0) then
+                    removeESP(model, drawingsClone)
+                end
             end
-        end
-    end)
-
-    addedConnClone = workspace.DescendantAdded:Connect(function(obj)
-        local model = obj:IsA("Model") and obj or obj:FindFirstAncestorOfClass("Model")
-        if model and allowedModelsClone[model.Name] and model:FindFirstChild("HumanoidRootPart") then
-            createESP(model, drawingsClone, Color3.fromRGB(0, 255, 0))
-        end
-    end)
-
-    removedConnClone = workspace.DescendantRemoving:Connect(function(obj)
-        if obj:IsA("Model") and drawingsClone[obj] then
-            removeESP(obj, drawingsClone)
         end
     end)
 end
@@ -1253,14 +1252,12 @@ end
 -- 🛑 Dừng ESP Clone
 function stopESPClone()
     if espConnectionClone then espConnectionClone:Disconnect() end
-    if addedConnClone then addedConnClone:Disconnect() end
-    if removedConnClone then removedConnClone:Disconnect() end
-    for _, data in pairs(drawingsClone) do
+    for model, data in pairs(drawingsClone) do
         if data.text then pcall(function() data.text:Remove() end) end
         if data.highlight then pcall(function() data.highlight:Destroy() end) end
     end
     table.clear(drawingsClone)
-    espConnectionClone, addedConnClone, removedConnClone = nil, nil, nil
+    espConnectionClone = nil
 end
 
 -- 📌 Toggle ESP Clone
@@ -1274,6 +1271,7 @@ Tabs.Visual:AddToggle("ESPCloneToggle", {
         stopESPClone()
     end
 end)
+
 
 
 local RunService = game:GetService("RunService")
@@ -1293,8 +1291,8 @@ local allowedModelsRed = {
 
 -- Containers
 local drawingsWhite, drawingsRed = {}, {}
-local conWhite, conWhiteAdded, conWhiteRemoved
-local conRed, conRedAdded, conRedRemoved
+local conWhiteLoop, conWhiteAdded, conWhiteRemoved
+local conRedLoop, conRedAdded, conRedRemoved
 
 -- Utility tạo ESP
 local function createESP(model, drawings, color)
@@ -1336,29 +1334,34 @@ end
 
 -- === White ESP (Survivors) ===
 local function startESPWhite()
-    if conWhite then return end
+    if conWhiteLoop then return end
     for _, obj in ipairs(workspace:GetDescendants()) do
         if obj:IsA("Model") and allowedModelsWhite[obj.Name] then
             createESP(obj, drawingsWhite, Color3.fromRGB(255, 255, 255))
         end
     end
-    conWhite = RunService.RenderStepped:Connect(function()
-        for model, data in pairs(drawingsWhite) do
-            local text, humanoid, highlight = data.text, data.humanoid, data.highlight
-            if model.Parent and humanoid and humanoid.Health > 0 and model:FindFirstChild("HumanoidRootPart") then
-                local hrp = model.HumanoidRootPart
-                local pos, onScreen = Camera:WorldToViewportPoint(hrp.Position + Vector3.new(0,2.5,0))
-                local dist = (hrp.Position - Camera.CFrame.Position).Magnitude
-                text.Text = string.format("%s [%.0fm]", model.Name, dist)
-                text.Position = Vector2.new(pos.X, pos.Y)
-                text.Visible = onScreen
-                highlight.Enabled = true
-            else
-                text.Visible = false
-                if highlight then highlight.Enabled = false end
+
+    conWhiteLoop = RunService.Heartbeat:Connect(function()
+        task.spawn(function()
+            for model, data in pairs(drawingsWhite) do
+                local text, humanoid, highlight = data.text, data.humanoid, data.highlight
+                if model.Parent and humanoid and humanoid.Health > 0 and model:FindFirstChild("HumanoidRootPart") then
+                    local hrp = model.HumanoidRootPart
+                    local pos, onScreen = Camera:WorldToViewportPoint(hrp.Position + Vector3.new(0,2.5,0))
+                    local dist = (hrp.Position - Camera.CFrame.Position).Magnitude
+                    text.Text = string.format("%s [%.0fm]", model.Name, dist)
+                    text.Position = Vector2.new(pos.X, pos.Y)
+                    text.Visible = onScreen
+                    highlight.Enabled = true
+                else
+                    text.Visible = false
+                    if highlight then highlight.Enabled = false end
+                end
             end
-        end
+        end)
+        task.wait(0.5)
     end)
+
     conWhiteAdded = workspace.DescendantAdded:Connect(function(obj)
         if obj:IsA("Model") and allowedModelsWhite[obj.Name] then
             createESP(obj, drawingsWhite, Color3.fromRGB(255, 255, 255))
@@ -1370,7 +1373,7 @@ local function startESPWhite()
 end
 
 local function stopESPWhite()
-    if conWhite then conWhite:Disconnect(); conWhite = nil end
+    if conWhiteLoop then conWhiteLoop:Disconnect(); conWhiteLoop = nil end
     if conWhiteAdded then conWhiteAdded:Disconnect(); conWhiteAdded = nil end
     if conWhiteRemoved then conWhiteRemoved:Disconnect(); conWhiteRemoved = nil end
     for _, d in pairs(drawingsWhite) do
@@ -1382,29 +1385,34 @@ end
 
 -- === Red ESP (Killers) ===
 local function startESPRed()
-    if conRed then return end
+    if conRedLoop then return end
     for _, obj in ipairs(workspace:GetDescendants()) do
         if obj:IsA("Model") and allowedModelsRed[obj.Name] then
             createESP(obj, drawingsRed, Color3.fromRGB(255, 0, 0))
         end
     end
-    conRed = RunService.RenderStepped:Connect(function()
-        for model, data in pairs(drawingsRed) do
-            local text, humanoid, highlight = data.text, data.humanoid, data.highlight
-            if model.Parent and humanoid and humanoid.Health > 0 and model:FindFirstChild("HumanoidRootPart") then
-                local hrp = model.HumanoidRootPart
-                local pos, onScreen = Camera:WorldToViewportPoint(hrp.Position + Vector3.new(0,2.5,0))
-                local dist = (hrp.Position - Camera.CFrame.Position).Magnitude
-                text.Text = string.format("%s [%.0fm]", model.Name, dist)
-                text.Position = Vector2.new(pos.X, pos.Y)
-                text.Visible = onScreen
-                highlight.Enabled = true
-            else
-                text.Visible = false
-                if highlight then highlight.Enabled = false end
+
+    conRedLoop = RunService.Heartbeat:Connect(function()
+        task.spawn(function()
+            for model, data in pairs(drawingsRed) do
+                local text, humanoid, highlight = data.text, data.humanoid, data.highlight
+                if model.Parent and humanoid and humanoid.Health > 0 and model:FindFirstChild("HumanoidRootPart") then
+                    local hrp = model.HumanoidRootPart
+                    local pos, onScreen = Camera:WorldToViewportPoint(hrp.Position + Vector3.new(0,2.5,0))
+                    local dist = (hrp.Position - Camera.CFrame.Position).Magnitude
+                    text.Text = string.format("%s [%.0fm]", model.Name, dist)
+                    text.Position = Vector2.new(pos.X, pos.Y)
+                    text.Visible = onScreen
+                    highlight.Enabled = true
+                else
+                    text.Visible = false
+                    if highlight then highlight.Enabled = false end
+                end
             end
-        end
+        end)
+        task.wait(0.5)
     end)
+
     conRedAdded = workspace.DescendantAdded:Connect(function(obj)
         if obj:IsA("Model") and allowedModelsRed[obj.Name] then
             createESP(obj, drawingsRed, Color3.fromRGB(255, 0, 0))
@@ -1416,7 +1424,7 @@ local function startESPRed()
 end
 
 local function stopESPRed()
-    if conRed then conRed:Disconnect(); conRed = nil end
+    if conRedLoop then conRedLoop:Disconnect(); conRedLoop = nil end
     if conRedAdded then conRedAdded:Disconnect(); conRedAdded = nil end
     if conRedRemoved then conRedRemoved:Disconnect(); conRedRemoved = nil end
     for _, d in pairs(drawingsRed) do
