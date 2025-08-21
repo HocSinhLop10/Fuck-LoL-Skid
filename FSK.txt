@@ -783,7 +783,7 @@ RunService.RenderStepped:Connect(function()
 	end
 end)
 
--- ✅ Fluent GUI
+-- ================= Fluent GUI =================
 Tabs.Main:AddToggle("AutoBackstab", {
 	Title = "Auto Dagger",
 	Default = false
