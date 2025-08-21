@@ -664,7 +664,6 @@ end)
 local Players = game:GetService("Players") 
 local ReplicatedStorage = game:GetService("ReplicatedStorage") 
 local RunService = game:GetService("RunService") 
-local Stats = game:GetService("Stats")
 local lp = Players.LocalPlayer
 
 -- Remote
@@ -680,6 +679,7 @@ local matchFacing = false
 local cooldown = false
 local lastTarget = nil
 local daggerCooldownText
+local backstabConn -- 🔑 connection lưu lại
 
 -- Counter anim IDs
 local counterAnimIDs = {
@@ -732,56 +732,70 @@ lp.PlayerGui.DescendantRemoving:Connect(function(obj)
 end)
 refreshDaggerRef()
 
--- Main loop
-RunService.RenderStepped:Connect(function()
-	if not enabled or cooldown then return end
-	if not daggerCooldownText or tonumber(daggerCooldownText.Text) then return end
+-- Main loop (safe)
+local function startBackstab()
+    if backstabConn then backstabConn:Disconnect() end
+    backstabConn = RunService.RenderStepped:Connect(function()
+        if not enabled or cooldown then return end
+        if not daggerCooldownText or tonumber(daggerCooldownText.Text) then return end
 
-	local char = lp.Character
-	if not (char and char:FindFirstChild("HumanoidRootPart")) then return end
-	local hrp = char.HumanoidRootPart
+        local char = lp.Character
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+        if not hrp then return end
 
-	for _, name in ipairs(killerNames) do
-		local killer = killersFolder:FindFirstChild(name)
-		if killer and killer:FindFirstChild("HumanoidRootPart") then
-			local kHRP = killer.HumanoidRootPart
+        for _, name in ipairs(killerNames) do
+            local killer = killersFolder:FindFirstChild(name)
+            local kHRP = killer and killer:FindFirstChild("HumanoidRootPart")
+            if kHRP then
+                pcall(function()
+                    -- Legit mode
+                    if mode == "Legit" then
+                        local dist = (kHRP.Position - hrp.Position).Magnitude
+                        if dist <= range then
+                            if matchFacing then
+                                hrp.CFrame = CFrame.new(hrp.Position, hrp.Position + kHRP.CFrame.LookVector)
+                            end
+                            if isBehindTarget(hrp, kHRP) then
+                                daggerRemote:FireServer("UseActorAbility", "Dagger")
+                            end
+                        end
+                        return
+                    end
 
-			-- Legit mode
-			if mode == "Legit" then
-				local dist = (kHRP.Position - hrp.Position).Magnitude
-				if dist <= range then
-					if matchFacing then
-						hrp.CFrame = CFrame.new(hrp.Position, hrp.Position + kHRP.CFrame.LookVector)
-					end
-					if isBehindTarget(hrp, kHRP) then
-						daggerRemote:FireServer("UseActorAbility", "Dagger")
-					end
-				end
-				return
-			end
+                    -- Counter mode
+                    if mode == "Counter" and not killerPlayingCounterAnim(killer) then
+                        return
+                    end
 
-			-- Counter mode
-			if mode == "Counter" and not killerPlayingCounterAnim(killer) then
-				continue
-			end
+                    -- Normal / Counter auto TP + stab
+                    if isBehindTarget(hrp, kHRP) and killer ~= lastTarget then
+                        lastTarget = killer
+                        cooldown = true
+                        daggerRemote:FireServer("UseActorAbility", "Dagger")
 
-			-- Normal / Counter auto TP + stab
-			if isBehindTarget(hrp, kHRP) and killer ~= lastTarget then
-				lastTarget = killer
-				cooldown = true
-				daggerRemote:FireServer("UseActorAbility", "Dagger")
+                        -- reset cooldown sau 2s hoặc khi thoát khỏi range
+                        task.delay(2, function()
+                            local t0 = tick()
+                            repeat task.wait() until not isBehindTarget(hrp, kHRP) or tick() - t0 > 3
+                            lastTarget = nil
+                            cooldown = false
+                        end)
+                        break
+                    end
+                end)
+            end
+        end
+    end)
+end
 
-				-- reset cooldown after out of range
-				task.delay(2, function()
-					while isBehindTarget(hrp, kHRP) do task.wait() end
-					lastTarget = nil
-					cooldown = false
-				end)
-				break
-			end
-		end
-	end
-end)
+local function stopBackstab()
+    if backstabConn then
+        backstabConn:Disconnect()
+        backstabConn = nil
+    end
+    cooldown = false
+    lastTarget = nil
+end
 
 -- ================= Fluent GUI =================
 Tabs.Main:AddToggle("AutoBackstab", {
@@ -789,6 +803,11 @@ Tabs.Main:AddToggle("AutoBackstab", {
 	Default = false
 }):OnChanged(function(val)
 	enabled = val
+	if val then
+        startBackstab()
+    else
+        stopBackstab()
+    end
 end)
 
 Tabs.Main:AddSlider("BackstabRange", {
