@@ -750,10 +750,10 @@ Tabs.Main:AddSlider("TeleportDistanceSlider", {
     Title = "Backstab Range",
     Default = 5,
     Min = 1,
-    Max = 10,
-    Rounding = 0
+    Max = 20,      -- tăng lên 20
+    Rounding = 1   -- số nguyên, kéo tăng giảm bình thường
 }):OnChanged(function(Value)
-    TeleportDistance = Value
+    TeleportDistance = tonumber(Value) or 5 -- đảm bảo kiểu number
 end)
 
 
@@ -1149,6 +1149,7 @@ end)
 
 -- Tabs.Visual
 
+
 local RunService = game:GetService("RunService")
 local Camera = workspace.CurrentCamera
 
@@ -1163,7 +1164,7 @@ local allowedModelsClone = {
 -- Internal containers
 local drawingsClone = {}
 local espConnectionClone
-local updateInterval = 0.5 -- cập nhật mỗi 0.5 giây
+local addedConnClone, removedConnClone
 
 -- Tạo ESP + Highlight
 local function createESP(model, drawings, color)
@@ -1204,7 +1205,7 @@ local function removeESP(model, drawings)
     drawings[model] = nil
 end
 
--- Quét workspace và tạo ESP nếu chưa có
+-- Quét workspace và tạo ESP
 local function scanWorkspaceForAllowed(allowedList, drawings, color)
     for _, obj in ipairs(workspace:GetDescendants()) do
         if obj:IsA("Model") and allowedList[obj.Name] and obj:FindFirstChild("HumanoidRootPart") then
@@ -1216,17 +1217,9 @@ end
 -- 🔥 Bắt đầu ESP Clone
 function startESPClone()
     if espConnectionClone then return end
+    scanWorkspaceForAllowed(allowedModelsClone, drawingsClone, Color3.fromRGB(0, 255, 0)) -- màu xanh lá
 
-    local lastUpdate = 0
-    espConnectionClone = RunService.Heartbeat:Connect(function(dt)
-        lastUpdate = lastUpdate + dt
-        if lastUpdate < updateInterval then return end
-        lastUpdate = 0
-
-        -- Quét workspace để tạo ESP cho model mới
-        scanWorkspaceForAllowed(allowedModelsClone, drawingsClone, Color3.fromRGB(0, 255, 0))
-
-        -- Cập nhật ESP
+    espConnectionClone = RunService.RenderStepped:Connect(function()
         for model, data in pairs(drawingsClone) do
             local text, humanoid, highlight = data.text, data.humanoid, data.highlight
             if model.Parent and humanoid and humanoid.Health > 0 and model:FindFirstChild("HumanoidRootPart") then
@@ -1240,11 +1233,20 @@ function startESPClone()
             else
                 text.Visible = false
                 if highlight then highlight.Enabled = false end
-                -- Xóa ESP nếu model chết hoặc không tồn tại
-                if not model.Parent or (humanoid and humanoid.Health <= 0) then
-                    removeESP(model, drawingsClone)
-                end
             end
+        end
+    end)
+
+    addedConnClone = workspace.DescendantAdded:Connect(function(obj)
+        local model = obj:IsA("Model") and obj or obj:FindFirstAncestorOfClass("Model")
+        if model and allowedModelsClone[model.Name] and model:FindFirstChild("HumanoidRootPart") then
+            createESP(model, drawingsClone, Color3.fromRGB(0, 255, 0))
+        end
+    end)
+
+    removedConnClone = workspace.DescendantRemoving:Connect(function(obj)
+        if obj:IsA("Model") and drawingsClone[obj] then
+            removeESP(obj, drawingsClone)
         end
     end)
 end
@@ -1252,12 +1254,14 @@ end
 -- 🛑 Dừng ESP Clone
 function stopESPClone()
     if espConnectionClone then espConnectionClone:Disconnect() end
-    for model, data in pairs(drawingsClone) do
+    if addedConnClone then addedConnClone:Disconnect() end
+    if removedConnClone then removedConnClone:Disconnect() end
+    for _, data in pairs(drawingsClone) do
         if data.text then pcall(function() data.text:Remove() end) end
         if data.highlight then pcall(function() data.highlight:Destroy() end) end
     end
     table.clear(drawingsClone)
-    espConnectionClone = nil
+    espConnectionClone, addedConnClone, removedConnClone = nil, nil, nil
 end
 
 -- 📌 Toggle ESP Clone
