@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Free] | Forsaken",
-    SubTitle = "Version 3.0.0",
+    SubTitle = "Version 3.0.1",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -291,15 +291,18 @@ Tabs.Farm:AddToggle("AutoExpMoney", {
                             end
 
                             if currentCharacter and currentCharacter:FindFirstChild("HumanoidRootPart") then
-                                currentCharacter:PivotTo(CFrame.new(goalPos + Vector3.new(0, 2, 0)))
-                                task.wait(0.25)
+                                -- ✅ Teleport cao hơn để tránh kẹt
+                                currentCharacter:PivotTo(CFrame.new(goalPos + Vector3.new(0, 3, 0)))
+
+                                -- ✅ Giảm tốc độ teleport
+                                task.wait(0.75)
 
                                 local prompt = gen:FindFirstChild("Main") and gen.Main:FindFirstChild("Prompt")
                                 if prompt then
                                     prompt.HoldDuration = 0
                                     prompt.RequiresLineOfSight = false
                                     prompt.MaxActivationDistance = 99999
-                                    task.wait(0.1)
+                                    task.wait(0.15) -- delay an toàn hơn
 
                                     pcall(function()
                                         prompt:InputHoldBegin()
