@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Free] | Forsaken",
-    SubTitle = "Version 3.1.1",
+    SubTitle = "Version 3.1.2",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -2188,7 +2188,7 @@ Tabs.Misc:AddToggle("RemoveScreenEffects", {
 
 
 
--- === SafeGenTeleport (Anti Killers V2) ===
+-- === SafeGenTeleport (Anti Killers V4 Fixed) ===
 local Players = game:GetService("Players")
 local LP = Players.LocalPlayer
 
@@ -2201,36 +2201,34 @@ local AllowedPlayers = {
     ["hdksakst"] = true
 }
 
--- Danh sách killers nguy hiểm
+-- Danh sách Killers
 local DangerousKillers = {
     Jason = true, ["1x1x1x1"] = true, c00lkidd = true,
     Noli = true, JohnDoe = true, Quest666 = true
 }
 
--- Danh sách Clone (cũng coi là nguy hiểm)
+-- Danh sách Clones (coi như Killers)
 local DangerousClones = {
     PizzaDeliveryRig = true, Mafia1 = true, Mafia2 = true,
     ["1x1x1x1Zombie"] = true
 }
 
--- Danh sách NPC/Model Survivors
-local TargetModels = {
+-- Danh sách Survivors (bạn có thể biến thành)
+local Survivors = {
     Noob = true, Guest1337 = true, Elliot = true, Shedletsky = true,
     TwoTime = true, ["007n7"] = true, Chance = true,
     Builderman = true, Taph = true, Dusekkar = true
 }
 
--- ✅ Hàm check có killer hoặc clone gần không
-local function isDangerNear(position, radius, includeClones)
+-- ✅ Kiểm tra có Killer hoặc Clone gần
+local function isDangerNear(position, radius)
     local killersFolder = workspace:FindFirstChild("Players") and workspace.Players:FindFirstChild("Killers")
     if killersFolder then
         for _, killer in ipairs(killersFolder:GetChildren()) do
             local hrp = killer:FindFirstChild("HumanoidRootPart")
             if hrp then
-                if DangerousKillers[killer.Name] and (hrp.Position - position).Magnitude <= radius then
-                    return true
-                end
-                if includeClones and DangerousClones[killer.Name] and (hrp.Position - position).Magnitude <= radius then
+                local dist = (hrp.Position - position).Magnitude
+                if (DangerousKillers[killer.Name] or DangerousClones[killer.Name]) and dist <= radius then
                     return true
                 end
             end
@@ -2239,8 +2237,8 @@ local function isDangerNear(position, radius, includeClones)
     return false
 end
 
--- ✅ Teleport đến generator xa & an toàn nhất
-local function teleportToSafeGenerator(includeClones)
+-- ✅ Teleport đến generator an toàn
+local function teleportToSafeGenerator()
     local character = LP.Character
     if not character or not character:FindFirstChild("HumanoidRootPart") then return end
     local myPos = character.HumanoidRootPart.Position
@@ -2255,7 +2253,9 @@ local function teleportToSafeGenerator(includeClones)
         if gen.Name == "Generator" and gen:FindFirstChild("Progress") then
             local genPos = gen:GetPivot().Position
             local dist = (myPos - genPos).Magnitude
-            if dist > bestDistance and not isDangerNear(genPos, 50, includeClones) then
+
+            -- chỉ chọn generator xa & không có Killer/Clone gần
+            if dist > bestDistance and not isDangerNear(genPos, 40) then
                 bestDistance = dist
                 bestGen = gen
             end
@@ -2263,15 +2263,18 @@ local function teleportToSafeGenerator(includeClones)
     end
 
     if bestGen then
-        local goalPos = (bestGen:GetPivot() * CFrame.new(0, 0, -3)).Position
-        character:PivotTo(CFrame.new(goalPos + Vector3.new(0, 2, 0)))
-        print("✅ Teleported to safe generator:", bestGen.Name)
+        local offset = CFrame.new(0, 3, -3) -- đứng cao hơn 3 studs, lùi ra sau 3 studs
+        local goalCFrame = bestGen:GetPivot() * offset
+        character:PivotTo(goalCFrame)
+        print("✅ Teleported safely to generator:", bestGen.Name)
+    else
+        print("⚠️ Không tìm thấy generator an toàn!")
     end
 end
 
 -- === Toggle GUI ===
 Tabs.Misc:AddToggle("SafeGenTeleport", {
-    Title = "Anti Killers V2",
+    Title = "Anti Killers V4",
     Default = false
 }):OnChanged(function(state)
     SafeGenRunning = state
@@ -2287,19 +2290,18 @@ Tabs.Misc:AddToggle("SafeGenTeleport", {
 
             while SafeGenRunning do
                 local character = LP.Character
-                if character and character:FindFirstChild("HumanoidRootPart") then
+                local hrp = character and character:FindFirstChild("HumanoidRootPart")
+                if hrp then
                     local charName = character.Name
 
-                    -- Nếu là Killer
+                    -- 🚫 Nếu bạn là Killer hoặc Clone → không teleport
                     if DangerousKillers[charName] or DangerousClones[charName] then
-                        if not isDangerNear(character.HumanoidRootPart.Position, 50, true) then
-                            teleportToSafeGenerator(false)
-                        end
+                        -- do nothing
 
-                    -- Nếu là Survivor
-                    elseif TargetModels[charName] then
-                        if isDangerNear(character.HumanoidRootPart.Position, 50, true) then
-                            teleportToSafeGenerator(true)
+                    -- ✅ Nếu bạn là Survivor (hoặc chính tên account bạn)
+                    elseif Survivors[charName] or charName == LP.Name then
+                        if isDangerNear(hrp.Position, 50) then
+                            teleportToSafeGenerator()
                         end
                     end
                 end
@@ -2307,7 +2309,6 @@ Tabs.Misc:AddToggle("SafeGenTeleport", {
             end
         end)
     else
-        -- Khi tắt → flag false, loop tự dừng
         SafeGenRunning = false
         SafeGenThread = nil
         print("[SafeGenTeleport] Đã tắt.")
