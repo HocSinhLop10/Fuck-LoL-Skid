@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Free] | Forsaken",
-    SubTitle = "Version 3.0.5",
+    SubTitle = "Version 3.0.6",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -585,7 +585,7 @@ end)
         Title = "New Video",
         Description = "Copy link to open video tutorial!",
         Callback = function()
-            setclipboard("Coming Soon")
+            setclipboard("https://youtu.be/x6lQYIvkmvw?si=g3QTRPO86aKa8mB8")
             Fluent:Notify({
                 Title = "Notification",
                 Content = "Successfully copied to the clipboard!",
@@ -807,7 +807,7 @@ do
     local DistanceSlider = Tabs.Main:AddSlider("DistanceSlider", {
         Title = "Distance",
         Min = 1,
-        Max = 10,
+        Max = 50,
         Default = 5,
         Rounding = 1,
         ValueName = "studs"
@@ -889,7 +889,7 @@ do
 
     local localPlayer = Players.LocalPlayer
 
-    -- ✅ Animation IDs
+    -- ✅ Animation IDs cần chặn
     local animationIds = {
         ["126830014841198"] = true,
         ["126355327951215"] = true,
@@ -912,12 +912,13 @@ do
     local toggleOn = false
     local strictRangeOn = false
     local detectionRange = 18
+    local lastBlock = 0 -- debounce cho block
 
-    local clickedTracks = {}
-    local tracksStartedInRange = {}
-
-    -- ✅ Click the Block ImageButton (mobile-safe)
+    -- ✅ Hàm block nhẹ nhàng
     local function clickBlockButton()
+        if tick() - lastBlock < 0.25 then return end -- block tối đa 4 lần/giây
+        lastBlock = tick()
+
         local gui = localPlayer:FindFirstChild("PlayerGui")
         if not gui then return end
 
@@ -937,26 +938,6 @@ do
                 pcall(function()
                     blockButton:Activate()
                 end)
-            end
-        end
-    end
-
-    -- 🔎 Detect new animations only
-    local function detectNewAnimations(humanoid, playerName, dist)
-        for _, track in ipairs(humanoid:GetPlayingAnimationTracks()) do
-            local anim = track.Animation
-            if anim and anim.AnimationId then
-                local id = string.match(anim.AnimationId, "%d+")
-                if id and animationIds[id] and not clickedTracks[track] then
-                    clickedTracks[track] = true
-                    tracksStartedInRange[track] = dist <= detectionRange
-
-                    task.spawn(function()
-                        track.Stopped:Wait()
-                        clickedTracks[track] = nil
-                        tracksStartedInRange[track] = nil
-                    end)
-                end
             end
         end
     end
@@ -992,27 +973,21 @@ do
     strictRangeOn = strictFlag.Value
     detectionRange = rangeFlag.Value
 
-    -- 🕹 GUI using Fluent (fixed IDs)
+    -- 🕹 GUI
     Tabs.Main:AddToggle("AutoBlockV2", {
         Title = "Auto Block",
         Default = toggleOn,
     }):OnChanged(function(state)
-        local ok, err = pcall(function()
-            toggleOn = state
-            toggleFlag.Value = state
-        end)
-        if not ok then warn("[AutoBlock] Error:", err) end
+        toggleOn = state
+        toggleFlag.Value = state
     end)
 
     Tabs.Main:AddToggle("StrictRangeCheck", {
         Title = "Auto Check",
         Default = strictRangeOn,
     }):OnChanged(function(state)
-        local ok, err = pcall(function()
-            strictRangeOn = state
-            strictFlag.Value = state
-        end)
-        if not ok then warn("[StrictRange] Error:", err) end
+        strictRangeOn = state
+        strictFlag.Value = state
     end)
 
     Tabs.Main:AddSlider("RangeCheckSlider", {
@@ -1022,41 +997,59 @@ do
         Default = detectionRange,
         Rounding = 1,
     }):OnChanged(function(value)
-        local ok, err = pcall(function()
-            detectionRange = value
-            rangeFlag.Value = value
-        end)
-        if not ok then warn("[RangeCheck] Error:", err) end
+        detectionRange = value
+        rangeFlag.Value = value
     end)
 
-    -- 🕹 Main loop
-    RunService.Heartbeat:Connect(function()
-        if not toggleOn then return end
+    -- 🔥 Thay vì scan liên tục, lắng nghe sự kiện AnimationPlayed
+    local function hookPlayer(player)
+        local char = player.Character
+        if not char then return end
+        local humanoid = char:FindFirstChildOfClass("Humanoid")
+        if not humanoid then return end
 
-        local myChar = localPlayer.Character
-        local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
-        if not myRoot then return end
+        humanoid.AnimationPlayed:Connect(function(track)
+            if not toggleOn then return end
+            local anim = track.Animation
+            if not anim or not anim.AnimationId then return end
 
-        for _, otherPlayer in ipairs(Players:GetPlayers()) do
-            if otherPlayer ~= localPlayer and otherPlayer.Character then
-                local root = otherPlayer.Character:FindFirstChild("HumanoidRootPart")
-                local humanoid = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
-                if root and humanoid then
-                    local dist = (root.Position - myRoot.Position).Magnitude
-                    if dist <= detectionRange then
-                        detectNewAnimations(humanoid, otherPlayer.Name, dist)
-
-                        for _, track in ipairs(humanoid:GetPlayingAnimationTracks()) do
-                            if clickedTracks[track] then
-                                if strictRangeOn and not tracksStartedInRange[track] then
-                                    continue
-                                end
-                                clickBlockButton()
-                            end
-                        end
+            local id = string.match(anim.AnimationId, "%d+")
+            if id and animationIds[id] then
+                -- kiểm tra range nếu cần
+                if strictRangeOn then
+                    local myChar = localPlayer.Character
+                    local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
+                    local theirRoot = char:FindFirstChild("HumanoidRootPart")
+                    if myRoot and theirRoot then
+                        local dist = (theirRoot.Position - myRoot.Position).Magnitude
+                        if dist > detectionRange then return end
                     end
                 end
+
+                clickBlockButton()
             end
+        end)
+    end
+
+    -- hook tất cả player hiện có + player mới
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= localPlayer then
+            p.CharacterAdded:Connect(function()
+                task.wait(1)
+                hookPlayer(p)
+            end)
+            if p.Character then
+                hookPlayer(p)
+            end
+        end
+    end
+
+    Players.PlayerAdded:Connect(function(p)
+        if p ~= localPlayer then
+            p.CharacterAdded:Connect(function()
+                task.wait(1)
+                hookPlayer(p)
+            end)
         end
     end)
 end
