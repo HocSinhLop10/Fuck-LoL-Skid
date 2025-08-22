@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Free] | Forsaken",
-    SubTitle = "Version 3.0.6",
+    SubTitle = "Version 3.0.7",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -575,25 +575,10 @@ end)
 
     Tabs.Main:AddSection("↳ Instruct")
 
-    Tabs.Main:AddParagraph({
-        Title = "Note",
-        Content = "How to use in this video please open to see how to use these functions!"
-    })
-
-
-    Tabs.Main:AddButton({
-        Title = "New Video",
-        Description = "Copy link to open video tutorial!",
-        Callback = function()
-            setclipboard("https://youtu.be/x6lQYIvkmvw?si=g3QTRPO86aKa8mB8")
-            Fluent:Notify({
-                Title = "Notification",
-                Content = "Successfully copied to the clipboard!",
-                SubContent = "", -- Optional
-                Duration = 3 
-            })
-        end
-    })
+Tabs.Main:AddParagraph({
+    Title = "How to Use Script :",
+    Content = "1: Must adjust the slider to increase or decrease\n2: Must not be min or max because it will not work\n3: Then turn on the buttons to use those functions\n\n|| Like, Share And Subscribe For SLK gaming ||"
+})
 
 
     Tabs.Main:AddSection("↳ Chance")
