@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Free] | Forsaken",
-    SubTitle = "Version 3.0.3",
+    SubTitle = "Version 3.0.4",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -100,88 +100,93 @@ local Options = Fluent.Options
 
 -- Tabs.Farm
 
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
+do
+    local Players = game:GetService("Players")
+    local LocalPlayer = Players.LocalPlayer
 
-local Active = false
-local loopRunning = false
-local CurrentTarget = nil
-local lastAttack = 0
+    local Active = false
+    local loopRunning = false
+    local CurrentTarget = nil
+    local lastAttack = 0
 
-local function GetClosestSurvivor()
-    local localChar = LocalPlayer.Character
-    if not (localChar and localChar:FindFirstChild("HumanoidRootPart")) then return nil end
-    local survivorsFolder = workspace:FindFirstChild("Players") and workspace.Players:FindFirstChild("Survivors")
-    if not survivorsFolder then return nil end
-
-    local closest, minDist = nil, math.huge
-    for _, survivor in ipairs(survivorsFolder:GetChildren()) do
-        local humanoid = survivor:FindFirstChildOfClass("Humanoid")
-        if survivor:IsA("Model") and survivor:FindFirstChild("HumanoidRootPart") and humanoid and humanoid.Health > 0 then
-            local dist = (localChar.HumanoidRootPart.Position - survivor.HumanoidRootPart.Position).Magnitude
-            if dist < minDist then
-                minDist = dist
-                closest = survivor
-            end
-        end
-    end
-    return closest
-end
-
-local function KillTarget(target)
-    pcall(function()
-        if not target then return end
+    local function GetClosestSurvivor()
         local localChar = LocalPlayer.Character
-        if not (localChar and localChar:FindFirstChild("HumanoidRootPart")) then return end
+        if not (localChar and localChar:FindFirstChild("HumanoidRootPart")) then return nil end
+        local survivorsFolder = workspace:FindFirstChild("Players") and workspace.Players:FindFirstChild("Survivors")
+        if not survivorsFolder then return nil end
 
-        -- Dịch chuyển tới mục tiêu
-        localChar.HumanoidRootPart.CFrame = target.HumanoidRootPart.CFrame
-
-        -- Chỉ đánh nếu đã qua 0.5 giây từ lần đánh trước
-        if tick() - lastAttack >= 0.5 then
-            lastAttack = tick()
-            local ReplicatedStorage = game:GetService("ReplicatedStorage")
-            local remote = ReplicatedStorage:FindFirstChild("Modules")
-                          and ReplicatedStorage.Modules:FindFirstChild("Network")
-                          and ReplicatedStorage.Modules.Network:FindFirstChild("RemoteEvent")
-            if remote and typeof(remote.FireServer) == "function" then
-                remote:FireServer("UseActorAbility", "Slash")
-                task.wait(0.05)
-                remote:FireServer("UseActorAbility", "Stab")
-                task.wait(0.05)
-                remote:FireServer("UseActorAbility", "Punch")
+        local closest, minDist = nil, math.huge
+        for _, survivor in ipairs(survivorsFolder:GetChildren()) do
+            local humanoid = survivor:FindFirstChildOfClass("Humanoid")
+            if survivor:IsA("Model") and survivor:FindFirstChild("HumanoidRootPart") and humanoid and humanoid.Health > 0 then
+                local dist = (localChar.HumanoidRootPart.Position - survivor.HumanoidRootPart.Position).Magnitude
+                if dist < minDist then
+                    minDist = dist
+                    closest = survivor
+                end
             end
         end
-    end)
-end
-
-local function StartLoop()
-    if loopRunning then return end
-    loopRunning = true
-    task.spawn(function()
-        while Active do
-            if not CurrentTarget or not CurrentTarget.Parent or not CurrentTarget:FindFirstChildOfClass("Humanoid") or CurrentTarget:FindFirstChildOfClass("Humanoid").Health <= 0 then
-                CurrentTarget = GetClosestSurvivor()
-            end
-            if CurrentTarget then
-                KillTarget(CurrentTarget)
-            end
-            task.wait(0.01)
-        end
-        loopRunning = false
-    end)
-end
-
-Tabs.Main:AddToggle("AutoKillSurvivors", {
-    Title = "Auto Kill Survivors",
-    Default = false,
-    Callback = function(Value)
-        Active = Value
-        if Active then
-            StartLoop()
-        end
+        return closest
     end
-})
+
+    local function KillTarget(target)
+        pcall(function()
+            if not target then return end
+            local localChar = LocalPlayer.Character
+            if not (localChar and localChar:FindFirstChild("HumanoidRootPart")) then return end
+
+            -- Dịch chuyển tới mục tiêu
+            localChar.HumanoidRootPart.CFrame = target.HumanoidRootPart.CFrame
+
+            -- Chỉ đánh nếu đã qua 0.5 giây từ lần đánh trước
+            if tick() - lastAttack >= 0.5 then
+                lastAttack = tick()
+                local ReplicatedStorage = game:GetService("ReplicatedStorage")
+                local remote = ReplicatedStorage:FindFirstChild("Modules")
+                              and ReplicatedStorage.Modules:FindFirstChild("Network")
+                              and ReplicatedStorage.Modules.Network:FindFirstChild("RemoteEvent")
+                if remote and typeof(remote.FireServer) == "function" then
+                    remote:FireServer("UseActorAbility", "Slash")
+                    task.wait(0.05)
+                    remote:FireServer("UseActorAbility", "Stab")
+                    task.wait(0.05)
+                    remote:FireServer("UseActorAbility", "Punch")
+                end
+            end
+        end)
+    end
+
+    local function StartLoop()
+        if loopRunning then return end
+        loopRunning = true
+        task.spawn(function()
+            while Active do
+                if not CurrentTarget 
+                   or not CurrentTarget.Parent 
+                   or not CurrentTarget:FindFirstChildOfClass("Humanoid") 
+                   or CurrentTarget:FindFirstChildOfClass("Humanoid").Health <= 0 then
+                    CurrentTarget = GetClosestSurvivor()
+                end
+                if CurrentTarget then
+                    KillTarget(CurrentTarget)
+                end
+                task.wait(0.01)
+            end
+            loopRunning = false
+        end)
+    end
+
+    Tabs.Main:AddToggle("AutoKillSurvivors", {
+        Title = "Auto Kill Survivors",
+        Default = false,
+        Callback = function(Value)
+            Active = Value
+            if Active then
+                StartLoop()
+            end
+        end
+    })
+end
 
 
 
