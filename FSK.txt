@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Free] | Forsaken",
-    SubTitle = "Version 3.0.9",
+    SubTitle = "Version 3.1.0",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -1009,7 +1009,7 @@ do
                 task.spawn(function()
                     while running do
                         clickBlockButton()
-                        task.wait(0.01) -- spam mỗi 0.01 giây
+                        task.wait(0.1) -- spam mỗi 0.1 giây tránh bị lag
                     end
                 end)
             end
