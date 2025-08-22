@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Free] | Forsaken",
-    SubTitle = "Version 3.0.7",
+    SubTitle = "Version 3.0.8",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -871,7 +871,6 @@ end
 do
     local Players = game:GetService("Players")
     local RunService = game:GetService("RunService")
-
     local localPlayer = Players.LocalPlayer
 
     -- ✅ Animation IDs cần chặn
@@ -897,62 +896,49 @@ do
     local toggleOn = false
     local strictRangeOn = false
     local detectionRange = 18
-    local lastBlock = 0 -- debounce cho block
 
-    -- ✅ Hàm block nhẹ nhàng
+    -- ✅ Hàm block nhanh
     local function clickBlockButton()
-        if tick() - lastBlock < 0.25 then return end -- block tối đa 4 lần/giây
-        lastBlock = tick()
-
         local gui = localPlayer:FindFirstChild("PlayerGui")
         if not gui then return end
-
         local mainUI = gui:FindFirstChild("MainUI")
         local container = mainUI and mainUI:FindFirstChild("AbilityContainer")
         local blockButton = container and container:FindFirstChild("Block")
 
         if blockButton and blockButton:IsA("ImageButton") and blockButton.Visible then
-            local success = false
             for _, conn in ipairs(getconnections(blockButton.MouseButton1Click)) do
-                pcall(function()
-                    conn:Fire()
-                    success = true
-                end)
+                pcall(function() conn:Fire() end)
             end
-            if not success then
-                pcall(function()
-                    blockButton:Activate()
-                end)
-            end
+            pcall(function() blockButton:Activate() end)
         end
     end
 
-    -- 📝 Persistent toggle & range state
-    local function getBoolFlag(name)
+    -- 📝 Persistent flags
+    local function getBoolFlag(name, default)
         local flag = localPlayer:FindFirstChild(name)
         if not flag then
             flag = Instance.new("BoolValue")
             flag.Name = name
-            flag.Value = false
+            flag.Value = default
             flag.Parent = localPlayer
         end
         return flag
     end
 
-    local function getNumberFlag(name)
+    local function getNumberFlag(name, default)
         local flag = localPlayer:FindFirstChild(name)
         if not flag then
             flag = Instance.new("NumberValue")
             flag.Name = name
-            flag.Value = 18
+            flag.Value = default
             flag.Parent = localPlayer
         end
         return flag
     end
 
-    local toggleFlag = getBoolFlag("AutoBlockToggle")
-    local strictFlag = getBoolFlag("AutoBlockStrictRange")
-    local rangeFlag = getNumberFlag("AutoBlockRange")
+    local toggleFlag = getBoolFlag("AutoBlockToggle", false)
+    local strictFlag = getBoolFlag("AutoBlockStrictRange", false)
+    local rangeFlag = getNumberFlag("AutoBlockRange", 18)
 
     toggleOn = toggleFlag.Value
     strictRangeOn = strictFlag.Value
@@ -986,7 +972,7 @@ do
         rangeFlag.Value = value
     end)
 
-    -- 🔥 Thay vì scan liên tục, lắng nghe sự kiện AnimationPlayed
+    -- 🔥 Lắng nghe AnimationPlayed
     local function hookPlayer(player)
         local char = player.Character
         if not char then return end
@@ -1011,7 +997,22 @@ do
                     end
                 end
 
+                -- 🔑 Kích hoạt ngay lập tức
                 clickBlockButton()
+
+                -- 🔑 Spam liên tục đến khi anim dừng
+                local running = true
+                task.spawn(function()
+                    track.Stopped:Wait()
+                    running = false
+                end)
+
+                task.spawn(function()
+                    while running do
+                        clickBlockButton()
+                        RunService.Heartbeat:Wait() -- spam theo nhịp Heartbeat (rất nhanh nhưng không lag)
+                    end
+                end)
             end
         end)
     end
