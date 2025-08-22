@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Free] | Forsaken",
-    SubTitle = "Version 3.0.4",
+    SubTitle = "Version 3.0.5",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -778,99 +778,106 @@ end)
 
     Tabs.Main:AddSection("↳ Two Time")
 
-local Players = game:GetService("Players")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local RunService = game:GetService("RunService")
-local lp = Players.LocalPlayer
+do
+    local Players = game:GetService("Players")
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")
+    local RunService = game:GetService("RunService")
+    local lp = Players.LocalPlayer
 
--- Vars
-local enabled = false
-local cooldown = false
-local lastTarget = nil
-local maxDistance = 5 -- Khoảng cách mặc định
-local daggerRemote = ReplicatedStorage:WaitForChild("Modules"):WaitForChild("Network"):WaitForChild("RemoteEvent")
-local killerNames = { "Jason", "c00lkidd", "JohnDoe", "1x1x1x1", "Noli" }
-local killersFolder = workspace:WaitForChild("Players"):WaitForChild("Killers")
+    -- Vars
+    local enabled = false
+    local cooldown = false
+    local lastTarget = nil
+    local maxDistance = 5 -- Khoảng cách mặc định
+    local remote = ReplicatedStorage:WaitForChild("Modules"):WaitForChild("Network"):WaitForChild("RemoteEvent")
+    local killerNames = { "Jason", "c00lkidd", "JohnDoe", "1x1x1x1", "Noli" }
+    local killersFolder = workspace:WaitForChild("Players"):WaitForChild("Killers")
 
--- Toggle
-local BackstabToggle = Tabs.Main:AddToggle("BackstabToggle", {
-    Title = "Auto Backstab",
-    Default = false
-})
+    -- Toggle
+    local BackstabToggle = Tabs.Main:AddToggle("BackstabToggle", {
+        Title = "Auto Backstab",
+        Default = false
+    })
 
-BackstabToggle:OnChanged(function(Value)
-    enabled = Value
-end)
+    BackstabToggle:OnChanged(function(Value)
+        enabled = Value
+    end)
 
--- Slider cho khoảng cách
-local DistanceSlider = Tabs.Main:AddSlider("DistanceSlider", {
-    Title = "Distance",
-    Min = 1,
-    Max = 10,
-    Default = 5,
-    Rounding = 1,
-    ValueName = "studs"
-})
+    -- Slider cho khoảng cách
+    local DistanceSlider = Tabs.Main:AddSlider("DistanceSlider", {
+        Title = "Distance",
+        Min = 1,
+        Max = 10,
+        Default = 5,
+        Rounding = 1,
+        ValueName = "studs"
+    })
 
-DistanceSlider:OnChanged(function(Value)
-    maxDistance = Value
-end)
+    DistanceSlider:OnChanged(function(Value)
+        maxDistance = Value
+    end)
 
--- Helper
-local function isBehindTarget(hrp, targetHRP)
-    local direction = -targetHRP.CFrame.LookVector
-    local toPlayer = (hrp.Position - targetHRP.Position)
-    local distance = toPlayer.Magnitude
-    local isBehind = toPlayer:Dot(direction) > 0.5
-    return distance <= maxDistance and isBehind
-end
+    -- Helper
+    local function isBehindTarget(hrp, targetHRP)
+        local direction = -targetHRP.CFrame.LookVector
+        local toPlayer = (hrp.Position - targetHRP.Position)
+        local distance = toPlayer.Magnitude
+        local isBehind = toPlayer:Dot(direction) > 0.5
+        return distance <= maxDistance and isBehind
+    end
 
--- Main loop
-RunService.Heartbeat:Connect(function()
-    if not enabled or cooldown then return end
+    -- Main loop
+    RunService.Heartbeat:Connect(function()
+        if not enabled or cooldown then return end
 
-    local char = lp.Character
-    if not (char and char:FindFirstChild("HumanoidRootPart")) then return end
-    local hrp = char.HumanoidRootPart
+        local char = lp.Character
+        if not (char and char:FindFirstChild("HumanoidRootPart")) then return end
+        local hrp = char.HumanoidRootPart
 
-    for _, name in ipairs(killerNames) do
-        local killer = killersFolder:FindFirstChild(name)
-        if killer and killer:FindFirstChild("HumanoidRootPart") then
-            local kHRP = killer.HumanoidRootPart
+        for _, name in ipairs(killerNames) do
+            local killer = killersFolder:FindFirstChild(name)
+            if killer and killer:FindFirstChild("HumanoidRootPart") then
+                local kHRP = killer.HumanoidRootPart
 
-            if isBehindTarget(hrp, kHRP) and killer ~= lastTarget then
-                cooldown = true
-                lastTarget = killer
+                if isBehindTarget(hrp, kHRP) and killer ~= lastTarget then
+                    cooldown = true
+                    lastTarget = killer
 
-                local behindPos = kHRP.Position - (kHRP.CFrame.LookVector * 2)
-                hrp.CFrame = CFrame.new(behindPos, behindPos + kHRP.CFrame.LookVector)
+                    -- Teleport ra sau lưng
+                    local behindPos = kHRP.Position - (kHRP.CFrame.LookVector * 2)
+                    hrp.CFrame = CFrame.new(behindPos, behindPos + kHRP.CFrame.LookVector)
 
-                daggerRemote:FireServer("UseActorAbility", "Dagger")
+                    -- Giữ vị trí và spam skill trong 0.7s
+                    local start = tick()
+                    local connection
+                    connection = RunService.Heartbeat:Connect(function()
+                        if not (char and char.Parent and kHRP and kHRP.Parent) then
+                            if connection then connection:Disconnect() end
+                            return
+                        end
+                        if tick() - start >= 0.7 then
+                            if connection then connection:Disconnect() end
+                            task.delay(2, function()
+                                cooldown = false
+                                lastTarget = nil
+                            end)
+                            return
+                        end
 
-                local start = tick()
-                local connection
-                connection = RunService.Heartbeat:Connect(function()
-                    if not (char and char.Parent and kHRP and kHRP.Parent) then
-                        if connection then connection:Disconnect() end
-                        return
-                    end
-                    if tick() - start >= 0.7 then
-                        if connection then connection:Disconnect() end
-                        task.delay(2, function()
-                            cooldown = false
-                            lastTarget = nil
-                        end)
-                        return
-                    end
-                    local behind = kHRP.Position - (kHRP.CFrame.LookVector * 2)
-                    hrp.CFrame = CFrame.new(behind, behind + kHRP.CFrame.LookVector)
-                end)
+                        -- Luôn giữ sau lưng
+                        local behind = kHRP.Position - (kHRP.CFrame.LookVector * 2)
+                        hrp.CFrame = CFrame.new(behind, behind + kHRP.CFrame.LookVector)
 
-                break
+                        -- Kích hoạt kỹ năng liên tục
+                        remote:FireServer("UseActorAbility", "Dagger")
+                    end)
+
+                    break
+                end
             end
         end
-    end
-end)
+    end)
+end
 
 
 
