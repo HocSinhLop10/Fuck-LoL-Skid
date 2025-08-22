@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Free] | Forsaken",
-    SubTitle = "Version 3.0.1",
+    SubTitle = "Version 3.0.2",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -483,6 +483,33 @@ end)
 
 -- Tabs.Main
 
+
+    Tabs.Main:AddSection("↳ Instruct")
+
+    Tabs.Main:AddParagraph({
+        Title = "Note",
+        Content = "How to use in this video please open to see how to use these functions!"
+    })
+
+
+    Tabs.Main:AddButton({
+        Title = "New Video",
+        Description = "Copy link to open video tutorial!",
+        Callback = function()
+            setclipboard("Coming Soon")
+            Fluent:Notify({
+                Title = "Notification",
+                Content = "Successfully copied to the clipboard!",
+                SubContent = "", -- Optional
+                Duration = 3 
+            })
+        end
+    })
+
+
+    Tabs.Main:AddSection("↳ Chance")
+
+
 -- AutoUseCoinFlip (Fix)
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RemoteEvent = ReplicatedStorage:WaitForChild("Modules", 5)
@@ -511,7 +538,6 @@ Tabs.Main:AddToggle("AutoUseCoinFlip", {
     end
 end)
 
-    Tabs.Main:AddSection("↳ Chance")
 
 -- === Auto Aim Shoot (Fix) ===
 local Players = game:GetService("Players")
