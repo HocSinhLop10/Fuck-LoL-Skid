@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Free] | Forsaken",
-    SubTitle = "Version 3.0.8",
+    SubTitle = "Version 3.0.9",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -870,7 +870,6 @@ end
 
 do
     local Players = game:GetService("Players")
-    local RunService = game:GetService("RunService")
     local localPlayer = Players.LocalPlayer
 
     -- ✅ Animation IDs cần chặn
@@ -1000,7 +999,7 @@ do
                 -- 🔑 Kích hoạt ngay lập tức
                 clickBlockButton()
 
-                -- 🔑 Spam liên tục đến khi anim dừng
+                -- 🔑 Spam liên tục đến khi anim dừng với delay 0.01s
                 local running = true
                 task.spawn(function()
                     track.Stopped:Wait()
@@ -1010,7 +1009,7 @@ do
                 task.spawn(function()
                     while running do
                         clickBlockButton()
-                        RunService.Heartbeat:Wait() -- spam theo nhịp Heartbeat (rất nhanh nhưng không lag)
+                        task.wait(0.01) -- spam mỗi 0.01 giây
                     end
                 end)
             end
