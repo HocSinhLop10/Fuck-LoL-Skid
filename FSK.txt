@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Free] | Forsaken",
-    SubTitle = "Version 3.1.2",
+    SubTitle = "Version 3.1.3",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -868,12 +868,13 @@ end
 
     Tabs.Main:AddSection("↳ Guest1337")
 
+
 do
     local Players = game:GetService("Players")
     local RunService = game:GetService("RunService")
     local localPlayer = Players.LocalPlayer
 
-    -- ✅ Animation IDs cần chặn
+    -- ✅ Animation IDs cần chặn (merge từ list mới + cũ, loại bỏ trùng)
     local animationIds = {
         ["126830014841198"] = true,
         ["126355327951215"] = true,
@@ -891,6 +892,13 @@ do
         ["109230267448394"] = true,
         ["139835501033932"] = true,
         ["126896426760253"] = true,
+        ["109667959938617"] = true,
+        ["126681776859538"] = true,
+        ["129976080405072"] = true,
+        ["121293883585738"] = true,
+        ["81639435858902"]  = true,
+        ["137314737492715"] = true,
+        ["92173139187970"]  = true,
     }
 
     local toggleOn = false
@@ -913,13 +921,12 @@ do
     end
 
     initBlockButton()
-    -- cập nhật khi UI reload lại
     localPlayer.CharacterAdded:Connect(function()
         task.wait(1)
         initBlockButton()
     end)
 
-    -- ✅ Hàm block nhanh (tối ưu)
+    -- ✅ Hàm block nhanh
     local function clickBlockButton()
         if not blockButton or not blockButton.Visible then return end
         for _, conn in ipairs(connections) do
@@ -1003,7 +1010,7 @@ do
 
             local id = string.match(anim.AnimationId, "%d+")
             if id and animationIds[id] then
-                -- kiểm tra range nếu cần
+                -- kiểm tra range nếu bật strict
                 if strictRangeOn then
                     local myChar = localPlayer.Character
                     local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
@@ -1014,7 +1021,6 @@ do
                     end
                 end
 
-                -- add track vào list
                 activeTracks[track] = true
                 track.Stopped:Connect(function()
                     activeTracks[track] = nil
@@ -1023,7 +1029,7 @@ do
         end)
     end
 
-    -- hook tất cả player hiện có + player mới
+    -- hook player hiện có + player mới
     for _, p in ipairs(Players:GetPlayers()) do
         if p ~= localPlayer then
             p.CharacterAdded:Connect(function()
@@ -1045,7 +1051,7 @@ do
         end
     end)
 
-    -- ⚡ Loop spam tối ưu
+    -- ⚡ Loop spam block khi có anim
     task.spawn(function()
         while true do
             if toggleOn and next(activeTracks) then
