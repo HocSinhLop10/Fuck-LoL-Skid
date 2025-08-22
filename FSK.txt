@@ -176,7 +176,7 @@ do
         end)
     end
 
-    Tabs.Main:AddToggle("AutoKillSurvivors", {
+    Tabs.Farm:AddToggle("AutoKillSurvivors", {
         Title = "Auto Kill Survivors",
         Default = false,
         Callback = function(Value)
