@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Free] | Forsaken",
-    SubTitle = "Version 3.1.0",
+    SubTitle = "Version 3.1.1",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -870,6 +870,7 @@ end
 
 do
     local Players = game:GetService("Players")
+    local RunService = game:GetService("RunService")
     local localPlayer = Players.LocalPlayer
 
     -- ✅ Animation IDs cần chặn
@@ -896,20 +897,35 @@ do
     local strictRangeOn = false
     local detectionRange = 18
 
-    -- ✅ Hàm block nhanh
-    local function clickBlockButton()
+    -- ⚡ Cache BlockButton & connections
+    local blockButton, connections = nil, {}
+
+    local function initBlockButton()
         local gui = localPlayer:FindFirstChild("PlayerGui")
         if not gui then return end
         local mainUI = gui:FindFirstChild("MainUI")
         local container = mainUI and mainUI:FindFirstChild("AbilityContainer")
-        local blockButton = container and container:FindFirstChild("Block")
+        blockButton = container and container:FindFirstChild("Block")
 
-        if blockButton and blockButton:IsA("ImageButton") and blockButton.Visible then
-            for _, conn in ipairs(getconnections(blockButton.MouseButton1Click)) do
-                pcall(function() conn:Fire() end)
-            end
-            pcall(function() blockButton:Activate() end)
+        if blockButton and blockButton:IsA("ImageButton") then
+            connections = getconnections(blockButton.MouseButton1Click)
         end
+    end
+
+    initBlockButton()
+    -- cập nhật khi UI reload lại
+    localPlayer.CharacterAdded:Connect(function()
+        task.wait(1)
+        initBlockButton()
+    end)
+
+    -- ✅ Hàm block nhanh (tối ưu)
+    local function clickBlockButton()
+        if not blockButton or not blockButton.Visible then return end
+        for _, conn in ipairs(connections) do
+            pcall(function() conn:Fire() end)
+        end
+        pcall(function() blockButton:Activate() end)
     end
 
     -- 📝 Persistent flags
@@ -971,7 +987,9 @@ do
         rangeFlag.Value = value
     end)
 
-    -- 🔥 Lắng nghe AnimationPlayed
+    -- ⚡ Quản lý anim đang chạy
+    local activeTracks = {}
+
     local function hookPlayer(player)
         local char = player.Character
         if not char then return end
@@ -996,21 +1014,10 @@ do
                     end
                 end
 
-                -- 🔑 Kích hoạt ngay lập tức
-                clickBlockButton()
-
-                -- 🔑 Spam liên tục đến khi anim dừng với delay 0.01s
-                local running = true
-                task.spawn(function()
-                    track.Stopped:Wait()
-                    running = false
-                end)
-
-                task.spawn(function()
-                    while running do
-                        clickBlockButton()
-                        task.wait(0.1) -- spam mỗi 0.1 giây tránh bị lag
-                    end
+                -- add track vào list
+                activeTracks[track] = true
+                track.Stopped:Connect(function()
+                    activeTracks[track] = nil
                 end)
             end
         end)
@@ -1035,6 +1042,16 @@ do
                 task.wait(1)
                 hookPlayer(p)
             end)
+        end
+    end)
+
+    -- ⚡ Loop spam tối ưu
+    task.spawn(function()
+        while true do
+            if toggleOn and next(activeTracks) then
+                clickBlockButton()
+            end
+            task.wait(0.01)
         end
     end)
 end
