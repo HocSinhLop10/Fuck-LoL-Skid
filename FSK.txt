@@ -1144,7 +1144,7 @@ do
             if toggleOn and next(activeTracks) then
                 clickBlockButton()
             end
-            task.wait(0.01)
+            task.wait(0.005)
         end
     end)
 end
