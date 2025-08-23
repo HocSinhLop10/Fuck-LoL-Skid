@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Free] | Forsaken",
-    SubTitle = "Version 3.1.4",
+    SubTitle = "Version 3.1.5",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -1229,6 +1229,92 @@ do
     Tabs.Main:AddToggle("EnableCustomAnim", { Title = "Enable Custom Animation", Default = false })
         :OnChanged(function(val) customPunchEnabled = val end)
 end
+
+    Tabs.Main:AddSection("↳ Noli")
+
+do
+    -- noli void rush control (sandboxed)
+    local RunService = game:GetService("RunService")
+    local Players = game:GetService("Players")
+    local LocalPlayer = Players.LocalPlayer
+
+    local voidrushcontrol = false
+    local DEFAULT_SPEED = 16
+    local DASH_SPEED = 60
+    local isOverrideActive = false
+    local connection
+    local Humanoid, RootPart
+
+    -- Setup nhân vật
+    local function setupCharacter(character)
+        Humanoid = character:WaitForChild("Humanoid")
+        RootPart = character:WaitForChild("HumanoidRootPart")
+    end
+
+    if LocalPlayer.Character then
+        setupCharacter(LocalPlayer.Character)
+    end
+    LocalPlayer.CharacterAdded:Connect(setupCharacter)
+
+    -- Bắt đầu override void rush
+    local function startOverride()
+        if isOverrideActive or not Humanoid or not RootPart then return end
+        isOverrideActive = true
+
+        connection = RunService.RenderStepped:Connect(function()
+            if not Humanoid or not RootPart or Humanoid.Health <= 0 then return end
+
+            Humanoid.WalkSpeed = DASH_SPEED
+            Humanoid.AutoRotate = false
+
+            local direction = RootPart.CFrame.LookVector
+            local horizontal = Vector3.new(direction.X, 0, direction.Z)
+            if horizontal.Magnitude > 0 then
+                Humanoid:Move(horizontal.Unit, true)
+            end
+        end)
+    end
+
+    -- Dừng override void rush
+    local function stopOverride()
+        if not isOverrideActive then return end
+        isOverrideActive = false
+
+        if Humanoid then
+            Humanoid.WalkSpeed = DEFAULT_SPEED
+            Humanoid.AutoRotate = true
+            Humanoid:Move(Vector3.zero, true)
+        end
+
+        if connection then
+            connection:Disconnect()
+            connection = nil
+        end
+    end
+
+    -- Main loop: detect void rush state
+    RunService.RenderStepped:Connect(function()
+        if not voidrushcontrol or not Humanoid then return end
+
+        local char = Humanoid.Parent
+        local state = char and char:GetAttribute("VoidRushState")
+
+        if state == "Dashing" then
+            startOverride()
+        else
+            stopOverride()
+        end
+    end)
+
+    -- === Thêm toggle vào GUI ===
+    Tabs.Main:AddToggle("VoidRushControl", {
+        Title = "Void Rush Aimbot",
+        Default = false
+    }):OnChanged(function(val)
+        voidrushcontrol = val
+    end)
+end
+
 
 
 
