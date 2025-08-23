@@ -1675,7 +1675,7 @@ Tabs.Player:AddSlider("HitboxScale", {
     Title = "Hitbox Scale",
     Default = 2,
     Min = 1,
-    Max = 10,
+    Max = 100,
     Rounding = 1
 }):OnChanged(function(value)
     HitboxScale = value
