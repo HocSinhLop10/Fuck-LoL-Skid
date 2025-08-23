@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Free] | Forsaken",
-    SubTitle = "Version 3.1.3",
+    SubTitle = "Version 3.1.4",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -1060,6 +1060,174 @@ do
             task.wait(0.01)
         end
     end)
+end
+
+
+
+
+
+
+do
+    -- Auto Punch settings
+    local autoPunchOn, aimPunch, flingPunchOn, customPunchEnabled = false, false, false, false
+    local hiddenfling = false
+    local flingPower = 10000
+    local predictionValue = 4
+    local customPunchAnimId = ""
+    local Humanoid
+    local lastPunchTime = 0
+    local punchAnimIds = { "87259391926321" }
+    local LP = game:GetService("Players").LocalPlayer
+    local RunService = game:GetService("RunService")
+    local PlayerGui = LP:WaitForChild("PlayerGui")
+
+    -- Function: play custom punch anim
+    local function playCustomPunch(animId)
+        if not Humanoid then return end
+        if not animId or animId == "" then return end
+        local now = tick()
+        if now - lastPunchTime < 1 then return end
+
+        for _, track in ipairs(Humanoid:GetPlayingAnimationTracks()) do
+            local animNum = tostring(track.Animation.AnimationId):match("%d+")
+            if table.find(punchAnimIds, animNum) then
+                track:Stop()
+            end
+        end
+
+        local anim = Instance.new("Animation")
+        anim.AnimationId = "rbxassetid://" .. animId
+        local track = Humanoid:LoadAnimation(anim)
+        track:Play()
+        lastPunchTime = now
+    end
+
+    -- Hidden fling coroutine
+    coroutine.wrap(function()
+        local hrp, c, vel, movel = nil, nil, nil, 0.1
+        while true do
+            RunService.Heartbeat:Wait()
+            if hiddenfling then
+                while hiddenfling and not (c and c.Parent and hrp and hrp.Parent) do
+                    RunService.Heartbeat:Wait()
+                    c = LP.Character
+                    hrp = c and c:FindFirstChild("HumanoidRootPart")
+                end
+                if hiddenfling then
+                    vel = hrp.Velocity
+                    hrp.Velocity = vel * flingPower + Vector3.new(0, flingPower, 0)
+                    RunService.RenderStepped:Wait()
+                    hrp.Velocity = vel
+                    RunService.Stepped:Wait()
+                    hrp.Velocity = vel + Vector3.new(0, movel, 0)
+                    movel = movel * -1
+                end
+            end
+        end
+    end)()
+
+    -- Auto Punch loop
+    RunService.RenderStepped:Connect(function()
+        local myChar = LP.Character
+        if not myChar then return end
+        local myRoot = myChar:FindFirstChild("HumanoidRootPart")
+        Humanoid = myChar:FindFirstChildOfClass("Humanoid")
+
+        if autoPunchOn then
+            local gui = PlayerGui:FindFirstChild("MainUI")
+            local punchBtn = gui and gui:FindFirstChild("AbilityContainer") and gui.AbilityContainer:FindFirstChild("Punch")
+            local charges = punchBtn and punchBtn:FindFirstChild("Charges")
+
+            if charges and charges.Text == "1" then
+                local killerNames = {"c00lkidd", "Jason", "JohnDoe", "1x1x1x1", "Noli"}
+                for _, name in ipairs(killerNames) do
+                    local killer = workspace:FindFirstChild("Players")
+                        and workspace.Players:FindFirstChild("Killers")
+                        and workspace.Players.Killers:FindFirstChild(name)
+
+                    if killer and killer:FindFirstChild("HumanoidRootPart") then
+                        local root = killer.HumanoidRootPart
+                        if root and myRoot and (root.Position - myRoot.Position).Magnitude <= 10 then
+                            
+                            -- Aim Punch
+                            if aimPunch then
+                                local humanoid = myChar:FindFirstChild("Humanoid")
+                                if humanoid then humanoid.AutoRotate = false end
+                                task.spawn(function()
+                                    local start = tick()
+                                    while tick() - start < 2 do
+                                        if myRoot and root and root.Parent then
+                                            local predictedPos = root.Position + (root.CFrame.LookVector * predictionValue)
+                                            myRoot.CFrame = CFrame.lookAt(myRoot.Position, predictedPos)
+                                        end
+                                        task.wait()
+                                    end
+                                    if humanoid then humanoid.AutoRotate = true end
+                                end)
+                            end
+
+                            -- Click punch button
+                            for _, conn in ipairs(getconnections(punchBtn.MouseButton1Click)) do
+                                pcall(function() conn:Fire() end)
+                            end
+
+                            -- Fling Punch
+                            if flingPunchOn then
+                                hiddenfling = true
+                                task.spawn(function()
+                                    local start = tick()
+                                    while tick() - start < 1 do
+                                        if LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") and root and root.Parent then
+                                            local frontPos = root.Position + (root.CFrame.LookVector * 2)
+                                            LP.Character.HumanoidRootPart.CFrame = CFrame.new(frontPos, root.Position)
+                                        end
+                                        task.wait()
+                                    end
+                                    hiddenfling = false
+                                end)
+                            end
+
+                            -- Custom anim
+                            if customPunchEnabled and customPunchAnimId ~= "" then
+                                playCustomPunch(customPunchAnimId)
+                            end
+
+                            break -- chỉ đánh 1 killer mỗi vòng
+                        end
+                    end
+                end
+            end
+        end
+    end)
+
+    -- === Nút cho Tabs.Main (thêm vào GUI có sẵn) ===
+    Tabs.Main:AddToggle("AutoPunch", { Title = "Auto Punch", Default = false })
+        :OnChanged(function(val) autoPunchOn = val end)
+
+    Tabs.Main:AddToggle("AimPunch", { Title = "Punch Aimbot", Default = false })
+        :OnChanged(function(val) aimPunch = val end)
+
+    Tabs.Main:AddToggle("FlingPunch", { Title = "Fling Punch", Default = false })
+        :OnChanged(function(val) flingPunchOn = val end)
+
+    Tabs.Main:AddSlider("Prediction", {
+        Title = "Aim Prediction",
+        Min = 0, Max = 10, Default = 4, Rounding = 1,
+    }):OnChanged(function(val) predictionValue = val end)
+
+    Tabs.Main:AddSlider("FlingPower", {
+        Title = "Fling Power",
+        Min = 5000, Max = 500000, Default = 10000, Rounding = 0,
+    }):OnChanged(function(val) flingPower = val end)
+
+    Tabs.Main:AddInput("CustomAnim", {
+        Title = "Custom Punch",
+        Default = "",
+        Placeholder = "Enter Animation ID"
+    }):OnChanged(function(txt) customPunchAnimId = txt end)
+
+    Tabs.Main:AddToggle("EnableCustomAnim", { Title = "Enable Custom Animation", Default = false })
+        :OnChanged(function(val) customPunchEnabled = val end)
 end
 
 
