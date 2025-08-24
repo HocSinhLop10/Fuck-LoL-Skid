@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Free] | Forsaken",
-    SubTitle = "Version 3.1.6",
+    SubTitle = "Version 3.1.7",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -943,12 +943,34 @@ do
         end
     end
 
-    -- === Thêm vào GUI có sẵn ===
+    -- === Toggle gốc: Invisible if cloned ===
     Tabs.Main:AddToggle("InvisibleClone", {
         Title = "Invisible if cloned",
         Default = false
     }):OnChanged(function(val)
         handleToggle(val)
+    end)
+
+    -- === Toggle mới: Invisible luôn khi bật ===
+    Tabs.Main:AddToggle("InstantInvisible", {
+        Title = "Invisible Immediately",
+        Default = false
+    }):OnChanged(function(val)
+        -- Khi bật, tàng hình ngay lập tức
+        local humanoid, char = getHumanoid()
+        if not humanoid or not char then return end
+
+        if val then
+            playInvisibleAnim(humanoid)
+            local root = char:FindFirstChild("HumanoidRootPart")
+            if root then root.Transparency = 0.4 end
+        else
+            stopInvisibleAnim()
+            local humanoid, char = getHumanoid()
+            if char and char:FindFirstChild("HumanoidRootPart") then
+                char.HumanoidRootPart.Transparency = 1
+            end
+        end
     end)
 end
 
