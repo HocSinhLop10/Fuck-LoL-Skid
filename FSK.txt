@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Free] | Forsaken",
-    SubTitle = "Version 3.1.7",
+    SubTitle = "Version 3.1.8",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -2573,7 +2573,9 @@ local AllowedPlayers = {
 -- Danh sách Killers
 local DangerousKillers = {
     Jason = true, ["1x1x1x1"] = true, c00lkidd = true,
-    Noli = true, JohnDoe = true, Quest666 = true
+    Noli = true, JohnDoe = true, Quest666 = true,
+    PizzaDeliveryRig = true, Mafia1 = true, Mafia2 = true,
+    ["1x1x1x1Zombie"] = true
 }
 
 -- Danh sách Clones (coi như Killers)
