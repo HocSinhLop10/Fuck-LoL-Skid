@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Free] | Forsaken",
-    SubTitle = "Version 3.1.9",
+    SubTitle = "Version 3.2.0",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -1866,6 +1866,63 @@ Tabs.Player:AddToggle("PlayerSpeedToggle", {
     end
 end)
 
+
+
+    Tabs.Player:AddSection("↳ Teleport Speed")
+
+
+-- === Teleport Speed Setup ===
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+
+local LocalPlayer = Players.LocalPlayer
+local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+local Humanoid = Character:WaitForChild("Humanoid")
+local HRP = Character:WaitForChild("HumanoidRootPart")
+
+local defaultSpeed = 50
+local maxSpeed = 300
+local currentSpeed = defaultSpeed
+local teleportSpeedEnabled = false
+
+-- Cập nhật lại khi respawn
+LocalPlayer.CharacterAdded:Connect(function(char)
+    Character = char
+    Humanoid = Character:WaitForChild("Humanoid")
+    HRP = Character:WaitForChild("HumanoidRootPart")
+end)
+
+-- Loop để dịch chuyển (teleport speed)
+RunService.Heartbeat:Connect(function(dt)
+    if teleportSpeedEnabled and Humanoid and HRP then
+        if Humanoid.MoveDirection.Magnitude > 0 then
+            local moveDir = Humanoid.MoveDirection.Unit
+            HRP.CFrame = HRP.CFrame + (moveDir * (currentSpeed * dt))
+        end
+    end
+end)
+
+-- === GUI Bindings ===
+-- Slider Teleport Speed
+Tabs.Player:AddSlider("TeleportSpeedSlider", {
+    Title = "Set Speed",
+    Min = 1,
+    Max = maxSpeed,
+    Default = defaultSpeed,
+    Rounding = 1,
+}):OnChanged(function(value)
+    currentSpeed = value
+end)
+
+-- Toggle bật/tắt Teleport Speed
+Tabs.Player:AddToggle("TeleportSpeedToggle", {
+    Title = "Teleport Speed",
+    Default = false,
+}):OnChanged(function(enabled)
+    teleportSpeedEnabled = enabled
+end)
+
+     
 
 -- Tabs.Visual
 
