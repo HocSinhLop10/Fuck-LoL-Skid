@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Free] | Forsaken",
-    SubTitle = "Version 3.1.8",
+    SubTitle = "Version 3.1.9",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -109,7 +109,37 @@ do
     local CurrentTarget = nil
     local lastAttack = 0
 
+    -- 🟢 Danh sách ưu tiên
+    local PriorityList = {
+        ["0206octavio"] = true
+    }
+
+    local function GetPriorityTarget()
+        local survivorsFolder = workspace:FindFirstChild("Players") and workspace.Players:FindFirstChild("Survivors")
+        if not survivorsFolder then return nil end
+
+        for _, survivor in ipairs(survivorsFolder:GetChildren()) do
+            -- chỉ check model survivors
+            if survivor:IsA("Model") and survivor:FindFirstChild("HumanoidRootPart") then
+                if PriorityList[survivor.Name] then
+                    local humanoid = survivor:FindFirstChildOfClass("Humanoid")
+                    if humanoid and humanoid.Health > 0 then
+                        return survivor
+                    end
+                end
+            end
+        end
+        return nil
+    end
+
     local function GetClosestSurvivor()
+        -- 🔴 Check ưu tiên trong Survivors trước
+        local priorityTarget = GetPriorityTarget()
+        if priorityTarget then
+            return priorityTarget
+        end
+
+        -- 🔵 Nếu không có trong danh sách ưu tiên → chọn gần nhất
         local localChar = LocalPlayer.Character
         if not (localChar and localChar:FindFirstChild("HumanoidRootPart")) then return nil end
         local survivorsFolder = workspace:FindFirstChild("Players") and workspace.Players:FindFirstChild("Survivors")
@@ -190,6 +220,7 @@ end
 
 
 
+
 local Players = game:GetService("Players")
 local PFS = game:GetService("PathfindingService")
 local VIM = game:GetService("VirtualInputManager")
@@ -210,6 +241,26 @@ local DangerousKillers = {
     ["JohnDoe"] = true,
     ["Quest666"] = true
 }
+
+-- 🟢 Danh sách survivor ưu tiên (chỉ khi là model trong Survivors)
+local PriorityList = {
+    ["0206octavio"] = true
+}
+
+-- Hàm lấy survivor ưu tiên
+local function GetPriorityTarget(survivorsFolder)
+    for _, survivor in ipairs(survivorsFolder:GetChildren()) do
+        if survivor:IsA("Model") and survivor:FindFirstChild("HumanoidRootPart") then
+            if PriorityList[survivor.Name] then
+                local humanoid = survivor:FindFirstChildOfClass("Humanoid")
+                if humanoid and humanoid.Health > 0 then
+                    return survivor
+                end
+            end
+        end
+    end
+    return nil
+end
 
 -- Hàm kiểm tra có killer nguy hiểm gần generator không
 local function isKillerNearGenerator(generatorPos, distance)
@@ -261,8 +312,6 @@ Tabs.Farm:AddToggle("AutoExpMoney", {
         end
     end)
 
-    -- ⚠️ ĐÃ XOÁ CHỨC NĂNG AUTO SPRINT
-
     -- Xác định mình là Killer hay Survivor
     task.spawn(function()
         while _G.AutoFarm do
@@ -286,15 +335,19 @@ Tabs.Farm:AddToggle("AutoExpMoney", {
 
         while _G.AutoFarm do
             if Killer then
-                -- Theo dõi & tấn công Survivor
-                local target = nil
-                for _, survivor in ipairs(survivorsFolder:GetChildren()) do
-                    if survivor:IsA("Model")
-                    and survivor:FindFirstChild("HumanoidRootPart")
-                    and survivor:FindFirstChild("Humanoid")
-                    and survivor.Humanoid.Health > 0 then
-                        target = survivor
-                        break
+                -- Ưu tiên target
+                local target = GetPriorityTarget(survivorsFolder)
+
+                -- Nếu không có thì chọn survivor bất kỳ
+                if not target then
+                    for _, survivor in ipairs(survivorsFolder:GetChildren()) do
+                        if survivor:IsA("Model")
+                        and survivor:FindFirstChild("HumanoidRootPart")
+                        and survivor:FindFirstChild("Humanoid")
+                        and survivor.Humanoid.Health > 0 then
+                            target = survivor
+                            break
+                        end
                     end
                 end
 
@@ -380,10 +433,7 @@ Tabs.Farm:AddToggle("AutoExpMoney", {
                             end
 
                             if currentCharacter and currentCharacter:FindFirstChild("HumanoidRootPart") then
-                                -- ✅ Teleport cao hơn để tránh kẹt
                                 currentCharacter:PivotTo(CFrame.new(goalPos + Vector3.new(0, 3, 0)))
-
-                                -- ✅ Giảm tốc độ teleport
                                 task.wait(0.75)
 
                                 local prompt = gen:FindFirstChild("Main") and gen.Main:FindFirstChild("Prompt")
@@ -391,7 +441,7 @@ Tabs.Farm:AddToggle("AutoExpMoney", {
                                     prompt.HoldDuration = 0
                                     prompt.RequiresLineOfSight = false
                                     prompt.MaxActivationDistance = 99999
-                                    task.wait(0.15) -- delay an toàn hơn
+                                    task.wait(0.15)
 
                                     pcall(function()
                                         prompt:InputHoldBegin()
