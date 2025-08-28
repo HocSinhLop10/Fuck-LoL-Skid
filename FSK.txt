@@ -2706,9 +2706,9 @@ local requiredStuckSeconds = 1
 
 -- chống reset liên tiếp & bỏ qua kiểm tra ngay khi spawn
 local lastResetAt = 0
-local resetCooldown = 4 -- giây
+local resetCooldown = 1.5 -- giây
 local lastSpawnAt = 0
-local spawnGrace = 2 -- giây
+local spawnGrace = 1 -- giây
 
 -- ========= Notify helper (Fluent -> fallback SetCore) =========
 local function getLanguage()
