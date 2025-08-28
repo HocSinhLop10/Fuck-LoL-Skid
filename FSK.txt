@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Free] | Forsaken",
-    SubTitle = "Version 3.2.0",
+    SubTitle = "Version 3.2.1",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -2467,6 +2467,70 @@ end)
 
 
 
+local Lighting = game:GetService("Lighting")
+local Players = game:GetService("Players")
+local LP = Players.LocalPlayer
+local PlayerGui = LP:WaitForChild("PlayerGui")
+
+local ActiveRemoveEffects = false
+
+-- Danh sách tên hiệu ứng thường gặp
+local effectNames = {
+    "BlurEffect", "ColorCorrectionEffect", "BloomEffect", "SunRaysEffect", 
+    "DepthOfFieldEffect", "ScreenFlash", "HitEffect", "DamageOverlay", 
+    "BloodEffect", "Vignette", "BlackScreen", "WhiteScreen", "ShockEffect",
+    "Darkness", "JumpScare", "LowHealthOverlay", "Flashbang", "FadeEffect"
+}
+
+-- Danh sách class hiệu ứng trong Lighting
+local effectClasses = {
+    "BlurEffect",
+    "BloomEffect",
+    "SunRaysEffect",
+    "DepthOfFieldEffect",
+    "ColorCorrectionEffect"
+}
+
+-- Hàm xoá hiệu ứng
+local function removeEffects()
+    -- Xoá hiệu ứng trong Lighting
+    for _, obj in pairs(Lighting:GetDescendants()) do
+        if table.find(effectNames, obj.Name) or table.find(effectClasses, obj.ClassName) then
+            obj:Destroy()
+        end
+    end
+
+    -- Xoá GUI overlay
+    for _, obj in pairs(PlayerGui:GetDescendants()) do
+        if table.find(effectNames, obj.Name) then
+            obj:Destroy()
+        elseif obj:IsA("ScreenGui") or obj:IsA("BillboardGui") or obj:IsA("SurfaceGui") then
+            if obj:FindFirstChildWhichIsA("ImageLabel") or obj:FindFirstChildWhichIsA("Frame") then
+                if table.find(effectNames, obj.Name) or obj.Name:lower():find("overlay") or obj.Name:lower():find("effect") then
+                    obj:Destroy()
+                end
+            end
+        end
+    end
+end
+
+-- Toggle Fluent
+Tabs.Misc:AddToggle("RemoveScreenEffects", {
+    Title = "Remove Effects",
+    Default = true,
+    Callback = function(state)
+        ActiveRemoveEffects = state
+        if state then
+            task.spawn(function()
+                while ActiveRemoveEffects do
+                    removeEffects()
+                    task.wait(0.5)
+                end
+            end)
+        end
+    end
+})
+
 
     Tabs.Misc:AddSection("↳ Bypass")
 
@@ -2597,69 +2661,169 @@ Tabs.Misc:AddToggle("AntiReportScreenshot", {
 
 
 
-local Lighting = game:GetService("Lighting")
+
+do
+-- 🛡️ Anti Noclip Script với Toggle (Fluent UI Tabs.Misc)
 local Players = game:GetService("Players")
-local LP = Players.LocalPlayer
-local PlayerGui = LP:WaitForChild("PlayerGui")
+local RunService = game:GetService("RunService")
+local LocalizationService = game:GetService("LocalizationService")
+local StarterGui = game:GetService("StarterGui")
 
-local ActiveRemoveEffects = false
+local LocalPlayer = Players.LocalPlayer
+local Character, HumanoidRootPart, Humanoid = nil, nil, nil
 
--- Danh sách tên hiệu ứng thường gặp
-local effectNames = {
-    "BlurEffect", "ColorCorrectionEffect", "BloomEffect", "SunRaysEffect", 
-    "DepthOfFieldEffect", "ScreenFlash", "HitEffect", "DamageOverlay", 
-    "BloodEffect", "Vignette", "BlackScreen", "WhiteScreen", "ShockEffect",
-    "Darkness", "JumpScare", "LowHealthOverlay", "Flashbang", "FadeEffect"
-}
+local AntiNoclipEnabled = false
+local stuckTime = 0
+local requiredStuckSeconds = 1
 
--- Danh sách class hiệu ứng trong Lighting
-local effectClasses = {
-    "BlurEffect",
-    "BloomEffect",
-    "SunRaysEffect",
-    "DepthOfFieldEffect",
-    "ColorCorrectionEffect"
-}
+-- chống reset liên tiếp & bỏ qua kiểm tra ngay khi spawn
+local lastResetAt = 0
+local resetCooldown = 8 -- giây
+local lastSpawnAt = 0
+local spawnGrace = 2 -- giây
 
--- Hàm xoá hiệu ứng
-local function removeEffects()
-    -- Xoá hiệu ứng trong Lighting
-    for _, obj in pairs(Lighting:GetDescendants()) do
-        if table.find(effectNames, obj.Name) or table.find(effectClasses, obj.ClassName) then
-            obj:Destroy()
+-- ========= Notify helper (Fluent -> fallback SetCore) =========
+local function getLanguage()
+    local lang = LocalizationService.RobloxLocaleId or "en-us"
+    if string.sub(lang,1,2):lower() == "vi" then return "vi" end
+    return "en"
+end
+
+local function Notify(msg)
+    -- thử Fluent trước (nếu có)
+    local okFluent = false
+    pcall(function()
+        if Fluent and typeof(Fluent) == "table" and Fluent.Notify then
+            Fluent:Notify({
+                Title = "🛡️ Anti Noclip",
+                Content = msg,
+                Duration = 6
+            })
+            okFluent = true
         end
-    end
+    end)
+    if okFluent then return end
+    -- fallback SetCore
+    pcall(function()
+        StarterGui:SetCore("SendNotification", {
+            Title = "🛡️ Anti Noclip",
+            Text = msg,
+            Duration = 6
+        })
+    end)
+end
 
-    -- Xoá GUI overlay
-    for _, obj in pairs(PlayerGui:GetDescendants()) do
-        if table.find(effectNames, obj.Name) then
-            obj:Destroy()
-        elseif obj:IsA("ScreenGui") or obj:IsA("BillboardGui") or obj:IsA("SurfaceGui") then
-            if obj:FindFirstChildWhichIsA("ImageLabel") or obj:FindFirstChildWhichIsA("Frame") then
-                if table.find(effectNames, obj.Name) or obj.Name:lower():find("overlay") or obj.Name:lower():find("effect") then
-                    obj:Destroy()
+-- ========= Character wiring =========
+local function SetupCharacter(char)
+    Character = char
+    HumanoidRootPart = char:WaitForChild("HumanoidRootPart", 5)
+    Humanoid = char:WaitForChild("Humanoid", 5)
+    lastSpawnAt = os.clock()
+    stuckTime = 0
+end
+
+if LocalPlayer.Character then
+    SetupCharacter(LocalPlayer.Character)
+end
+LocalPlayer.CharacterAdded:Connect(SetupCharacter)
+
+-- ========= Kiểm tra kẹt bên trong tường (không tính đứng sát) =========
+local CoreNames = {"HumanoidRootPart","UpperTorso","LowerTorso","Torso","Head"}
+
+local function PartInsideOther(part, other)
+    -- Kiểm tra vị trí part có nằm trong thể tích other (CanCollide) không
+    local rel = other.CFrame:PointToObjectSpace(part.Position)
+    local half = other.Size * 0.5
+    local margin = 0.03 -- tránh biên
+    return math.abs(rel.X) < (half.X - margin)
+       and math.abs(rel.Y) < (half.Y - margin)
+       and math.abs(rel.Z) < (half.Z - margin)
+end
+
+local function IsInsideWall()
+    if not Character or not HumanoidRootPart then return false end
+    for _, name in ipairs(CoreNames) do
+        local p = Character:FindFirstChild(name)
+        if p and p:IsA("BasePart") then
+            -- chỉ coi là kẹt khi *Ở BÊN TRONG* vật thể CanCollide
+            local touching = p:GetTouchingParts()
+            for _, t in ipairs(touching) do
+                if t and t:IsA("BasePart")
+                    and t.CanCollide
+                    and t.Transparency < 1
+                    and not t:IsDescendantOf(Character)
+                then
+                    if PartInsideOther(p, t) then
+                        return true
+                    end
                 end
             end
         end
     end
+    return false
 end
 
--- Toggle Fluent
-Tabs.Misc:AddToggle("RemoveScreenEffects", {
-    Title = "Remove Effects",
+-- ========= Loop =========
+RunService.Heartbeat:Connect(function(dt)
+    if not AntiNoclipEnabled then return end
+    if not Character or not HumanoidRootPart or not Humanoid then return end
+
+    -- bỏ qua ngay sau spawn & trong thời gian cooldown sau khi reset
+    local now = os.clock()
+    if now - lastSpawnAt < spawnGrace then return end
+    if now - lastResetAt < resetCooldown then return end
+
+    if IsInsideWall() then
+        stuckTime += dt
+        if stuckTime >= requiredStuckSeconds then
+            -- reset 1 lần, sau đó có cooldown để script tiếp tục chạy được ở lần sau
+            lastResetAt = now
+            stuckTime = 0
+
+            -- reset nhân vật
+            if Humanoid and Humanoid.Health > 0 then
+                Humanoid.Health = 0
+            end
+
+            -- thông báo theo ngôn ngữ
+            local lang = getLanguage()
+            if lang == "vi" then
+                Notify("Hãy cẩn thận nếu không bạn sẽ bị banned!")
+            else
+                Notify("Be careful or you might get banned!")
+            end
+        end
+    else
+        stuckTime = 0
+    end
+end)
+
+-- =========================
+-- 🔘 Toggle ở Fluent Tabs.Misc
+-- =========================
+Tabs.Misc:AddToggle("AntiNoclip", {
+    Title = "Anti Noclip",
     Default = true,
-    Callback = function(state)
-        ActiveRemoveEffects = state
-        if state then
-            task.spawn(function()
-                while ActiveRemoveEffects do
-                    removeEffects()
-                    task.wait(0.5)
-                end
-            end)
+    Callback = function(Value)
+        AntiNoclipEnabled = Value
+        -- báo nhanh khi bật/tắt (không bắt buộc)
+        local lang = getLanguage()
+        if Value then
+            if lang == "vi" then
+                Notify("Anti Noclip: BẬT")
+            else
+                Notify("Anti Noclip: ON")
+            end
+        else
+            if lang == "vi" then
+                Notify("Anti Noclip: TẮT")
+            else
+                Notify("Anti Noclip: OFF")
+            end
         end
     end
 })
+end
 
 
 
