@@ -2678,7 +2678,7 @@ local requiredStuckSeconds = 1
 
 -- chống reset liên tiếp & bỏ qua kiểm tra ngay khi spawn
 local lastResetAt = 0
-local resetCooldown = 8 -- giây
+local resetCooldown = 4 -- giây
 local lastSpawnAt = 0
 local spawnGrace = 2 -- giây
 
