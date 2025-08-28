@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Free] | Forsaken",
-    SubTitle = "Version 3.2.1",
+    SubTitle = "Version 3.2.2",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -2571,17 +2571,43 @@ end
 
 
 Tabs.Misc:AddToggle("AntiReportScreenshot", {
-    Title = "Anti-Ban [100%]",
+    Title = "Anti-Ban V2",
     Default = true,
     Callback = function(state)
-        -- Dùng biến chung để quản lý vòng lặp
         if not shared.AntiBanLoop then
             shared.AntiBanLoop = {running = false, hooked = false}
         end
         local loopData = shared.AntiBanLoop
 
+        -- 🛡️ Function Anti Chat + Screenshot Logger (Code 1)
+        local function AntiChatLogger()
+            local StarterGui = game:GetService("StarterGui")
+            local Players = game:GetService("Players")
+            local Player = Players.LocalPlayer
+            local PlayerScripts = Player:WaitForChild("PlayerScripts")
+
+            local ChatMain = PlayerScripts:FindFirstChild("ChatMain", true)
+            if ChatMain then
+                local PostMessage = require(ChatMain).MessagePosted
+                if PostMessage then
+                    local OldHook
+                    OldHook = hookfunction(PostMessage.fire, function(self, Message)
+                        if not checkcaller() and self == PostMessage then
+                            return -- block chat logger
+                        end
+                        return OldHook(self, Message)
+                    end)
+                end
+            end
+            -- Disable abuse screenshot flags
+            if setfflag then
+                setfflag("AbuseReportScreenshot", "False")
+                setfflag("AbuseReportScreenshotPercentage", "0")
+            end
+        end
+
+        -- 🛡️ Function Hook Anti Report (Code 2)
         local function hookOnce()
-            -- Hook FindFirstChild
             if not loopData.hookedFind then
                 local oldFind = workspace.FindFirstChild
                 if typeof(oldFind) == "function" and hookfunction then
@@ -2596,7 +2622,6 @@ Tabs.Misc:AddToggle("AntiReportScreenshot", {
                 end
             end
 
-            -- Hook HTTP request
             if not loopData.hookedRequest then
                 local oldRequest = (syn and syn.request) or request or http_request
                 if hookfunction and typeof(oldRequest) == "function" then
@@ -2638,18 +2663,21 @@ Tabs.Misc:AddToggle("AntiReportScreenshot", {
             end
         end
 
+        -- 🟢 Khi bật
         if state then
             hookOnce()
+            AntiChatLogger()
             setFlagsOff()
             loopData.running = true
             task.spawn(function()
                 while loopData.running do
                     setFlagsOff()
-                    task.wait(0.01) -- tốc độ siêu nhanh
+                    task.wait(0.05)
                 end
             end)
-            print("[Anti-Ban] 🛡️ FAST protection ENABLED!")
+            print("[Anti-Ban] 🛡️ Protection ENABLED!")
         else
+            -- 🔴 Khi tắt
             loopData.running = false
             setFlagsOn()
             print("[Anti-Ban] ⚠️ Protection DISABLED.")
