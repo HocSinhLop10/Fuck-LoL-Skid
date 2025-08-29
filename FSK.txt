@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Free] | Forsaken",
-    SubTitle = "Version 3.2.6",
+    SubTitle = "Version 3.2.7",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -735,6 +735,7 @@ end
 
 
 
+
 do
     local Players = game:GetService("Players")
     local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -776,7 +777,7 @@ do
     local HealDistanceSlider = Tabs.Main:AddSlider("HealDistanceSlider", {
         Title = "Distance",
         Min = 1,
-        Max = 100,
+        Max = 150,
         Default = 50, -- ✅ Mặc định 50
         Rounding = 1,
         ValueName = "studs"
@@ -790,16 +791,20 @@ do
     RunService.Heartbeat:Connect(function()
         if not healEnabled then return end
 
-        local char = lp.Character
-        if not (char and char:FindFirstChild("Humanoid") and char:FindFirstChild("HumanoidRootPart")) then return end
-        local humanoid = char.Humanoid
-        local hrp = char.HumanoidRootPart
+        -- 🔎 Chỉ hoạt động nếu bạn là Shedletsky
+        local myModel = workspace:FindFirstChild("Shedletsky")
+        if not (myModel and myModel:FindFirstChild("Humanoid") and myModel:FindFirstChild("HumanoidRootPart")) then
+            return
+        end
+
+        local myHumanoid = myModel.Humanoid
+        local myHRP = myModel.HumanoidRootPart
 
         -- Check killers gần nhất
         local nearestKiller, nearestDist = nil, math.huge
         for _, killer in ipairs(killersFolder:GetChildren()) do
             if killer:FindFirstChild("HumanoidRootPart") then
-                local dist = (hrp.Position - killer.HumanoidRootPart.Position).Magnitude
+                local dist = (myHRP.Position - killer.HumanoidRootPart.Position).Magnitude
                 if dist < nearestDist then
                     nearestDist = dist
                     nearestKiller = killer
@@ -807,13 +812,14 @@ do
             end
         end
 
-        -- Nếu có killer và khoảng cách + HP thỏa điều kiện
-        if nearestKiller and nearestDist <= healDistance and humanoid.Health <= healHPThreshold then
-            remote:FireServer("UseActorAbility", "FriedChicken")
+        -- Nếu HP thấp và khoảng cách ≥ healDistance thì heal
+        if nearestKiller and nearestDist >= healDistance and myHumanoid.Health <= healHPThreshold then
+            pcall(function()
+                remote:FireServer("UseActorAbility", "FriedChicken")
+            end)
         end
     end)
 end
-
 
 
     Tabs.Main:AddSection("↳ Chance")
