@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Free] | Forsaken",
-    SubTitle = "Version 3.2.4",
+    SubTitle = "Version 3.2.5",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -1625,92 +1625,73 @@ end)
 
 
 
+local InfStaminaEnabled = false  
+local staminaLoop  
+local StaminaModule  
+  
+-- Thử lấy module an toàn  
+pcall(function()  
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")  
+    local path = ReplicatedStorage:FindFirstChild("Systems")  
+        and ReplicatedStorage.Systems:FindFirstChild("Character")  
+        and ReplicatedStorage.Systems.Character:FindFirstChild("Game")  
+        and ReplicatedStorage.Systems.Character.Game:FindFirstChild("Sprinting")  
+  
+    if path then  
+        StaminaModule = require(path)  
+    end  
+end)  
+  
+-- Hàm hồi stamina an toàn  
+local function restoreStamina()  
+    if not StaminaModule then return end  
 
--- ⚡ Infinite Stamina Auto-Refresh (Fluent UI, 0.25s)
-local InfStaminaEnabled = false
-local staminaWatcher
-local StaminaModule
-local infStamToggle
-local lastFlip = 0
+    local maxStamina = StaminaModule.MaxStamina or 100  
+    if StaminaModule.Stamina then  
+        -- Nếu module có hàm "SetStamina" thì dùng  
+        if typeof(StaminaModule.SetStamina) == "function" then  
+            StaminaModule:SetStamina(maxStamina)  
 
--- Lấy stamina hiện tại
-local function getStamina()
-    if not StaminaModule then return nil end
-    return tonumber(StaminaModule.Stamina)
-end
+        -- Nếu có hàm "UpdateStamina" thì dùng  
+        elseif typeof(StaminaModule.UpdateStamina) == "function" then  
+            StaminaModule:UpdateStamina(maxStamina)  
 
--- Lấy max stamina
-local function getMaxStamina()
-    if not StaminaModule then return nil end
-    return tonumber(StaminaModule.MaxStamina)
-end
-
--- Hồi stamina về max
-local function restoreStamina()
-    if not StaminaModule then return end
-    local m = getMaxStamina() or 100
-    if StaminaModule.Stamina then
-        StaminaModule.Stamina = m
-    end
-    if StaminaModule.StaminaChanged and typeof(StaminaModule.StaminaChanged.Fire) == "function" then
-        StaminaModule.StaminaChanged:Fire()
-    end
-end
-
--- Tìm module Sprinting
-pcall(function()
-    local RS = game:GetService("ReplicatedStorage")
-    local path = RS:FindFirstChild("Systems")
-        and RS.Systems:FindFirstChild("Character")
-        and RS.Systems.Character:FindFirstChild("Game")
-        and RS.Systems.Character.Game:FindFirstChild("Sprinting")
-    if path then
-        StaminaModule = require(path)
-    end
-end)
-
-if StaminaModule then
-    -- Tạo toggle Fluent
-    infStamToggle = Tabs.Player:AddToggle("InfStamina", {
-        Title = "Infinite Stamina",
-        Default = false
-    })
-
-    -- Khi toggle thay đổi
-    infStamToggle:OnChanged(function(value)
-        InfStaminaEnabled = value
-
-        -- patch disable mất stamina nếu module có
-        if StaminaModule.StaminaLossDisabled ~= nil then
-            StaminaModule.StaminaLossDisabled = value
-        end
-
-        if value then
-            restoreStamina()
-            if not staminaWatcher then
-                staminaWatcher = task.spawn(function()
-                    while InfStaminaEnabled do
-                        task.wait(0.25) -- ✅ chỉnh 0.25s
-
-                        local s, m = getStamina(), getMaxStamina()
-                        if s and m and s < m then
-                            -- stamina tụt → flip toggle
-                            if os.clock() - lastFlip > 0.2 then
-                                lastFlip = os.clock()
-                                infStamToggle:SetValue(false)
-                                task.wait(0.05)
-                                infStamToggle:SetValue(true)
-                                restoreStamina()
-                            end
-                        end
-                    end
-                    staminaWatcher = nil
-                end)
-            end
-        end
-    end)
-else
-    warn("[InfStamina] Sprinting module not found, toggle disabled.")
+        -- Nếu không có thì set trực tiếp  
+        else  
+            StaminaModule.Stamina = maxStamina  
+        end  
+    end  
+end  
+  
+-- Chỉ tạo toggle nếu module tồn tại  
+if StaminaModule then  
+    Tabs.Player:AddToggle("InfStamina", {  
+        Title = "Infinite Stamina",  
+        Default = false  
+    }):OnChanged(function(value)  
+        -- luôn bọc trong pcall để Fluent không báo "Callback error"  
+        local ok = pcall(function()  
+            InfStaminaEnabled = value  
+            if StaminaModule.StaminaLossDisabled ~= nil then  
+                StaminaModule.StaminaLossDisabled = value  
+            end  
+  
+            if value then  
+                restoreStamina()  
+                if not staminaLoop then  
+                    staminaLoop = task.spawn(function()  
+                        while InfStaminaEnabled do  
+                            task.wait(0.01)  
+                            restoreStamina()  
+                        end  
+                        staminaLoop = nil  
+                    end)  
+                end  
+            end  
+        end)  
+    end)  
+else  
+    warn("[InfStamina] Sprinting module not found, toggle disabled.")  
 end
 
 
