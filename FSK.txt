@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Free] | Forsaken",
-    SubTitle = "Version 3.2.7",
+    SubTitle = "Version 3.2.8",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -632,6 +632,7 @@ Tabs.Main:AddParagraph({
 
     Tabs.Main:AddSection("↳ Shedletsky")
 
+
 do
     local Players = game:GetService("Players")
     local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -671,13 +672,13 @@ do
         maxDistance = Value
     end)
 
-    -- Helper (đứng trước mặt thay vì sau lưng)
-    local function isInFrontOfTarget(hrp, targetHRP)
+    -- Helper (kiểm tra đứng sau lưng thay vì trước mặt)
+    local function isBehindTarget(hrp, targetHRP)
         local direction = targetHRP.CFrame.LookVector
         local toPlayer = (hrp.Position - targetHRP.Position)
         local distance = toPlayer.Magnitude
-        local isInFront = toPlayer:Dot(direction) > 0.5
-        return distance <= maxDistance and isInFront
+        local isBehind = toPlayer:Dot(direction) < -0.5
+        return distance <= maxDistance and isBehind
     end
 
     -- Main loop
@@ -693,13 +694,13 @@ do
             if killer and killer:FindFirstChild("HumanoidRootPart") then
                 local kHRP = killer.HumanoidRootPart
 
-                if isInFrontOfTarget(hrp, kHRP) and killer ~= lastTarget then
+                if isBehindTarget(hrp, kHRP) and killer ~= lastTarget then
                     cooldown = true
                     lastTarget = killer
 
-                    -- Teleport ra trước mặt
-                    local frontPos = kHRP.Position + (kHRP.CFrame.LookVector * 2)
-                    hrp.CFrame = CFrame.new(frontPos, kHRP.Position)
+                    -- Teleport ra sau lưng
+                    local backPos = kHRP.Position - (kHRP.CFrame.LookVector * 2)
+                    hrp.CFrame = CFrame.new(backPos, kHRP.Position)
 
                     -- Giữ vị trí và spam skill trong 0.7s
                     local start = tick()
@@ -718,9 +719,9 @@ do
                             return
                         end
 
-                        -- Luôn giữ ở trước mặt
-                        local front = kHRP.Position + (kHRP.CFrame.LookVector * 2)
-                        hrp.CFrame = CFrame.new(front, kHRP.Position)
+                        -- Luôn giữ ở sau lưng
+                        local back = kHRP.Position - (kHRP.CFrame.LookVector * 2)
+                        hrp.CFrame = CFrame.new(back, kHRP.Position)
 
                         -- Kích hoạt skill Slash liên tục
                         remote:FireServer("UseActorAbility", "Slash")
@@ -736,6 +737,7 @@ end
 
 
 
+
 do
     local Players = game:GetService("Players")
     local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -747,73 +749,124 @@ do
     local healHPThreshold = 50
     local healDistance = 50
     local remote = ReplicatedStorage:WaitForChild("Modules"):WaitForChild("Network"):WaitForChild("RemoteEvent")
-    local killersFolder = workspace:WaitForChild("Players"):WaitForChild("Killers")
 
-    -- Toggle Heal
+    -- UI
     local HealToggle = Tabs.Main:AddToggle("HealToggle", {
         Title = "Auto Heal",
         Default = false
     })
+    HealToggle:OnChanged(function(v) healEnabled = v end)
 
-    HealToggle:OnChanged(function(Value)
-        healEnabled = Value
-    end)
-
-    -- Slider HP
     local HealHPSlider = Tabs.Main:AddSlider("HealHPSlider", {
         Title = "Heal HP",
-        Min = 1,
-        Max = 100,
-        Default = 50,
-        Rounding = 0,
-        ValueName = "HP"
+        Min = 1, Max = 100, Default = 50,
+        Rounding = 0, ValueName = "HP"
     })
+    HealHPSlider:OnChanged(function(v) healHPThreshold = v end)
 
-    HealHPSlider:OnChanged(function(Value)
-        healHPThreshold = Value
-    end)
-
-    -- Slider Distance
     local HealDistanceSlider = Tabs.Main:AddSlider("HealDistanceSlider", {
         Title = "Distance",
-        Min = 1,
-        Max = 150,
-        Default = 50, -- ✅ Mặc định 50
-        Rounding = 1,
-        ValueName = "studs"
+        Min = 1, Max = 150, Default = 50,
+        Rounding = 0, ValueName = "studs"
     })
+    HealDistanceSlider:OnChanged(function(v) healDistance = v end)
 
-    HealDistanceSlider:OnChanged(function(Value)
-        healDistance = Value
-    end)
+    -- Helpers -------------------------------------------------------------
 
-    -- Main loop heal
-    RunService.Heartbeat:Connect(function()
-        if not healEnabled then return end
+    local function getPlayersFolders()
+        local pf = workspace:FindFirstChild("Players")
+        if not pf then return nil, nil, nil end
+        return pf, pf:FindFirstChild("Killers"), pf:FindFirstChild("Survivors")
+    end
 
-        -- 🔎 Chỉ hoạt động nếu bạn là Shedletsky
-        local myModel = workspace:FindFirstChild("Shedletsky")
-        if not (myModel and myModel:FindFirstChild("Humanoid") and myModel:FindFirstChild("HumanoidRootPart")) then
-            return
-        end
+    -- model này có phải của LocalPlayer không?
+    local function belongsToMe(m)
+        if not (m and m:IsA("Model")) then return false end
+        if m:GetAttribute("Username") == lp.Name then return true end
+        local UsernameSV = m:FindFirstChild("Username")
+        if UsernameSV and typeof(UsernameSV.Value) == "string" and UsernameSV.Value == lp.Name then return true end
+        local Owner = m:FindFirstChild("Owner") or m:FindFirstChild("Player")
+        if Owner and Owner.Value == lp then return true end
+        local uidAttr = m:GetAttribute("UserId")
+        if uidAttr and tonumber(uidAttr) == lp.UserId then return true end
+        -- đôi khi model đặt đúng tên player
+        if m.Name == lp.Name then return true end
+        return false
+    end
 
-        local myHumanoid = myModel.Humanoid
-        local myHRP = myModel.HumanoidRootPart
+    -- tìm model Shedletsky của CHÍNH BẠN ở mọi nơi
+    local function getMyShedletsky()
+        local pf, killersFolder, survivorsFolder = getPlayersFolders()
 
-        -- Check killers gần nhất
-        local nearestKiller, nearestDist = nil, math.huge
-        for _, killer in ipairs(killersFolder:GetChildren()) do
-            if killer:FindFirstChild("HumanoidRootPart") then
-                local dist = (myHRP.Position - killer.HumanoidRootPart.Position).Magnitude
-                if dist < nearestDist then
-                    nearestDist = dist
-                    nearestKiller = killer
+        local candidates = {}
+
+        local function scan(container)
+            if not container then return end
+            for _, d in ipairs(container:GetDescendants()) do
+                if d:IsA("Model") and d.Name == "Shedletsky" and d:FindFirstChild("Humanoid") and d:FindFirstChild("HumanoidRootPart") then
+                    if belongsToMe(d) then table.insert(candidates, d) end
                 end
             end
         end
 
-        -- Nếu HP thấp và khoảng cách ≥ healDistance thì heal
-        if nearestKiller and nearestDist >= healDistance and myHumanoid.Health <= healHPThreshold then
+        scan(killersFolder)
+        scan(survivorsFolder)
+        scan(workspace) -- fallback nếu game đặt ở root/nhánh khác
+
+        if #candidates == 0 then return nil, nil, nil end
+
+        -- nếu có nhiều, chọn cái gần lp.Character nhất (ổn định hơn)
+        local basePos
+        if lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") then
+            basePos = lp.Character.HumanoidRootPart.Position
+        end
+
+        local best, bestDist = candidates[1], math.huge
+        if basePos then
+            for _, m in ipairs(candidates) do
+                local hrp = m:FindFirstChild("HumanoidRootPart")
+                if hrp then
+                    local d = (hrp.Position - basePos).Magnitude
+                    if d < bestDist then best, bestDist = m, d end
+                end
+            end
+        end
+
+        local hum = best:FindFirstChildOfClass("Humanoid")
+        local hrp = best:FindFirstChild("HumanoidRootPart")
+        return best, hum, hrp
+    end
+
+    local function getNearestKillerDist(fromHRP, myModel)
+        local _, killersFolder = getPlayersFolders()
+        if not (killersFolder and fromHRP) then return math.huge end
+        local nearest = math.huge
+        for _, k in ipairs(killersFolder:GetChildren()) do
+            if k ~= myModel then -- tránh đo tới chính mình nếu mình cũng ở Killers
+                local khrp = k:FindFirstChild("HumanoidRootPart")
+                if khrp then
+                    local d = (fromHRP.Position - khrp.Position).Magnitude
+                    if d < nearest then nearest = d end
+                end
+            end
+        end
+        return nearest
+    end
+
+    -- Main loop ----------------------------------------------------------
+    RunService.Heartbeat:Connect(function()
+        if not healEnabled then return end
+
+        -- CHỈ chạy khi bạn là Shedletsky
+        local myModel, myHumanoid, myHRP = getMyShedletsky()
+        if not (myModel and myHumanoid and myHRP) then return end
+        if myHumanoid.Health <= 0 then return end
+
+        -- khoảng cách từ Shedletsky (bạn) → Killers
+        local nearestDist = getNearestKillerDist(myHRP, myModel)
+
+        -- Heal khi HP thấp và ĐỦ XA killers (>=)
+        if myHumanoid.Health <= healHPThreshold and nearestDist >= healDistance then
             pcall(function()
                 remote:FireServer("UseActorAbility", "FriedChicken")
             end)
