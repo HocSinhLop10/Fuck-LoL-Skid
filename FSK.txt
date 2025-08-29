@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Free] | Forsaken",
-    SubTitle = "Version 3.2.5",
+    SubTitle = "Version 3.2.6",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -622,13 +622,198 @@ end)
 
 -- Tabs.Main
 
-
-    Tabs.Main:AddSection("↳ Instruct")
-
 Tabs.Main:AddParagraph({
     Title = "How to Use Script :",
     Content = "1: Must adjust the slider to increase or decrease\n2: Must not be min or max because it will not work\n3: Then turn on the buttons to use those functions\n\n|| Like, Share And Subscribe For SLK gaming ||"
 })
+
+
+
+
+    Tabs.Main:AddSection("↳ Shedletsky")
+
+do
+    local Players = game:GetService("Players")
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")
+    local RunService = game:GetService("RunService")
+    local lp = Players.LocalPlayer
+
+    -- Vars
+    local enabled = false
+    local cooldown = false
+    local lastTarget = nil
+    local maxDistance = 5 -- Khoảng cách mặc định
+    local remote = ReplicatedStorage:WaitForChild("Modules"):WaitForChild("Network"):WaitForChild("RemoteEvent")
+    local killerNames = { "Jason", "c00lkidd", "JohnDoe", "1x1x1x1", "Noli" }
+    local killersFolder = workspace:WaitForChild("Players"):WaitForChild("Killers")
+
+    -- Toggle
+    local SlashToggle = Tabs.Main:AddToggle("SlashToggle", {
+        Title = "Auto Slash",
+        Default = false
+    })
+
+    SlashToggle:OnChanged(function(Value)
+        enabled = Value
+    end)
+
+    -- Slider cho khoảng cách
+    local DistanceSlider = Tabs.Main:AddSlider("DistanceSlider", {
+        Title = "Distance",
+        Min = 1,
+        Max = 50,
+        Default = 5,
+        Rounding = 1,
+        ValueName = "studs"
+    })
+
+    DistanceSlider:OnChanged(function(Value)
+        maxDistance = Value
+    end)
+
+    -- Helper (đứng trước mặt thay vì sau lưng)
+    local function isInFrontOfTarget(hrp, targetHRP)
+        local direction = targetHRP.CFrame.LookVector
+        local toPlayer = (hrp.Position - targetHRP.Position)
+        local distance = toPlayer.Magnitude
+        local isInFront = toPlayer:Dot(direction) > 0.5
+        return distance <= maxDistance and isInFront
+    end
+
+    -- Main loop
+    RunService.Heartbeat:Connect(function()
+        if not enabled or cooldown then return end
+
+        local char = lp.Character
+        if not (char and char:FindFirstChild("HumanoidRootPart")) then return end
+        local hrp = char.HumanoidRootPart
+
+        for _, name in ipairs(killerNames) do
+            local killer = killersFolder:FindFirstChild(name)
+            if killer and killer:FindFirstChild("HumanoidRootPart") then
+                local kHRP = killer.HumanoidRootPart
+
+                if isInFrontOfTarget(hrp, kHRP) and killer ~= lastTarget then
+                    cooldown = true
+                    lastTarget = killer
+
+                    -- Teleport ra trước mặt
+                    local frontPos = kHRP.Position + (kHRP.CFrame.LookVector * 2)
+                    hrp.CFrame = CFrame.new(frontPos, kHRP.Position)
+
+                    -- Giữ vị trí và spam skill trong 0.7s
+                    local start = tick()
+                    local connection
+                    connection = RunService.Heartbeat:Connect(function()
+                        if not (char and char.Parent and kHRP and kHRP.Parent) then
+                            if connection then connection:Disconnect() end
+                            return
+                        end
+                        if tick() - start >= 0.7 then
+                            if connection then connection:Disconnect() end
+                            task.delay(2, function()
+                                cooldown = false
+                                lastTarget = nil
+                            end)
+                            return
+                        end
+
+                        -- Luôn giữ ở trước mặt
+                        local front = kHRP.Position + (kHRP.CFrame.LookVector * 2)
+                        hrp.CFrame = CFrame.new(front, kHRP.Position)
+
+                        -- Kích hoạt skill Slash liên tục
+                        remote:FireServer("UseActorAbility", "Slash")
+                    end)
+
+                    break
+                end
+            end
+        end
+    end)
+end
+
+
+
+do
+    local Players = game:GetService("Players")
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")
+    local RunService = game:GetService("RunService")
+    local lp = Players.LocalPlayer
+
+    -- Vars
+    local healEnabled = false
+    local healHPThreshold = 50
+    local healDistance = 50
+    local remote = ReplicatedStorage:WaitForChild("Modules"):WaitForChild("Network"):WaitForChild("RemoteEvent")
+    local killersFolder = workspace:WaitForChild("Players"):WaitForChild("Killers")
+
+    -- Toggle Heal
+    local HealToggle = Tabs.Main:AddToggle("HealToggle", {
+        Title = "Auto Heal",
+        Default = false
+    })
+
+    HealToggle:OnChanged(function(Value)
+        healEnabled = Value
+    end)
+
+    -- Slider HP
+    local HealHPSlider = Tabs.Main:AddSlider("HealHPSlider", {
+        Title = "Heal HP",
+        Min = 1,
+        Max = 100,
+        Default = 50,
+        Rounding = 0,
+        ValueName = "HP"
+    })
+
+    HealHPSlider:OnChanged(function(Value)
+        healHPThreshold = Value
+    end)
+
+    -- Slider Distance
+    local HealDistanceSlider = Tabs.Main:AddSlider("HealDistanceSlider", {
+        Title = "Distance",
+        Min = 1,
+        Max = 100,
+        Default = 50, -- ✅ Mặc định 50
+        Rounding = 1,
+        ValueName = "studs"
+    })
+
+    HealDistanceSlider:OnChanged(function(Value)
+        healDistance = Value
+    end)
+
+    -- Main loop heal
+    RunService.Heartbeat:Connect(function()
+        if not healEnabled then return end
+
+        local char = lp.Character
+        if not (char and char:FindFirstChild("Humanoid") and char:FindFirstChild("HumanoidRootPart")) then return end
+        local humanoid = char.Humanoid
+        local hrp = char.HumanoidRootPart
+
+        -- Check killers gần nhất
+        local nearestKiller, nearestDist = nil, math.huge
+        for _, killer in ipairs(killersFolder:GetChildren()) do
+            if killer:FindFirstChild("HumanoidRootPart") then
+                local dist = (hrp.Position - killer.HumanoidRootPart.Position).Magnitude
+                if dist < nearestDist then
+                    nearestDist = dist
+                    nearestKiller = killer
+                end
+            end
+        end
+
+        -- Nếu có killer và khoảng cách + HP thỏa điều kiện
+        if nearestKiller and nearestDist <= healDistance and humanoid.Health <= healHPThreshold then
+            remote:FireServer("UseActorAbility", "FriedChicken")
+        end
+    end)
+end
+
 
 
     Tabs.Main:AddSection("↳ Chance")
