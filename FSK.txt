@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Free] | Forsaken",
-    SubTitle = "Version 3.2.2",
+    SubTitle = "Version 3.2.3",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -1622,6 +1622,11 @@ end)
 
 
 
+
+
+
+
+-- ⚡ Infinite Stamina Auto-Refresh
 local InfStaminaEnabled = false
 local staminaLoop
 local StaminaModule
@@ -1656,8 +1661,7 @@ if StaminaModule then
         Title = "Infinite Stamina",
         Default = false
     }):OnChanged(function(value)
-        -- luôn bọc trong pcall để Fluent không báo "Callback error"
-        local ok = pcall(function()
+        pcall(function()
             InfStaminaEnabled = value
             if StaminaModule.StaminaLossDisabled ~= nil then
                 StaminaModule.StaminaLossDisabled = value
@@ -1668,19 +1672,29 @@ if StaminaModule then
                 if not staminaLoop then
                     staminaLoop = task.spawn(function()
                         while InfStaminaEnabled do
-                            task.wait(0.5)
-                            restoreStamina()
+                            task.wait(0.75)
+
+                            if StaminaModule.Stamina and StaminaModule.MaxStamina then
+                                -- Nếu stamina < 100 thì “tắt → bật lại” để reset inf stamina
+                                if StaminaModule.Stamina < StaminaModule.MaxStamina then
+                                    InfStaminaEnabled = false
+                                    task.wait() -- nhỏ, để Fluent cập nhật toggle
+                                    InfStaminaEnabled = true
+                                    restoreStamina()
+                                end
+                            end
                         end
                         staminaLoop = nil
                     end)
                 end
             end
         end)
-        -- Không in warn nữa, im lặng bỏ qua nếu có lỗi
     end)
 else
     warn("[InfStamina] Sprinting module not found, toggle disabled.")
 end
+
+
 
 
     Tabs.Player:AddSection("↳ Hitbox")
