@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Free] | Forsaken",
-    SubTitle = "Version 3.2.8",
+    SubTitle = "Version 3.2.9",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -234,7 +234,7 @@ local Killer, Survivor = false, false
 
 -- Danh sách killer nguy hiểm
 local DangerousKillers = {
-    ["Jason"] = true,
+    ["Slasher"] = true,
     ["1x1x1x1"] = true,
     ["c00lkidd"] = true,
     ["Noli"] = true,
@@ -645,7 +645,7 @@ do
     local lastTarget = nil
     local maxDistance = 5 -- Khoảng cách mặc định
     local remote = ReplicatedStorage:WaitForChild("Modules"):WaitForChild("Network"):WaitForChild("RemoteEvent")
-    local killerNames = { "Jason", "c00lkidd", "JohnDoe", "1x1x1x1", "Noli" }
+    local killerNames = { "Slasher", "c00lkidd", "JohnDoe", "1x1x1x1", "Noli" }
     local killersFolder = workspace:WaitForChild("Players"):WaitForChild("Killers")
 
     -- Toggle
@@ -914,7 +914,7 @@ local LocalPlayer = Players.LocalPlayer
 
 -- Config
 local aimDuration = 1.7
-local aimTargets = { "Jason", "c00lkidd", "JohnDoe", "1x1x1x1", "Noli" }
+local aimTargets = { "Slasher", "c00lkidd", "JohnDoe", "1x1x1x1", "Noli" }
 local trackedAnimations = {
     ["103601716322988"] = true,
     ["133491532453922"] = true,
@@ -1069,7 +1069,7 @@ do
     local lastTarget = nil
     local maxDistance = 5 -- Khoảng cách mặc định
     local remote = ReplicatedStorage:WaitForChild("Modules"):WaitForChild("Network"):WaitForChild("RemoteEvent")
-    local killerNames = { "Jason", "c00lkidd", "JohnDoe", "1x1x1x1", "Noli" }
+    local killerNames = { "Slasher", "c00lkidd", "JohnDoe", "1x1x1x1", "Noli" }
     local killersFolder = workspace:WaitForChild("Players"):WaitForChild("Killers")
 
     -- Toggle
@@ -1542,7 +1542,7 @@ do
             local charges = punchBtn and punchBtn:FindFirstChild("Charges")
 
             if charges and charges.Text == "1" then
-                local killerNames = {"c00lkidd", "Jason", "JohnDoe", "1x1x1x1", "Noli"}
+                local killerNames = {"c00lkidd", "Slasher", "JohnDoe", "1x1x1x1", "Noli"}
                 for _, name in ipairs(killerNames) do
                     local killer = workspace:FindFirstChild("Players")
                         and workspace.Players:FindFirstChild("Killers")
@@ -1738,7 +1738,7 @@ local AllowedPlayers = {
 }
 
 local AllowedKillers = {
-    ["Jason"] = true, ["1x1x1x1"] = true, ["c00lkidd"] = true,
+    ["Slasher"] = true, ["1x1x1x1"] = true, ["c00lkidd"] = true,
     ["Noli"] = true, ["JohnDoe"] = true, ["Quest666"] = true,
 }
 
@@ -1958,7 +1958,7 @@ local targetModels = {
     ["Builderman"] = true,
     ["Taph"] = true,
     ["Dusekkar"] = true,
-    ["Jason"] = true,
+    ["Slasher"] = true,
     ["1x1x1x1"] = true,
     ["c00lkidd"] = true,
     ["Noli"] = true,
@@ -2324,7 +2324,7 @@ local allowedModelsWhite = {
 }
 
 local allowedModelsRed = {
-    ["Jason"] = true, ["1x1x1x1"] = true, ["c00lkidd"] = true,
+    ["Slasher"] = true, ["1x1x1x1"] = true, ["c00lkidd"] = true,
     ["Noli"] = true, ["JohnDoe"] = true, ["Quest666"] = true
 }
 
@@ -3129,7 +3129,7 @@ local AllowedPlayers = {
 
 -- Danh sách Killers
 local DangerousKillers = {
-    Jason = true, ["1x1x1x1"] = true, c00lkidd = true,
+    Slasher = true, ["1x1x1x1"] = true, c00lkidd = true,
     Noli = true, JohnDoe = true, Quest666 = true,
     PizzaDeliveryRig = true, Mafia1 = true, Mafia2 = true,
     ["1x1x1x1Zombie"] = true
