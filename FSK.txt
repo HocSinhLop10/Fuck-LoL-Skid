@@ -433,7 +433,7 @@ Tabs.Farm:AddToggle("AutoExpMoney", {
                             end
 
                             if currentCharacter and currentCharacter:FindFirstChild("HumanoidRootPart") then
-                                currentCharacter:PivotTo(CFrame.new(goalPos + Vector3.new(0, 3, 0)))
+                                currentCharacter:PivotTo(CFrame.new(goalPos + Vector3.new(0, 5, 0))) -- chỉnh độ cao khi player teleport
                                 task.wait(0.75)
 
                                 local prompt = gen:FindFirstChild("Main") and gen.Main:FindFirstChild("Prompt")
@@ -458,7 +458,7 @@ Tabs.Farm:AddToggle("AutoExpMoney", {
                                                 gen.Remotes.RE:FireServer()
                                             end
                                         end)
-                                        task.wait(1.5)
+                                        task.wait(0.5) -- tốc độ mở generator
                                         counter += 1
                                         if counter >= 10 or not isInGame then break end
                                     end
@@ -3191,7 +3191,7 @@ local function teleportToSafeGenerator()
     end
 
     if bestGen then
-        local offset = CFrame.new(0, 3, -3) -- đứng cao hơn 3 studs, lùi ra sau 3 studs
+        local offset = CFrame.new(0, 5, -3) -- đứng cao hơn 5 studs, lùi ra sau 3 studs
         local goalCFrame = bestGen:GetPivot() * offset
         character:PivotTo(goalCFrame)
         print("✅ Teleported safely to generator:", bestGen.Name)
@@ -3240,6 +3240,25 @@ Tabs.Misc:AddToggle("SafeGenTeleport", {
         SafeGenRunning = false
         SafeGenThread = nil
         print("[SafeGenTeleport] Đã tắt.")
+    end
+end)
+
+
+
+
+
+-- Nút Auto Teleport Cao (1 lần duy nhất khi bật)
+Tabs.Misc:AddToggle("AutoTeleportHigh", {
+    Title = "Anti Bug",
+    Default = true
+})
+:OnChanged(function(Value)
+    if Value then
+        local char = LP.Character
+        if char and char:FindFirstChild("HumanoidRootPart") then
+            -- Teleport lên cao thêm 10 studs
+            char:PivotTo(char.HumanoidRootPart.CFrame + Vector3.new(0, 5, 0))
+        end
     end
 end)
 
