@@ -458,7 +458,7 @@ Tabs.Farm:AddToggle("AutoExpMoney", {
                                                 gen.Remotes.RE:FireServer()
                                             end
                                         end)
-                                        task.wait(0.5) -- tốc độ mở generator
+                                        task.wait(0.75) -- tốc độ mở generator
                                         counter += 1
                                         if counter >= 10 or not isInGame then break end
                                     end
