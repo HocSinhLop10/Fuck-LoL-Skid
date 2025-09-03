@@ -1968,7 +1968,7 @@ local targetModels = {
 }
 
 local HitboxEnabled = false
-local HitboxScale = 2 -- mặc định
+local HitboxScale = 8 -- mặc định
 local originalParts = {} -- lưu thuộc tính gốc theo part
 
 local function saveOriginal(part)
@@ -2038,7 +2038,7 @@ end
 -- Slider chỉnh scale
 Tabs.Player:AddSlider("HitboxScale", {
     Title = "Hitbox Scale",
-    Default = 2,
+    Default = 8,
     Min = 1,
     Max = 100,
     Rounding = 1
