@@ -890,7 +890,7 @@ local active = false
 local predictionMode = "Speed"
 local aimMode = "Normal"
 local aimDuration = 1.7
-local fasterDuration = 1.5 - phiên bản đã fix
+local fasterDuration = 1.5 -- phiên bản đã fix
 local spinDuration = 0.5
 local aimTargets = {"Slasher", "c00lkidd", "JohnDoe", "1x1x1x1", "Noli"}
 
