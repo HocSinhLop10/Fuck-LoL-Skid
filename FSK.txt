@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Free] | Forsaken",
-    SubTitle = "Version 4.0.7",
+    SubTitle = "Version 4.0.8",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -1796,6 +1796,7 @@ local AllowedKillers = {
 -- ======= BIẾN TRẠNG THÁI =======
 local AimlockPlayerEnabled = false
 local AimlockKillerEnabled = false
+local CurrentTarget = nil
 
 -- ======= HÀM HỖ TRỢ =======
 local function IsAllowed(model, list)
@@ -1842,18 +1843,32 @@ local function GetClosestTarget(list)
     return closest
 end
 
--- ======= AIMLOCK LOOP (gom chung) =======
+-- ======= KIỂM TRA TARGET HIỆN TẠI =======
+local function ValidateTarget(target)
+    if not target then return false end
+    local humanoid = target:FindFirstChildWhichIsA("Humanoid")
+    return humanoid and humanoid.Health > 0 and target.PrimaryPart ~= nil
+end
+
+-- ======= AIMLOCK LOOP =======
 RunService.RenderStepped:Connect(function()
     if AimlockPlayerEnabled then
-        local t = GetClosestTarget(AllowedPlayers)
-        if t then
-            Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, t.PrimaryPart.Position)
+        if not ValidateTarget(CurrentTarget) then
+            CurrentTarget = GetClosestTarget(AllowedPlayers)
+        end
+        if ValidateTarget(CurrentTarget) then
+            Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, CurrentTarget.PrimaryPart.Position)
         end
     elseif AimlockKillerEnabled then
-        local t = GetClosestTarget(AllowedKillers)
-        if t then
-            Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, t.PrimaryPart.Position)
+        if not ValidateTarget(CurrentTarget) then
+            CurrentTarget = GetClosestTarget(AllowedKillers)
         end
+        if ValidateTarget(CurrentTarget) then
+            Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, CurrentTarget.PrimaryPart.Position)
+        end
+    else
+        -- nếu tắt aimlock thì reset target
+        CurrentTarget = nil
     end
 end)
 
@@ -1863,7 +1878,10 @@ Tabs.Player:AddToggle("ForsakenAimlock", {
     Default = false
 }):OnChanged(function(v)
     AimlockPlayerEnabled = v
-    if v then AimlockKillerEnabled = false end -- tránh bật cả 2 cùng lúc
+    if v then 
+        AimlockKillerEnabled = false
+        CurrentTarget = nil -- reset để chọn lại khi bật
+    end
 end)
 
 Tabs.Player:AddToggle("ForsakenAimlock1", {
@@ -1871,7 +1889,10 @@ Tabs.Player:AddToggle("ForsakenAimlock1", {
     Default = false
 }):OnChanged(function(v)
     AimlockKillerEnabled = v
-    if v then AimlockPlayerEnabled = false end -- tránh bật cả 2 cùng lúc
+    if v then 
+        AimlockPlayerEnabled = false
+        CurrentTarget = nil -- reset để chọn lại khi bật
+    end
 end)
 
 
