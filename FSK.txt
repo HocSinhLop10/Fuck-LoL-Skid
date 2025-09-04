@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Free] | Forsaken",
-    SubTitle = "Version 4.0.2",
+    SubTitle = "Version 4.0.6",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -877,6 +877,204 @@ end
 
     Tabs.Main:AddSection("↳ Chance")
 
+do
+-- Services
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Stats = game:GetService("Stats")
+
+local LocalPlayer = Players.LocalPlayer
+
+-- ================== STATE ==================
+local active = false
+local predictionMode = "Speed"
+local aimMode = "Normal"
+local aimDuration = 1.7
+local fasterDuration = 1 -- mới thêm
+local spinDuration = 0.5
+local aimTargets = {"Slasher", "c00lkidd", "JohnDoe", "1x1x1x1", "Noli"}
+
+-- Aimbot runtime
+local Humanoid, HRP = nil, nil
+local originalWS, originalJP, originalAutoRotate = nil, nil, nil
+local aiming = false
+local prevFlintVisibleAim = false
+local lastTriggerTime = 0
+
+-- ================== NÚT FLUENT ==================
+Tabs.Main:AddDropdown("AimMode", {
+    Title = "Aim Mode",
+    Values = {"Normal", "Faster", "Reflex"}, -- thêm Faster
+    Default = "Normal",
+    Callback = function(val)
+        aimMode = val
+    end
+})
+
+Tabs.Main:AddDropdown("PredictionMode", {
+    Title = "Prediction Mode",
+    Values = {"Speed", "Ping", "front", "No Lag"},
+    Default = "Speed",
+    Callback = function(val)
+        predictionMode = val
+    end
+})
+
+Tabs.Main:AddToggle("AimbotToggle", {
+    Title = "Auto Aim Shoot",
+    Default = false,
+    Callback = function(state)
+        active = state
+    end
+})
+
+-- ================== HELPERS ==================
+local function setupCharacter(char)
+    Humanoid = char:WaitForChild("Humanoid")
+    HRP = char:WaitForChild("HumanoidRootPart")
+end
+if LocalPlayer.Character then setupCharacter(LocalPlayer.Character) end
+LocalPlayer.CharacterAdded:Connect(setupCharacter)
+
+local function getValidTarget()
+    local killersFolder = workspace:FindFirstChild("Players") and workspace.Players:FindFirstChild("Killers")
+    if killersFolder then
+        for _, name in ipairs(aimTargets) do
+            local target = killersFolder:FindFirstChild(name)
+            if target and target:FindFirstChild("HumanoidRootPart") then
+                return target.HumanoidRootPart
+            end
+        end
+    end
+    return nil
+end
+
+local function getPingSeconds()
+    local pingStat = Stats.Network.ServerStatsItem["Data Ping"]
+    if pingStat then return pingStat:GetValue() / 1000 end
+    return 0.1
+end
+
+local function isFlintlockVisible()
+    if not LocalPlayer.Character then return false end
+    local flint = LocalPlayer.Character:FindFirstChild("Flintlock", true)
+    if not flint then return false end
+    if not (flint:IsA("BasePart") or flint:IsA("MeshPart") or flint:IsA("UnionOperation")) then
+        flint = flint:FindFirstChildWhichIsA("BasePart", true)
+        if not flint then return false end
+    end
+    return flint.Transparency < 1
+end
+
+-- Prediction
+local movementThreshold = 0.5
+local function getPredictedAimPosPing(targetHRP)
+    local ping = getPingSeconds()
+    local velocity = targetHRP.Velocity
+    if velocity.Magnitude <= movementThreshold then return targetHRP.Position end
+    return targetHRP.Position + (velocity * ping)
+end
+
+local function getPredictedAimPosInfrontHRPPing(targetHRP)
+    local ping = getPingSeconds()
+    local studs = ping * 60
+    if targetHRP.Velocity.Magnitude <= movementThreshold then return targetHRP.Position end
+    return targetHRP.Position + (targetHRP.CFrame.LookVector * studs)
+end
+
+-- ================== AIMBOT LOOP ==================
+RunService.RenderStepped:Connect(function()
+    if not active or not Humanoid or not HRP then return end
+    local isVisible = isFlintlockVisible()
+    if isVisible and not prevFlintVisibleAim and not aiming then
+        lastTriggerTime = tick()
+        aiming = true
+    end
+    prevFlintVisibleAim = isVisible
+
+    if aiming then
+        local elapsed = tick() - lastTriggerTime
+
+        if aimMode == "Reflex" then
+            -- Reflex giữ nguyên
+            if elapsed <= spinDuration then
+                local spinProgress = elapsed / spinDuration
+                local spinAngle = math.rad(360 * spinProgress)
+                HRP.CFrame = CFrame.new(HRP.Position) * CFrame.Angles(0, spinAngle, 0)
+            elseif elapsed <= spinDuration + 0.7 then
+                if not originalWS then
+                    originalWS, originalJP, originalAutoRotate = Humanoid.WalkSpeed, Humanoid.JumpPower, Humanoid.AutoRotate
+                end
+                Humanoid.AutoRotate = false
+                HRP.AssemblyAngularVelocity = Vector3.zero
+                local targetHRP = getValidTarget()
+                if targetHRP then
+                    local aimPos
+                    if predictionMode == "Ping" then
+                        aimPos = getPredictedAimPosPing(targetHRP)
+                    elseif predictionMode == "front" then
+                        aimPos = targetHRP.Position + targetHRP.CFrame.LookVector * 4
+                    elseif predictionMode == "No Lag" then
+                        aimPos = getPredictedAimPosInfrontHRPPing(targetHRP)
+                    else
+                        aimPos = targetHRP.Position + targetHRP.Velocity * (4 / 60)
+                    end
+                    if aimPos then
+                        local direction = (aimPos - HRP.Position).Unit
+                        local yRot = math.atan2(-direction.X, -direction.Z)
+                        HRP.CFrame = CFrame.new(HRP.Position) * CFrame.Angles(0, yRot, 0)
+                    end
+                end
+            else
+                aiming = false
+                if originalWS then
+                    Humanoid.WalkSpeed, Humanoid.JumpPower, Humanoid.AutoRotate = originalWS, originalJP, originalAutoRotate
+                    originalWS, originalJP, originalAutoRotate = nil, nil, nil
+                end
+            end
+
+        elseif aimMode == "Normal" or aimMode == "Faster" then
+            -- Normal và Faster chung logic, chỉ khác thời gian
+            local duration = (aimMode == "Faster") and fasterDuration or aimDuration
+            if elapsed <= duration then
+                if not originalWS then
+                    originalWS, originalJP, originalAutoRotate = Humanoid.WalkSpeed, Humanoid.JumpPower, Humanoid.AutoRotate
+                end
+                Humanoid.AutoRotate = false
+                HRP.AssemblyAngularVelocity = Vector3.zero
+                local targetHRP = getValidTarget()
+                if targetHRP then
+                    local aimPos
+                    if predictionMode == "Ping" then
+                        aimPos = getPredictedAimPosPing(targetHRP)
+                    elseif predictionMode == "front" then
+                        aimPos = targetHRP.Position + targetHRP.CFrame.LookVector * 4
+                    elseif predictionMode == "No Lag" then
+                        aimPos = getPredictedAimPosInfrontHRPPing(targetHRP)
+                    else
+                        aimPos = targetHRP.Position + targetHRP.Velocity * (4 / 60)
+                    end
+                    if aimPos then
+                        local direction = (aimPos - HRP.Position).Unit
+                        local yRot = math.atan2(-direction.X, -direction.Z)
+                        HRP.CFrame = CFrame.new(HRP.Position) * CFrame.Angles(0, yRot, 0)
+                    end
+                end
+            else
+                aiming = false
+                if originalWS then
+                    Humanoid.WalkSpeed, Humanoid.JumpPower, Humanoid.AutoRotate = originalWS, originalJP, originalAutoRotate
+                    originalWS, originalJP, originalAutoRotate = nil, nil, nil
+                end
+            end
+        end
+    end
+end)
+end
+
+
+
+
 
 -- AutoUseCoinFlip (Fix)
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -906,153 +1104,6 @@ Tabs.Main:AddToggle("AutoUseCoinFlip", {
     end
 end)
 
-
--- === Auto Aim Shoot (Fix) ===
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local LocalPlayer = Players.LocalPlayer
-
--- Config
-local aimDuration = 1.7
-local aimTargets = { "Slasher", "c00lkidd", "JohnDoe", "1x1x1x1", "Noli" }
-local trackedAnimations = {
-    ["103601716322988"] = true,
-    ["133491532453922"] = true,
-    ["86371356500204"] = true,
-    ["76649505662612"] = true,
-    ["81698196845041"] = true
-}
-
--- State
-local active = false
-local Humanoid, HRP = nil, nil
-local lastTriggerTime = 0
-local aiming = false
-local originalWS, originalJP, originalAutoRotate
-local predictionValue = 4
-local aimConn -- connection loop
-
--- Cho phép GUI thay đổi giá trị prediction
-function setPredictionValue(val)
-    predictionValue = val
-end
-
--- Setup Character
-local function setupCharacter(char)
-    Humanoid = char:WaitForChild("Humanoid")
-    HRP = char:WaitForChild("HumanoidRootPart")
-end
-if LocalPlayer.Character then
-    setupCharacter(LocalPlayer.Character)
-end
-LocalPlayer.CharacterAdded:Connect(setupCharacter)
-
--- Target Check
-local function getValidTarget()
-    local killersFolder = workspace:FindFirstChild("Players") and workspace.Players:FindFirstChild("Killers")
-    if killersFolder then
-        for _, name in ipairs(aimTargets) do
-            local target = killersFolder:FindFirstChild(name)
-            if target and target:FindFirstChild("HumanoidRootPart") then
-                return target.HumanoidRootPart
-            end
-        end
-    end
-    return nil
-end
-
--- Playing Animations
-local function getPlayingAnimationIds()
-    local ids = {}
-    if Humanoid then
-        for _, track in ipairs(Humanoid:GetPlayingAnimationTracks()) do
-            if track.Animation and track.Animation.AnimationId then
-                local id = track.Animation.AnimationId:match("%d+")
-                if id then ids[id] = true end
-            end
-        end
-    end
-    return ids
-end
-
--- 🚀 Start Auto Aim
-local function startAutoAim()
-    if active then return end
-    active = true
-
-    aimConn = RunService.RenderStepped:Connect(function()
-        if not active or not Humanoid or not HRP then return end
-
-        local playing = getPlayingAnimationIds()
-        local triggered = false
-        for id in pairs(trackedAnimations) do
-            if playing[id] then
-                triggered = true
-                break
-            end
-        end
-
-        if triggered then
-            lastTriggerTime = os.clock()
-            aiming = true
-        end
-
-        if aiming and os.clock() - lastTriggerTime <= aimDuration then
-            if not originalWS then
-                originalWS, originalJP, originalAutoRotate = Humanoid.WalkSpeed, Humanoid.JumpPower, Humanoid.AutoRotate
-            end
-
-            Humanoid.AutoRotate = false
-            HRP.AssemblyAngularVelocity = Vector3.zero
-
-            local targetHRP = getValidTarget()
-            if targetHRP then
-                local predictedPos = targetHRP.Position + (targetHRP.CFrame.LookVector * predictionValue)
-                local direction = (predictedPos - HRP.Position).Unit
-                local yRot = math.atan2(-direction.X, -direction.Z)
-                HRP.CFrame = CFrame.new(HRP.Position) * CFrame.Angles(0, yRot, 0)
-            end
-        elseif aiming then
-            aiming = false
-            if originalWS and originalJP and originalAutoRotate ~= nil then
-                Humanoid.WalkSpeed, Humanoid.JumpPower, Humanoid.AutoRotate = originalWS, originalJP, originalAutoRotate
-                originalWS, originalJP, originalAutoRotate = nil, nil, nil
-            end
-        end
-    end)
-end
-
--- 🛑 Stop Auto Aim
-local function stopAutoAim()
-    active = false
-    aiming = false
-    if aimConn then
-        aimConn:Disconnect()
-        aimConn = nil
-    end
-end
-
--- === GUI Bindings ===
-Tabs.Main:AddSlider("PredictionSlider", {
-    Title = "Prediction",
-    Default = 4,
-    Min = 0,
-    Max = 10,
-    Rounding = 1,
-}):OnChanged(function(val)
-    setPredictionValue(val)
-end)
-
-Tabs.Main:AddToggle("AutoAimToggle", {
-    Title = "Auto Aim Shoot",
-    Default = false,
-}):OnChanged(function(enabled)
-    if enabled then
-        startAutoAim()
-    else
-        stopAutoAim()
-    end
-end)
 
 
     Tabs.Main:AddSection("↳ Two Time")
@@ -2237,7 +2288,6 @@ end)
 
 -- Tabs.Visual
 
-
 local RunService = game:GetService("RunService")
 local Camera = workspace.CurrentCamera
 
@@ -2254,41 +2304,74 @@ local drawingsClone = {}
 local espConnectionClone
 local addedConnClone, removedConnClone
 
--- Tạo ESP + Highlight
-local function createESP(model, drawings, color)
-    if not model or drawings[model] then return end
-    local hrp = model:FindFirstChild("HumanoidRootPart")
-    local humanoid = model:FindFirstChildOfClass("Humanoid")
-    if not hrp or not humanoid then return end
+-- Tạo/khôi phục ESP + Highlight (tự hồi phục nếu mất)
+local function createOrRepairESP(model, drawings, color)
+    if not model then return end
 
-    -- Text
-    local text = Drawing.new("Text")
-    text.Size = 14
-    text.Center = true
-    text.Outline = true
-    text.Visible = false
-    text.Color = color
+    local data = drawings[model]
+    if not data then
+        -- Chỉ khởi tạo khi có HRP
+        local hrp = model:FindFirstChild("HumanoidRootPart")
+        if not hrp then return end
 
-    -- Highlight
-    local highlight = Instance.new("Highlight")
-    highlight.Adornee = model
-    highlight.FillColor = color
-    highlight.OutlineColor = color
-    highlight.FillTransparency = 0.7
-    highlight.OutlineTransparency = 0
-    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-    highlight.Enabled = false
-    highlight.Parent = model
+        local text = Drawing.new("Text")
+        text.Size = 14
+        text.Center = true
+        text.Outline = true
+        text.Visible = false
+        text.Color = color
 
-    drawings[model] = {text = text, humanoid = humanoid, highlight = highlight}
+        local highlight = Instance.new("Highlight")
+        highlight.Adornee = model
+        highlight.FillColor = color
+        highlight.OutlineColor = color
+        highlight.FillTransparency = 0.7
+        highlight.OutlineTransparency = 0
+        highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+        highlight.Enabled = true
+        highlight.Parent = model
+
+        drawings[model] = { text = text, highlight = highlight }
+        return
+    end
+
+    -- Hồi phục nếu mất thành phần
+    if not data.text then
+        local text = Drawing.new("Text")
+        text.Size = 14
+        text.Center = true
+        text.Outline = true
+        text.Visible = false
+        text.Color = color
+        data.text = text
+    end
+    if (not data.highlight) or (not data.highlight.Parent) then
+        pcall(function() if data.highlight then data.highlight:Destroy() end end)
+        local highlight = Instance.new("Highlight")
+        highlight.Adornee = model
+        highlight.FillColor = color
+        highlight.OutlineColor = color
+        highlight.FillTransparency = 0.7
+        highlight.OutlineTransparency = 0
+        highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+        highlight.Enabled = true
+        highlight.Parent = model
+        data.highlight = highlight
+    else
+        -- Đảm bảo luôn bám đúng model
+        data.highlight.Adornee = model
+        data.highlight.Enabled = true
+        data.highlight.FillColor = color
+        data.highlight.OutlineColor = color
+    end
 end
 
 -- Xoá ESP
 local function removeESP(model, drawings)
     local data = drawings[model]
     if data then
-        if data.text then pcall(function() data.text:Remove() end) end
-        if data.highlight then pcall(function() data.highlight:Destroy() end) end
+        pcall(function() if data.text then data.text:Remove() end end)
+        pcall(function() if data.highlight then data.highlight:Destroy() end end)
     end
     drawings[model] = nil
 end
@@ -2297,7 +2380,7 @@ end
 local function scanWorkspaceForAllowed(allowedList, drawings, color)
     for _, obj in ipairs(workspace:GetDescendants()) do
         if obj:IsA("Model") and allowedList[obj.Name] and obj:FindFirstChild("HumanoidRootPart") then
-            createESP(obj, drawings, color)
+            createOrRepairESP(obj, drawings, color)
         end
     end
 end
@@ -2305,36 +2388,50 @@ end
 -- 🔥 Bắt đầu ESP Clone
 function startESPClone()
     if espConnectionClone then return end
-    scanWorkspaceForAllowed(allowedModelsClone, drawingsClone, Color3.fromRGB(0, 255, 0)) -- màu xanh lá
+
+    local COLOR = Color3.fromRGB(0, 255, 0) -- xanh lá
+    scanWorkspaceForAllowed(allowedModelsClone, drawingsClone, COLOR)
 
     espConnectionClone = RunService.RenderStepped:Connect(function()
         for model, data in pairs(drawingsClone) do
-            local text, humanoid, highlight = data.text, data.humanoid, data.highlight
-            if model.Parent and humanoid and humanoid.Health > 0 and model:FindFirstChild("HumanoidRootPart") then
+            -- Luôn tự hồi phục nếu mất
+            createOrRepairESP(model, drawingsClone, COLOR)
+            data = drawingsClone[model]
+
+            if model.Parent and model:FindFirstChild("HumanoidRootPart") then
                 local hrp = model.HumanoidRootPart
                 local pos, onScreen = Camera:WorldToViewportPoint(hrp.Position + Vector3.new(0, 2.5, 0))
                 local dist = (hrp.Position - Camera.CFrame.Position).Magnitude
-                text.Text = string.format("%s [%.0fm]", model.Name, dist)
-                text.Position = Vector2.new(pos.X, pos.Y)
-                text.Visible = onScreen
-                highlight.Enabled = true
+
+                if data.text then
+                    data.text.Text = string.format("%s [%.0fm]", model.Name, dist)
+                    data.text.Position = Vector2.new(pos.X, pos.Y)
+                    data.text.Visible = onScreen
+                end
+
+                if data.highlight then
+                    data.highlight.Enabled = true
+                end
             else
-                text.Visible = false
-                if highlight then highlight.Enabled = false end
+                if data.text then data.text.Visible = false end
+                if data.highlight then data.highlight.Enabled = false end
             end
         end
     end)
 
     addedConnClone = workspace.DescendantAdded:Connect(function(obj)
+        -- Bắt cả khi add vào sâu trong model
         local model = obj:IsA("Model") and obj or obj:FindFirstAncestorOfClass("Model")
-        if model and allowedModelsClone[model.Name] and model:FindFirstChild("HumanoidRootPart") then
-            createESP(model, drawingsClone, Color3.fromRGB(0, 255, 0))
+        if model and allowedModelsClone[model.Name] then
+            createOrRepairESP(model, drawingsClone, COLOR)
         end
     end)
 
     removedConnClone = workspace.DescendantRemoving:Connect(function(obj)
-        if obj:IsA("Model") and drawingsClone[obj] then
-            removeESP(obj, drawingsClone)
+        -- Nếu model hoặc ancestor của nó nằm trong bảng, xoá ESP
+        local model = obj:IsA("Model") and obj or obj:FindFirstAncestorOfClass("Model")
+        if model and drawingsClone[model] then
+            removeESP(model, drawingsClone)
         end
     end)
 end
@@ -2345,8 +2442,8 @@ function stopESPClone()
     if addedConnClone then addedConnClone:Disconnect() end
     if removedConnClone then removedConnClone:Disconnect() end
     for _, data in pairs(drawingsClone) do
-        if data.text then pcall(function() data.text:Remove() end) end
-        if data.highlight then pcall(function() data.highlight:Destroy() end) end
+        pcall(function() if data.text then data.text:Remove() end end)
+        pcall(function() if data.highlight then data.highlight:Destroy() end end)
     end
     table.clear(drawingsClone)
     espConnectionClone, addedConnClone, removedConnClone = nil, nil, nil
@@ -2363,6 +2460,8 @@ Tabs.Visual:AddToggle("ESPCloneToggle", {
         stopESPClone()
     end
 end)
+
+
 
 
 
@@ -2386,81 +2485,124 @@ local drawingsWhite, drawingsRed = {}, {}
 local conWhiteLoop, conWhiteAdded, conWhiteRemoved
 local conRedLoop, conRedAdded, conRedRemoved
 
--- Utility tạo ESP
-local function createESP(model, drawings, color)
-    if not model or drawings[model] then return end
-    local hrp = model:FindFirstChild("HumanoidRootPart")
-    local humanoid = model:FindFirstChildOfClass("Humanoid")
-    if not hrp or not humanoid then return end
+-- Utility tạo/repair ESP
+local function createOrRepairESP(model, drawings, color)
+    if not model then return end
 
-    -- Text
-    local text = Drawing.new("Text")
-    text.Size = 14
-    text.Center = true
-    text.Outline = true
-    text.Visible = false
-    text.Color = color
+    local data = drawings[model]
+    if not data then
+        local hrp = model:FindFirstChild("HumanoidRootPart")
+        if not hrp then return end
 
-    -- Highlight
-    local highlight = Instance.new("Highlight")
-    highlight.Adornee = model
-    highlight.FillColor = color
-    highlight.OutlineColor = color
-    highlight.FillTransparency = 0.7
-    highlight.OutlineTransparency = 0
-    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-    highlight.Enabled = false
-    highlight.Parent = model
+        -- Text
+        local text = Drawing.new("Text")
+        text.Size = 14
+        text.Center = true
+        text.Outline = true
+        text.Visible = false
+        text.Color = color
 
-    drawings[model] = {text = text, humanoid = humanoid, highlight = highlight}
+        -- Highlight
+        local highlight = Instance.new("Highlight")
+        highlight.Adornee = model
+        highlight.FillColor = color
+        highlight.OutlineColor = color
+        highlight.FillTransparency = 0.7
+        highlight.OutlineTransparency = 0
+        highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+        highlight.Enabled = true
+        highlight.Parent = model
+
+        drawings[model] = { text = text, highlight = highlight }
+        return
+    end
+
+    -- Repair nếu mất
+    if not data.text then
+        local text = Drawing.new("Text")
+        text.Size = 14
+        text.Center = true
+        text.Outline = true
+        text.Visible = false
+        text.Color = color
+        data.text = text
+    end
+    if not (data.highlight and data.highlight.Parent) then
+        pcall(function() if data.highlight then data.highlight:Destroy() end end)
+        local highlight = Instance.new("Highlight")
+        highlight.Adornee = model
+        highlight.FillColor = color
+        highlight.OutlineColor = color
+        highlight.FillTransparency = 0.7
+        highlight.OutlineTransparency = 0
+        highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+        highlight.Enabled = true
+        highlight.Parent = model
+        data.highlight = highlight
+    end
 end
 
 local function removeESP(model, drawings)
     local data = drawings[model]
     if data then
-        if data.text then pcall(function() data.text:Remove() end) end
-        if data.highlight then pcall(function() data.highlight:Destroy() end) end
+        pcall(function() if data.text then data.text:Remove() end end)
+        pcall(function() if data.highlight then data.highlight:Destroy() end end)
     end
     drawings[model] = nil
 end
 
--- === White ESP (Survivors) ===
+-- Loop ESP update
+local function updateESP(drawings, color)
+    for model, data in pairs(drawings) do
+        if model.Parent and model:FindFirstChild("HumanoidRootPart") then
+            createOrRepairESP(model, drawings, color)
+            data = drawings[model]
+
+            local hrp = model.HumanoidRootPart
+            local pos, onScreen = Camera:WorldToViewportPoint(hrp.Position + Vector3.new(0, 2.5, 0))
+            local dist = (hrp.Position - Camera.CFrame.Position).Magnitude
+
+            if data.text then
+                data.text.Text = string.format("%s [%.0fm]", model.Name, dist)
+                data.text.Position = Vector2.new(pos.X, pos.Y)
+                data.text.Visible = onScreen
+            end
+
+            if data.highlight then
+                data.highlight.Adornee = model
+                data.highlight.Enabled = true
+            end
+        else
+            if data.text then data.text.Visible = false end
+            if data.highlight then data.highlight.Enabled = false end
+        end
+    end
+end
+
+-- === White ESP ===
 local function startESPWhite()
     if conWhiteLoop then return end
     for _, obj in ipairs(workspace:GetDescendants()) do
         if obj:IsA("Model") and allowedModelsWhite[obj.Name] then
-            createESP(obj, drawingsWhite, Color3.fromRGB(255, 255, 255))
+            createOrRepairESP(obj, drawingsWhite, Color3.fromRGB(255, 255, 255))
         end
     end
 
     conWhiteLoop = RunService.Heartbeat:Connect(function()
-        task.spawn(function()
-            for model, data in pairs(drawingsWhite) do
-                local text, humanoid, highlight = data.text, data.humanoid, data.highlight
-                if model.Parent and humanoid and humanoid.Health > 0 and model:FindFirstChild("HumanoidRootPart") then
-                    local hrp = model.HumanoidRootPart
-                    local pos, onScreen = Camera:WorldToViewportPoint(hrp.Position + Vector3.new(0,2.5,0))
-                    local dist = (hrp.Position - Camera.CFrame.Position).Magnitude
-                    text.Text = string.format("%s [%.0fm]", model.Name, dist)
-                    text.Position = Vector2.new(pos.X, pos.Y)
-                    text.Visible = onScreen
-                    highlight.Enabled = true
-                else
-                    text.Visible = false
-                    if highlight then highlight.Enabled = false end
-                end
-            end
-        end)
-        task.wait(0.5)
+        updateESP(drawingsWhite, Color3.fromRGB(255, 255, 255))
     end)
 
     conWhiteAdded = workspace.DescendantAdded:Connect(function(obj)
-        if obj:IsA("Model") and allowedModelsWhite[obj.Name] then
-            createESP(obj, drawingsWhite, Color3.fromRGB(255, 255, 255))
+        local model = obj:IsA("Model") and obj or obj:FindFirstAncestorOfClass("Model")
+        if model and allowedModelsWhite[model.Name] then
+            createOrRepairESP(model, drawingsWhite, Color3.fromRGB(255, 255, 255))
         end
     end)
     conWhiteRemoved = workspace.DescendantRemoving:Connect(function(obj)
-        removeESP(obj, drawingsWhite)
+        local model = obj:IsA("Model") and obj or obj:FindFirstAncestorOfClass("Model")
+        if model and drawingsWhite[model] then
+            removeESP(model, drawingsWhite)
+        end
     end)
 end
 
@@ -2469,49 +2611,36 @@ local function stopESPWhite()
     if conWhiteAdded then conWhiteAdded:Disconnect(); conWhiteAdded = nil end
     if conWhiteRemoved then conWhiteRemoved:Disconnect(); conWhiteRemoved = nil end
     for _, d in pairs(drawingsWhite) do
-        pcall(function() d.text:Remove() end)
-        pcall(function() d.highlight:Destroy() end)
+        pcall(function() if d.text then d.text:Remove() end end)
+        pcall(function() if d.highlight then d.highlight:Destroy() end end)
     end
     drawingsWhite = {}
 end
 
--- === Red ESP (Killers) ===
+-- === Red ESP ===
 local function startESPRed()
     if conRedLoop then return end
     for _, obj in ipairs(workspace:GetDescendants()) do
         if obj:IsA("Model") and allowedModelsRed[obj.Name] then
-            createESP(obj, drawingsRed, Color3.fromRGB(255, 0, 0))
+            createOrRepairESP(obj, drawingsRed, Color3.fromRGB(255, 0, 0))
         end
     end
 
     conRedLoop = RunService.Heartbeat:Connect(function()
-        task.spawn(function()
-            for model, data in pairs(drawingsRed) do
-                local text, humanoid, highlight = data.text, data.humanoid, data.highlight
-                if model.Parent and humanoid and humanoid.Health > 0 and model:FindFirstChild("HumanoidRootPart") then
-                    local hrp = model.HumanoidRootPart
-                    local pos, onScreen = Camera:WorldToViewportPoint(hrp.Position + Vector3.new(0,2.5,0))
-                    local dist = (hrp.Position - Camera.CFrame.Position).Magnitude
-                    text.Text = string.format("%s [%.0fm]", model.Name, dist)
-                    text.Position = Vector2.new(pos.X, pos.Y)
-                    text.Visible = onScreen
-                    highlight.Enabled = true
-                else
-                    text.Visible = false
-                    if highlight then highlight.Enabled = false end
-                end
-            end
-        end)
-        task.wait(0.5)
+        updateESP(drawingsRed, Color3.fromRGB(255, 0, 0))
     end)
 
     conRedAdded = workspace.DescendantAdded:Connect(function(obj)
-        if obj:IsA("Model") and allowedModelsRed[obj.Name] then
-            createESP(obj, drawingsRed, Color3.fromRGB(255, 0, 0))
+        local model = obj:IsA("Model") and obj or obj:FindFirstAncestorOfClass("Model")
+        if model and allowedModelsRed[model.Name] then
+            createOrRepairESP(model, drawingsRed, Color3.fromRGB(255, 0, 0))
         end
     end)
     conRedRemoved = workspace.DescendantRemoving:Connect(function(obj)
-        removeESP(obj, drawingsRed)
+        local model = obj:IsA("Model") and obj or obj:FindFirstAncestorOfClass("Model")
+        if model and drawingsRed[model] then
+            removeESP(model, drawingsRed)
+        end
     end)
 end
 
@@ -2520,8 +2649,8 @@ local function stopESPRed()
     if conRedAdded then conRedAdded:Disconnect(); conRedAdded = nil end
     if conRedRemoved then conRedRemoved:Disconnect(); conRedRemoved = nil end
     for _, d in pairs(drawingsRed) do
-        pcall(function() d.text:Remove() end)
-        pcall(function() d.highlight:Destroy() end)
+        pcall(function() if d.text then d.text:Remove() end end)
+        pcall(function() if d.highlight then d.highlight:Destroy() end end)
     end
     drawingsRed = {}
 end
@@ -2679,6 +2808,151 @@ Tabs.Visual:AddToggle("ESPGeneratorToggle", {
 }):OnChanged(function(state)
     if state then startESPGen() else stopESPGen() end
 end)
+
+
+
+
+
+
+do
+-- ========= Items ESP (auto re-add nếu mất) =========
+local RunService = game:GetService("RunService")
+local Camera = workspace.CurrentCamera
+
+local itemsDraw = {}  -- [tool] = {text, highlight, part}
+local conItemsLoop, conItemsAdded, conItemsRemoved
+
+local function getToolPart(tool)
+    return tool:FindFirstChild("Handle") or tool:FindFirstChildWhichIsA("BasePart")
+end
+
+local function createItemESP(tool)
+    if not tool then return end
+    local part = getToolPart(tool)
+    if not part then return end
+
+    -- Nếu đã có highlight thì chỉ update lại thôi
+    if itemsDraw[tool] then
+        local data = itemsDraw[tool]
+        if data.highlight and data.highlight.Parent then
+            data.part = part
+            return
+        end
+    end
+
+    -- Text
+    local text = Drawing.new("Text")
+    text.Size = 14
+    text.Center = true
+    text.Outline = true
+    text.Visible = false
+    text.Color = Color3.fromRGB(255, 215, 0)
+
+    -- Highlight
+    local hl = Instance.new("Highlight")
+    hl.Name = "ItemESP_Highlight"
+    hl.Adornee = part
+    hl.FillColor = Color3.fromRGB(255, 215, 0)
+    hl.OutlineColor = Color3.fromRGB(255, 215, 0)
+    hl.FillTransparency = 0.7
+    hl.OutlineTransparency = 0
+    hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+    hl.Enabled = true
+    hl.Parent = tool
+
+    itemsDraw[tool] = { text = text, highlight = hl, part = part }
+end
+
+local function removeItemESP(tool)
+    local data = itemsDraw[tool]
+    if not data then return end
+    pcall(function() if data.text then data.text:Remove() end end)
+    pcall(function() if data.highlight then data.highlight:Destroy() end end)
+    itemsDraw[tool] = nil
+end
+
+local function isInIngameFolder(inst)
+    local map = workspace:FindFirstChild("Map")
+    local ingame = map and map:FindFirstChild("Ingame")
+    return ingame and inst:IsDescendantOf(ingame)
+end
+
+local function scanInitialItems()
+    local map = workspace:FindFirstChild("Map")
+    local ingame = map and map:FindFirstChild("Ingame")
+    if not ingame then return end
+    for _, obj in ipairs(ingame:GetDescendants()) do
+        if obj:IsA("Tool") then
+            createItemESP(obj)
+        end
+    end
+end
+
+local function startESPItems()
+    if conItemsLoop then return end
+
+    scanInitialItems()
+
+    -- Auto update
+    conItemsLoop = RunService.Heartbeat:Connect(function()
+        for _, tool in ipairs(workspace:GetDescendants()) do
+            if tool:IsA("Tool") and isInIngameFolder(tool) then
+                -- Nếu chưa có hoặc bị mất highlight => tạo lại
+                if not itemsDraw[tool] or not (itemsDraw[tool].highlight and itemsDraw[tool].highlight.Parent) then
+                    createItemESP(tool)
+                end
+            end
+        end
+
+        -- Update text/position
+        for tool, data in pairs(itemsDraw) do
+            local part = data.part or getToolPart(tool)
+            if not (tool.Parent and part and part.Parent) or not isInIngameFolder(tool) then
+                if data.text then data.text.Visible = false end
+                if tool.Parent == nil then
+                    removeItemESP(tool)
+                end
+            else
+                data.part = part
+                if data.highlight and data.highlight.Adornee ~= part then
+                    data.highlight.Adornee = part
+                end
+                local pos, onScreen = Camera:WorldToViewportPoint(part.Position + Vector3.new(0, 2, 0))
+                local dist = (part.Position - Camera.CFrame.Position).Magnitude
+                data.text.Text = string.format("%s [%.0fm]", tool.Name, dist)
+                data.text.Position = Vector2.new(pos.X, pos.Y)
+                data.text.Visible = onScreen
+                if data.highlight then data.highlight.Enabled = true end
+            end
+        end
+    end)
+
+    -- Watch for removal
+    conItemsRemoved = workspace.DescendantRemoving:Connect(function(obj)
+        if itemsDraw[obj] then
+            removeItemESP(obj)
+        end
+    end)
+end
+
+local function stopESPItems()
+    if conItemsLoop then conItemsLoop:Disconnect(); conItemsLoop = nil end
+    if conItemsRemoved then conItemsRemoved:Disconnect(); conItemsRemoved = nil end
+    for tool, _ in pairs(itemsDraw) do
+        removeItemESP(tool)
+    end
+    itemsDraw = {}
+end
+
+-- Fluent toggle
+Tabs.Visual:AddToggle("ESPItemsToggle", {
+    Title = "ESP Items",
+    Default = false,
+}):OnChanged(function(enabled)
+    if enabled then startESPItems() else stopESPItems() end
+end)
+end
+
 
 
 
