@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Free] | Forsaken",
-    SubTitle = "Version 4.0.6",
+    SubTitle = "Version 4.0.7",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -710,7 +710,7 @@ do
                             if connection then connection:Disconnect() end
                             return
                         end
-                        if tick() - start >= 0.7 then
+                        if tick() - start >= 1 then         
                             if connection then connection:Disconnect() end
                             task.delay(2, function()
                                 cooldown = false
@@ -890,7 +890,7 @@ local active = false
 local predictionMode = "Speed"
 local aimMode = "Normal"
 local aimDuration = 1.7
-local fasterDuration = 1 -- mới thêm
+local fasterDuration = 1.5 - phiên bản đã fix
 local spinDuration = 0.5
 local aimTargets = {"Slasher", "c00lkidd", "JohnDoe", "1x1x1x1", "Noli"}
 
