@@ -3914,7 +3914,7 @@ end)
 
 
 
-
+do
 -- LocalScript: Custom mirror of Roblox chat (view + send + collapse)
 -- Place in StarterPlayerScripts or StarterGui
 
@@ -4235,6 +4235,7 @@ Tabs.Misc:AddToggle("CustomChatToggle", {
 		screenGui.Enabled = enabled
 	end
 end)
+end
 
 
 
