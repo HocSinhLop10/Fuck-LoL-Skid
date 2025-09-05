@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Free] | Forsaken",
-    SubTitle = "Version 4.0.8",
+    SubTitle = "Version 4.0.9",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -877,20 +877,27 @@ end
 
     Tabs.Main:AddSection("↳ Chance")
 
+-- ==================================================
+-- 📌 Hợp nhất: Aimbot + Auto Coinflip
+-- ==================================================
+
 do
--- Services
+-- ⚙️ Services
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local Stats = game:GetService("Stats")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local LocalPlayer = Players.LocalPlayer
 
--- ================== STATE ==================
+-- ==================================================
+-- 🎯 AIMBOT STATE
+-- ==================================================
 local active = false
 local predictionMode = "Speed"
 local aimMode = "Normal"
 local aimDuration = 1.7
-local fasterDuration = 1.5 -- phiên bản đã fix
+local fasterDuration = 1.5
 local spinDuration = 0.5
 local aimTargets = {"Slasher", "c00lkidd", "JohnDoe", "1x1x1x1", "Noli"}
 
@@ -901,34 +908,65 @@ local aiming = false
 local prevFlintVisibleAim = false
 local lastTriggerTime = 0
 
--- ================== NÚT FLUENT ==================
+-- ==================================================
+-- 💰 COINFLIP STATE
+-- ==================================================
+local autoCoinflip = false
+local coinflipTargetCharge = 3
+local coinflipCooldown = 0.15
+local lastCoinflipTime = 0
+
+local RemoteEvent = ReplicatedStorage:WaitForChild("Modules"):WaitForChild("Network"):WaitForChild("RemoteEvent")
+
+-- ==================================================
+-- 🔘 Fluent UI
+-- ==================================================
+-- Aimbot UI
 Tabs.Main:AddDropdown("AimMode", {
     Title = "Aim Mode",
-    Values = {"Normal", "Faster", "Reflex"}, -- thêm Faster
+    Values = {"Normal", "Faster", "Reflex"},
     Default = "Normal",
-    Callback = function(val)
-        aimMode = val
-    end
+    Callback = function(val) aimMode = val end
 })
 
 Tabs.Main:AddDropdown("PredictionMode", {
     Title = "Prediction Mode",
     Values = {"Speed", "Ping", "front", "No Lag"},
     Default = "Speed",
-    Callback = function(val)
-        predictionMode = val
-    end
+    Callback = function(val) predictionMode = val end
 })
 
+-- ✅ Coinflip Point Dropdown (bên dưới 2 dropdown Aimbot) - hiển thị "1 Point/2 Point/3 Point"
+Tabs.Main:AddDropdown("CoinflipChargeDropdown", {
+    Title = "Select Score",
+    Values = {"1 Point", "2 Point", "3 Point"},
+    Default = "3 Point",
+}):OnChanged(function(val)
+    -- tách số ở đầu chuỗi: "3 Point" -> 3
+    local num = tonumber(val and val:match("%d+"))
+    if num then
+        coinflipTargetCharge = num
+    end
+end)
+
+-- Aimbot Toggle
 Tabs.Main:AddToggle("AimbotToggle", {
     Title = "Auto Aim Shoot",
     Default = false,
-    Callback = function(state)
-        active = state
-    end
+    Callback = function(state) active = state end
 })
 
--- ================== HELPERS ==================
+-- Coinflip Toggle
+Tabs.Main:AddToggle("AutoCoinflipToggle", {
+    Title = "Auto Coin Flip",
+    Default = false,
+}):OnChanged(function(state)
+    autoCoinflip = state
+end)
+
+-- ==================================================
+-- 📌 Helpers Aimbot
+-- ==================================================
 local function setupCharacter(char)
     Humanoid = char:WaitForChild("Humanoid")
     HRP = char:WaitForChild("HumanoidRootPart")
@@ -966,7 +1004,6 @@ local function isFlintlockVisible()
     return flint.Transparency < 1
 end
 
--- Prediction
 local movementThreshold = 0.5
 local function getPredictedAimPosPing(targetHRP)
     local ping = getPingSeconds()
@@ -982,127 +1019,133 @@ local function getPredictedAimPosInfrontHRPPing(targetHRP)
     return targetHRP.Position + (targetHRP.CFrame.LookVector * studs)
 end
 
--- ================== AIMBOT LOOP ==================
+-- 📌 Helpers Coinflip
+local function readCoinflipChargesText()
+    local ok, txt = pcall(function()
+        local mainUI = LocalPlayer:FindFirstChild("PlayerGui") and LocalPlayer.PlayerGui:FindFirstChild("MainUI")
+        if not mainUI then return nil end
+        local abil = mainUI:FindFirstChild("AbilityContainer")
+        if not abil then return nil end
+        local coin = abil:FindFirstChild("Reroll")
+        if not coin then return nil end
+        local chargesLabel = coin:FindFirstChild("Charges")
+        if not chargesLabel then return nil end
+        return tonumber(chargesLabel.Text)
+    end)
+    if ok then return txt end
+    return nil
+end
+
+-- ==================================================
+-- 🔥 MAIN LOOP (RenderStepped)
+-- ==================================================
 RunService.RenderStepped:Connect(function()
-    if not active or not Humanoid or not HRP then return end
-    local isVisible = isFlintlockVisible()
-    if isVisible and not prevFlintVisibleAim and not aiming then
-        lastTriggerTime = tick()
-        aiming = true
-    end
-    prevFlintVisibleAim = isVisible
+    -- ===== AIMBOT =====
+    if active and Humanoid and HRP then
+        local isVisible = isFlintlockVisible()
+        if isVisible and not prevFlintVisibleAim and not aiming then
+            lastTriggerTime = tick()
+            aiming = true
+        end
+        prevFlintVisibleAim = isVisible
 
-    if aiming then
-        local elapsed = tick() - lastTriggerTime
+        if aiming then
+            local elapsed = tick() - lastTriggerTime
 
-        if aimMode == "Reflex" then
-            -- Reflex giữ nguyên
-            if elapsed <= spinDuration then
-                local spinProgress = elapsed / spinDuration
-                local spinAngle = math.rad(360 * spinProgress)
-                HRP.CFrame = CFrame.new(HRP.Position) * CFrame.Angles(0, spinAngle, 0)
-            elseif elapsed <= spinDuration + 0.7 then
-                if not originalWS then
-                    originalWS, originalJP, originalAutoRotate = Humanoid.WalkSpeed, Humanoid.JumpPower, Humanoid.AutoRotate
-                end
-                Humanoid.AutoRotate = false
-                HRP.AssemblyAngularVelocity = Vector3.zero
-                local targetHRP = getValidTarget()
-                if targetHRP then
-                    local aimPos
-                    if predictionMode == "Ping" then
-                        aimPos = getPredictedAimPosPing(targetHRP)
-                    elseif predictionMode == "front" then
-                        aimPos = targetHRP.Position + targetHRP.CFrame.LookVector * 4
-                    elseif predictionMode == "No Lag" then
-                        aimPos = getPredictedAimPosInfrontHRPPing(targetHRP)
-                    else
-                        aimPos = targetHRP.Position + targetHRP.Velocity * (4 / 60)
+            if aimMode == "Reflex" then
+                if elapsed <= spinDuration then
+                    local spinProgress = elapsed / spinDuration
+                    local spinAngle = math.rad(360 * spinProgress)
+                    HRP.CFrame = CFrame.new(HRP.Position) * CFrame.Angles(0, spinAngle, 0)
+                elseif elapsed <= spinDuration + 0.7 then
+                    if not originalWS then
+                        originalWS, originalJP, originalAutoRotate = Humanoid.WalkSpeed, Humanoid.JumpPower, Humanoid.AutoRotate
                     end
-                    if aimPos then
-                        local direction = (aimPos - HRP.Position).Unit
-                        local yRot = math.atan2(-direction.X, -direction.Z)
-                        HRP.CFrame = CFrame.new(HRP.Position) * CFrame.Angles(0, yRot, 0)
+                    Humanoid.AutoRotate = false
+                    HRP.AssemblyAngularVelocity = Vector3.zero
+                    local targetHRP = getValidTarget()
+                    if targetHRP then
+                        local aimPos
+                        if predictionMode == "Ping" then
+                            aimPos = getPredictedAimPosPing(targetHRP)
+                        elseif predictionMode == "front" then
+                            aimPos = targetHRP.Position + targetHRP.CFrame.LookVector * 4
+                        elseif predictionMode == "No Lag" then
+                            aimPos = getPredictedAimPosInfrontHRPPing(targetHRP)
+                        else
+                            aimPos = targetHRP.Position + targetHRP.Velocity * (4 / 60)
+                        end
+                        if aimPos then
+                            local direction = (aimPos - HRP.Position).Unit
+                            local yRot = math.atan2(-direction.X, -direction.Z)
+                            HRP.CFrame = CFrame.new(HRP.Position) * CFrame.Angles(0, yRot, 0)
+                        end
+                    end
+                else
+                    aiming = false
+                    if originalWS then
+                        Humanoid.WalkSpeed, Humanoid.JumpPower, Humanoid.AutoRotate =
+                            originalWS, originalJP, originalAutoRotate
+                        originalWS, originalJP, originalAutoRotate = nil, nil, nil
                     end
                 end
-            else
-                aiming = false
-                if originalWS then
-                    Humanoid.WalkSpeed, Humanoid.JumpPower, Humanoid.AutoRotate = originalWS, originalJP, originalAutoRotate
-                    originalWS, originalJP, originalAutoRotate = nil, nil, nil
+
+            elseif aimMode == "Normal" or aimMode == "Faster" then
+                local duration = (aimMode == "Faster") and fasterDuration or aimDuration
+                if elapsed <= duration then
+                    if not originalWS then
+                        originalWS, originalJP, originalAutoRotate = Humanoid.WalkSpeed, Humanoid.JumpPower, Humanoid.AutoRotate
+                    end
+                    Humanoid.AutoRotate = false
+                    HRP.AssemblyAngularVelocity = Vector3.zero
+                    local targetHRP = getValidTarget()
+                    if targetHRP then
+                        local aimPos
+                        if predictionMode == "Ping" then
+                            aimPos = getPredictedAimPosPing(targetHRP)
+                        elseif predictionMode == "front" then
+                            aimPos = targetHRP.Position + targetHRP.CFrame.LookVector * 4
+                        elseif predictionMode == "No Lag" then
+                            aimPos = getPredictedAimPosInfrontHRPPing(targetHRP)
+                        else
+                            aimPos = targetHRP.Position + targetHRP.Velocity * (4 / 60)
+                        end
+                        if aimPos then
+                            local direction = (aimPos - HRP.Position).Unit
+                            local yRot = math.atan2(-direction.X, -direction.Z)
+                            HRP.CFrame = CFrame.new(HRP.Position) * CFrame.Angles(0, yRot, 0)
+                        end
+                    end
+                else
+                    aiming = false
+                    if originalWS then
+                        Humanoid.WalkSpeed, Humanoid.JumpPower, Humanoid.AutoRotate =
+                            originalWS, originalJP, originalAutoRotate
+                        originalWS, originalJP, originalAutoRotate = nil, nil, nil
+                    end
                 end
             end
+        end
+    end
 
-        elseif aimMode == "Normal" or aimMode == "Faster" then
-            -- Normal và Faster chung logic, chỉ khác thời gian
-            local duration = (aimMode == "Faster") and fasterDuration or aimDuration
-            if elapsed <= duration then
-                if not originalWS then
-                    originalWS, originalJP, originalAutoRotate = Humanoid.WalkSpeed, Humanoid.JumpPower, Humanoid.AutoRotate
-                end
-                Humanoid.AutoRotate = false
-                HRP.AssemblyAngularVelocity = Vector3.zero
-                local targetHRP = getValidTarget()
-                if targetHRP then
-                    local aimPos
-                    if predictionMode == "Ping" then
-                        aimPos = getPredictedAimPosPing(targetHRP)
-                    elseif predictionMode == "front" then
-                        aimPos = targetHRP.Position + targetHRP.CFrame.LookVector * 4
-                    elseif predictionMode == "No Lag" then
-                        aimPos = getPredictedAimPosInfrontHRPPing(targetHRP)
-                    else
-                        aimPos = targetHRP.Position + targetHRP.Velocity * (4 / 60)
-                    end
-                    if aimPos then
-                        local direction = (aimPos - HRP.Position).Unit
-                        local yRot = math.atan2(-direction.X, -direction.Z)
-                        HRP.CFrame = CFrame.new(HRP.Position) * CFrame.Angles(0, yRot, 0)
-                    end
-                end
-            else
-                aiming = false
-                if originalWS then
-                    Humanoid.WalkSpeed, Humanoid.JumpPower, Humanoid.AutoRotate = originalWS, originalJP, originalAutoRotate
-                    originalWS, originalJP, originalAutoRotate = nil, nil, nil
-                end
+    -- ===== AUTO COINFLIP =====
+    if autoCoinflip then
+        local charges = readCoinflipChargesText()
+        if charges and charges < coinflipTargetCharge then
+            local now = tick()
+            if now - lastCoinflipTime >= coinflipCooldown then
+                lastCoinflipTime = now
+                pcall(function()
+                    RemoteEvent:FireServer(table.unpack({
+                        [1] = "UseActorAbility",
+                        [2] = "CoinFlip",
+                    }))
+                end)
             end
         end
     end
 end)
 end
-
-
-
-
-
--- AutoUseCoinFlip (Fix)
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local RemoteEvent = ReplicatedStorage:WaitForChild("Modules", 5)
-    and ReplicatedStorage.Modules:WaitForChild("Network", 5)
-    and ReplicatedStorage.Modules.Network:WaitForChild("RemoteEvent", 5)
-
-local ActiveAutoUseCoinFlip = false
-
-Tabs.Main:AddToggle("AutoUseCoinFlip", {
-    Title = "Auto Flip Coin",
-    Default = false,
-}):OnChanged(function(state)
-    ActiveAutoUseCoinFlip = state
-
-    if state then
-        task.spawn(function()
-            while ActiveAutoUseCoinFlip do
-                if RemoteEvent then
-                    pcall(function()
-                        RemoteEvent:FireServer("UseActorAbility", "CoinFlip")
-                    end)
-                end
-                task.wait(1)
-            end
-        end)
-    end
-end)
 
 
 
