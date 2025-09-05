@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Free] | Forsaken",
-    SubTitle = "Version 4.1.0",
+    SubTitle = "Version 4.1.1",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -3908,6 +3908,336 @@ pingToggle:OnChanged(function(val)
     showPing = val
     msText.Visible = val
 end)
+
+
+
+
+
+
+
+-- LocalScript: Custom mirror of Roblox chat (view + send + collapse)
+-- Place in StarterPlayerScripts or StarterGui
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
+local TextChatService = game:GetService("TextChatService")
+
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+-- === CONFIG ===
+local USE_RICHTEXT = true
+
+-- === ScreenGui ===
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "CustomChatGUI"
+screenGui.ResetOnSpawn = false
+screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+screenGui.Parent = playerGui
+
+-- === Frame chính ===
+local chatFrame = Instance.new("Frame")
+chatFrame.Name = "ChatFrame"
+chatFrame.Size = UDim2.fromScale(0.32, 0.42)
+chatFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+chatFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
+chatFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+chatFrame.BackgroundTransparency = 0.25
+chatFrame.BorderSizePixel = 0
+chatFrame.Active = true
+chatFrame.ClipsDescendants = true
+chatFrame.Parent = screenGui
+
+local sizeConstraint = Instance.new("UISizeConstraint")
+sizeConstraint.MaxSize = Vector2.new(660, 480)
+sizeConstraint.MinSize = Vector2.new(260, 32) -- khi thu gọn chỉ cần title
+sizeConstraint.Parent = chatFrame
+
+local uiCorner = Instance.new("UICorner")
+uiCorner.CornerRadius = UDim.new(0, 12)
+uiCorner.Parent = chatFrame
+
+-- === Thanh tiêu đề ===
+local titleBar = Instance.new("Frame")
+titleBar.Name = "TitleBar"
+titleBar.Size = UDim2.new(1, 0, 0, 28)
+titleBar.BackgroundTransparency = 1
+titleBar.Parent = chatFrame
+
+local title = Instance.new("TextLabel")
+title.BackgroundTransparency = 1
+title.Size = UDim2.new(1, -40, 1, 0) -- chừa chỗ cho nút thu gọn
+title.Position = UDim2.new(0, 6, 0, 0)
+title.Font = Enum.Font.SourceSansSemibold
+title.TextSize = 18
+title.TextXAlignment = Enum.TextXAlignment.Left
+title.TextColor3 = Color3.fromRGB(240, 240, 240)
+title.Text = "Khung chat ảo"
+title.Parent = titleBar
+
+-- Nút thu gọn
+local toggleBtn = Instance.new("TextButton")
+toggleBtn.Name = "ToggleBtn"
+toggleBtn.Size = UDim2.new(0, 28, 0, 24)
+toggleBtn.Position = UDim2.new(1, -32, 0.5, -12)
+toggleBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+toggleBtn.Text = "-"
+toggleBtn.Font = Enum.Font.SourceSansBold
+toggleBtn.TextSize = 20
+toggleBtn.TextColor3 = Color3.fromRGB(255,255,255)
+toggleBtn.Parent = titleBar
+
+local toggleCorner = Instance.new("UICorner")
+toggleCorner.CornerRadius = UDim.new(0, 6)
+toggleCorner.Parent = toggleBtn
+
+-- Viền mỏng
+local stroke = Instance.new("UIStroke")
+stroke.Thickness = 1
+stroke.Transparency = 0.6
+stroke.Color = Color3.fromRGB(255,255,255)
+stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+stroke.Parent = chatFrame
+
+-- === ScrollingFrame ===
+local scroll = Instance.new("ScrollingFrame")
+scroll.Name = "Messages"
+scroll.Size = UDim2.new(1, -10, 1, -72)
+scroll.Position = UDim2.new(0, 5, 0, 34)
+scroll.BackgroundTransparency = 1
+scroll.BorderSizePixel = 0
+scroll.ScrollBarThickness = 6
+scroll.ScrollingDirection = Enum.ScrollingDirection.Y
+scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+scroll.CanvasSize = UDim2.new(0,0,0,0)
+scroll.Parent = chatFrame
+
+local padding = Instance.new("UIPadding")
+padding.PaddingTop = UDim.new(0, 4)
+padding.PaddingBottom = UDim.new(0, 6)
+padding.PaddingLeft = UDim.new(0, 6)
+padding.PaddingRight = UDim.new(0, 6)
+padding.Parent = scroll
+
+local layout = Instance.new("UIListLayout")
+layout.Padding = UDim.new(0, 4)
+layout.SortOrder = Enum.SortOrder.LayoutOrder
+layout.Parent = scroll
+
+layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+	scroll.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 8)
+end)
+
+-- === Input bar ===
+local inputBar = Instance.new("Frame")
+inputBar.Name = "InputBar"
+inputBar.Size = UDim2.new(1, -10, 0, 32)
+inputBar.Position = UDim2.new(0, 5, 1, -36)
+inputBar.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+inputBar.BackgroundTransparency = 0.2
+inputBar.BorderSizePixel = 0
+inputBar.Parent = chatFrame
+
+local inputCorner = Instance.new("UICorner")
+inputCorner.CornerRadius = UDim.new(0, 8)
+inputCorner.Parent = inputBar
+
+local textBox = Instance.new("TextBox")
+textBox.Name = "ChatInput"
+textBox.Size = UDim2.new(1, -50, 1, 0)
+textBox.Position = UDim2.new(0, 6, 0, 0)
+textBox.BackgroundTransparency = 1
+textBox.Font = Enum.Font.SourceSans
+textBox.TextSize = 18
+textBox.TextXAlignment = Enum.TextXAlignment.Left
+textBox.PlaceholderText = "Nhập tin nhắn..."
+textBox.TextColor3 = Color3.fromRGB(255,255,255)
+textBox.Parent = inputBar
+
+local sendBtn = Instance.new("TextButton")
+sendBtn.Name = "SendBtn"
+sendBtn.Size = UDim2.new(0, 44, 1, 0)
+sendBtn.Position = UDim2.new(1, -44, 0, 0)
+sendBtn.BackgroundColor3 = Color3.fromRGB(50, 120, 255)
+sendBtn.Text = "➤"
+sendBtn.Font = Enum.Font.SourceSansBold
+sendBtn.TextSize = 20
+sendBtn.TextColor3 = Color3.fromRGB(255,255,255)
+sendBtn.Parent = inputBar
+
+local sendCorner = Instance.new("UICorner")
+sendCorner.CornerRadius = UDim.new(0, 8)
+sendCorner.Parent = sendBtn
+
+-- === Collapse logic ===
+local collapsed = false
+local fullHeight = chatFrame.Size -- lưu size gốc
+
+toggleBtn.MouseButton1Click:Connect(function()
+	collapsed = not collapsed
+	if collapsed then
+		scroll.Visible = false
+		inputBar.Visible = false
+		chatFrame.Size = UDim2.new(chatFrame.Size.X.Scale, chatFrame.Size.X.Offset, 0, 32)
+		toggleBtn.Text = "+"
+	else
+		scroll.Visible = true
+		inputBar.Visible = true
+		chatFrame.Size = fullHeight
+		toggleBtn.Text = "-"
+	end
+end)
+
+-- === Helper: strip tag ===
+local function stripTags(str)
+	return (str:gsub("<[^>]->", ""))
+end
+
+-- === Add message ===
+local function addMessage(text, speaker)
+	local msg = Instance.new("TextLabel")
+	msg.Name = "Msg"
+	msg.BackgroundTransparency = 1
+	msg.TextXAlignment = Enum.TextXAlignment.Left
+	msg.TextWrapped = true
+	msg.RichText = USE_RICHTEXT
+	msg.Font = Enum.Font.SourceSans
+	msg.TextSize = 18
+	msg.TextColor3 = Color3.fromRGB(255, 255, 255)
+	msg.AutomaticSize = Enum.AutomaticSize.Y
+	msg.Size = UDim2.new(1, 0, 0, 0)
+
+	if not USE_RICHTEXT then
+		text = stripTags(text or "")
+	end
+
+	msg.Text = string.format("[%s]: %s", speaker or "Hệ thống", text or "")
+	msg.Parent = scroll
+
+	task.defer(function()
+		scroll.CanvasPosition = Vector2.new(0, 1e7)
+	end)
+end
+
+-- === Kéo/thả ===
+do
+	local dragging, dragInput, dragStart, startPos
+	local function update(input)
+		local delta = input.Position - dragStart
+		chatFrame.Position = UDim2.new(
+			startPos.X.Scale, startPos.X.Offset + delta.X,
+			startPos.Y.Scale, startPos.Y.Offset + delta.Y
+		)
+	end
+	titleBar.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1
+			or input.UserInputType == Enum.UserInputType.Touch then
+			dragging = true
+			dragStart = input.Position
+			startPos = chatFrame.Position
+			input.Changed:Connect(function()
+				if input.UserInputState == Enum.UserInputState.End then
+					dragging = false
+				end
+			end)
+		end
+	end)
+	titleBar.InputChanged:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseMovement
+			or input.UserInputType == Enum.UserInputType.Touch then
+			dragInput = input
+		end
+	end)
+	UserInputService.InputChanged:Connect(function(input)
+		if dragging and input == dragInput then
+			update(input)
+		end
+	end)
+end
+
+-- === Nhận chat ===
+local function hookTextChatService()
+	TextChatService.MessageReceived:Connect(function(message)
+		local text = message and message.Text or ""
+		local speaker = "Hệ thống"
+		if message then
+			if message.PrefixText and #message.PrefixText > 0 then
+				speaker = message.PrefixText:gsub(":%s*$","")
+			elseif message.TextSource then
+				local p = Players:GetPlayerByUserId(message.TextSource.UserId)
+				speaker = (p and p.DisplayName) or "Người chơi"
+			end
+		end
+		addMessage(text, speaker)
+	end)
+end
+
+local function hookLegacyChat()
+	local chatEvents = ReplicatedStorage:FindFirstChild("DefaultChatSystemChatEvents")
+	if not chatEvents then return end
+	local onMsg = chatEvents:FindFirstChild("OnMessageDoneFiltering")
+	if not onMsg then return end
+	onMsg.OnClientEvent:Connect(function(data)
+		addMessage(data.Message, data.FromSpeaker or "Hệ thống")
+	end)
+end
+
+-- === Gửi chat ===
+local function sendChat(text)
+	if not text or text == "" then return end
+	if TextChatService and TextChatService.ChatInputBarConfiguration then
+		local channel = TextChatService.ChatInputBarConfiguration.TargetTextChannel
+		if channel then
+			channel:SendAsync(text)
+			return
+		end
+	end
+	local chatEvents = ReplicatedStorage:FindFirstChild("DefaultChatSystemChatEvents")
+	if chatEvents then
+		local sayMsg = chatEvents:FindFirstChild("SayMessageRequest")
+		if sayMsg then
+			sayMsg:FireServer(text, "All")
+			return
+		end
+	end
+end
+
+sendBtn.MouseButton1Click:Connect(function()
+	sendChat(textBox.Text)
+	textBox.Text = ""
+end)
+textBox.FocusLost:Connect(function(enterPressed)
+	if enterPressed then
+		sendChat(textBox.Text)
+		textBox.Text = ""
+	end
+end)
+
+-- Hook
+local okNew = false
+pcall(function()
+	if TextChatService and TextChatService.MessageReceived then
+		okNew = true
+		hookTextChatService()
+	end
+end)
+if not okNew then
+	hookLegacyChat()
+end
+
+-- === 📌 Toggle Fluent UI để ẩn/hiện GUI chat ===
+Tabs.Misc:AddToggle("CustomChatToggle", {
+	Title = "Show Chat",
+	Default = false,
+}):OnChanged(function(enabled)
+	if screenGui then
+		screenGui.Enabled = enabled
+	end
+end)
+
+
+
 
 -- Tabs.Settings
 
