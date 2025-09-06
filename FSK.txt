@@ -672,7 +672,7 @@ local function getClosestSurvivor()
 end
 
 -- ✅ 1 toggle duy nhất
-Tabs.Main:AddToggle("AutoFollowSurvivor", {
+Tabs.Farm:AddToggle("AutoFollowSurvivor", {
     Title = "Auto Kill Survivors V2",
     Default = false,
 }):OnChanged(function(enabled)
