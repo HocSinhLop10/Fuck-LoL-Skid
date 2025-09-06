@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Free] | Forsaken",
-    SubTitle = "Version 4.1.3",
+    SubTitle = "Version 4.1.4",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -2212,30 +2212,82 @@ end
 
     Tabs.Player:AddSection("↳ Troller")
 
+
 do
--- Nút Backflip
-Tabs.Player:AddButton({
-    Title = "Backflip",
-    Description = "Perform a backflip",
-    Callback = function()
-        local plr = game.Players.LocalPlayer
-        local char = plr and plr.Character
-        if not char then return end
+-- Lưu callback Backflip để toggle gọi lại
+local function doBackflip()
+    local plr = game.Players.LocalPlayer
+    local char = plr and plr.Character
+    if not char then return end
 
-        local hum = char:FindFirstChild("Humanoid")
-        local hrp = char:FindFirstChild("HumanoidRootPart")
-        local animator = hum and hum:FindFirstChildOfClass("Animator")
-        if not (hum and hrp) then return end
+    local hum = char:FindFirstChild("Humanoid")
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    local animator = hum and hum:FindFirstChildOfClass("Animator")
+    if not (hum and hrp) then return end
 
-        if char:FindFirstChild("Animate") then
-            char.Animate.Disabled = true
+    if char:FindFirstChild("Animate") then
+        char.Animate.Disabled = true
+    end
+
+    if animator then
+        for _, v in ipairs(animator:GetPlayingAnimationTracks()) do
+            v:Stop()
         end
+    end
 
-        if animator then
-            for _, v in ipairs(animator:GetPlayingAnimationTracks()) do
-                v:Stop()
+    for _, s in ipairs({
+        Enum.HumanoidStateType.FallingDown,
+        Enum.HumanoidStateType.Freefall,
+        Enum.HumanoidStateType.Running,
+        Enum.HumanoidStateType.Seated,
+        Enum.HumanoidStateType.Climbing
+    }) do
+        hum:SetStateEnabled(s, false)
+    end
+    hum:ChangeState(Enum.HumanoidStateType.Physics)
+
+    local d, s = 0.45, 120
+    local cf = hrp.CFrame
+    local dir = cf.LookVector -- ✅ bay theo hướng nhìn
+    local up = Vector3.yAxis
+
+    task.spawn(function()
+        local t0 = tick()
+        for i = 1, s do
+            local t = i / s
+            local y = 4 * (t - t ^ 2) * 10
+            local targetPos = cf.Position + dir * (35 * t) + up * y
+            local r = CFrame.Angles(math.rad(360 * t), 0, 0)
+
+            -- ✅ Raycast check trước khi PivotTo
+            local rayParams = RaycastParams.new()
+            rayParams.FilterDescendantsInstances = {char}
+            rayParams.FilterType = Enum.RaycastFilterType.Blacklist
+
+            local result = workspace:Raycast(hrp.Position, (targetPos - hrp.Position), rayParams)
+
+            if result then
+                -- Nếu có tường chặn → dừng tại vị trí va chạm
+                targetPos = result.Position + result.Normal * 2
             end
+
+            char:PivotTo(CFrame.new(targetPos) * cf.Rotation * r)
+
+            local wt = (d / s) * i - (tick() - t0)
+            if wt > 0 then task.wait(wt) end
         end
+
+        -- Kiểm tra va chạm tại điểm kết thúc
+        local finalTarget = cf.Position + dir * 35
+        local rayParams = RaycastParams.new()
+        rayParams.FilterDescendantsInstances = {char}
+        rayParams.FilterType = Enum.RaycastFilterType.Blacklist
+        local result = workspace:Raycast(hrp.Position, (finalTarget - hrp.Position), rayParams)
+        if result then
+            finalTarget = result.Position + result.Normal * 2
+        end
+
+        char:PivotTo(CFrame.new(finalTarget) * cf.Rotation)
 
         for _, s in ipairs({
             Enum.HumanoidStateType.FallingDown,
@@ -2244,40 +2296,18 @@ Tabs.Player:AddButton({
             Enum.HumanoidStateType.Seated,
             Enum.HumanoidStateType.Climbing
         }) do
-            hum:SetStateEnabled(s, false)
+            hum:SetStateEnabled(s, true)
         end
-        hum:ChangeState(Enum.HumanoidStateType.Physics)
+        hum:ChangeState(Enum.HumanoidStateType.Running)
+        char.Animate.Disabled = false
+    end)
+end
 
-        local d, s = 0.45, 120
-        local cf = hrp.CFrame
-        local dir = -cf.LookVector
-        local up = Vector3.yAxis
-
-        task.spawn(function()
-            local t0 = tick()
-            for i = 1, s do
-                local t = i / s
-                local y = 4 * (t - t ^ 2) * 10
-                local pos = cf.Position + dir * (35 * t) + up * y
-                local r = CFrame.Angles(math.rad(360 * t), 0, 0)
-                hrp.CFrame = CFrame.new(pos) * cf.Rotation * r
-                local wt = (d / s) * i - (tick() - t0)
-                if wt > 0 then task.wait(wt) end
-            end
-            hrp.CFrame = CFrame.new(cf.Position + dir * 35) * cf.Rotation
-            for _, s in ipairs({
-                Enum.HumanoidStateType.FallingDown,
-                Enum.HumanoidStateType.Freefall,
-                Enum.HumanoidStateType.Running,
-                Enum.HumanoidStateType.Seated,
-                Enum.HumanoidStateType.Climbing
-            }) do
-                hum:SetStateEnabled(s, true)
-            end
-            hum:ChangeState(Enum.HumanoidStateType.Running)
-            char.Animate.Disabled = false
-        end)
-    end
+-- Nút Backflip
+Tabs.Player:AddButton({
+    Title = "Backflip",
+    Description = "Perform a backflip",
+    Callback = doBackflip
 })
 
 -- Toggle Auto Backflip
@@ -2290,9 +2320,8 @@ Tabs.Player:AddToggle("AutoBackflip", {
         if autoFlip then
             task.spawn(function()
                 while autoFlip do
-                    -- Gọi lại callback của nút Backflip
-                    Tabs.Player.Flags.Backflip.Callback()
-                    task.wait(1.5) -- delay giữa các lần backflip
+                    doBackflip()
+                    task.wait(1.25)
                 end
             end)
         end
