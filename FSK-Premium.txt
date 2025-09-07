@@ -4113,6 +4113,18 @@ end)
 
 
 
+    Tabs.Misc:AddSection("↳ Fix Lag")
+
+Tabs.Misc:AddToggle("UnlockFPS", { -- "UnlockFPS" là ID toggle
+    Title = "Unlock FPS",
+    Default = false,
+    Callback = function(v)
+        if setfpscap then
+            setfpscap(v and 1000 or 60)
+        end
+    end
+})
+
 
     Tabs.Misc:AddSection("↳ Show")
 
