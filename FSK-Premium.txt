@@ -1033,7 +1033,7 @@ end
     Tabs.Main:AddSection("↳ Chance")
 
 -- ==================================================
--- 📌 Hợp nhất: Aimbot + Auto Coinflip
+-- 📌 Hợp nhất: Aimbot + Auto Coinflip (siêu nhanh)
 -- ==================================================
 
 do
@@ -1076,7 +1076,6 @@ local RemoteEvent = ReplicatedStorage:WaitForChild("Modules"):WaitForChild("Netw
 -- ==================================================
 -- 🔘 Fluent UI
 -- ==================================================
--- Aimbot UI
 Tabs.Main:AddDropdown("AimMode", {
     Title = "Aim Mode",
     Values = {"Normal", "Faster", "Reflex"},
@@ -1091,7 +1090,6 @@ Tabs.Main:AddDropdown("PredictionMode", {
     Callback = function(val) predictionMode = val end
 })
 
--- ✅ Coinflip Point Dropdown
 Tabs.Main:AddDropdown("CoinflipChargeDropdown", {
     Title = "Select Score",
     Values = {"1 Point", "2 Point", "3 Point"},
@@ -1103,14 +1101,12 @@ Tabs.Main:AddDropdown("CoinflipChargeDropdown", {
     end
 end)
 
--- Aimbot Toggle
 Tabs.Main:AddToggle("AimbotToggle", {
     Title = "Auto Aim Shoot",
     Default = false,
     Callback = function(state) active = state end
 })
 
--- Coinflip Toggle
 Tabs.Main:AddToggle("AutoCoinflipToggle", {
     Title = "Auto Coin Flip",
     Default = false,
@@ -1173,7 +1169,7 @@ local function getPredictedAimPosInfrontHRPPing(targetHRP)
     return targetHRP.Position + (targetHRP.CFrame.LookVector * studs)
 end
 
--- ⭐ NEW: chọn aimPos theo chế độ hiện có (giữ nguyên logic dự đoán)
+-- ⭐ chọn aimPos theo chế độ
 local function computeAimPos(targetHRP)
     if predictionMode == "Ping" then
         return getPredictedAimPosPing(targetHRP)
@@ -1181,7 +1177,7 @@ local function computeAimPos(targetHRP)
         return targetHRP.Position + targetHRP.CFrame.LookVector * 4
     elseif predictionMode == "No Lag" then
         return getPredictedAimPosInfrontHRPPing(targetHRP)
-    else -- "Speed" (giữ nguyên)
+    else
         if targetHRP.Velocity.Magnitude > 0.1 then
             return targetHRP.Position + targetHRP.Velocity * (4 / 60)
         else
@@ -1190,12 +1186,13 @@ local function computeAimPos(targetHRP)
     end
 end
 
--- ⭐ NEW: xoay tức thời nhìn về vị trí mong muốn (nhanh hơn math.atan2)
+-- ⭐ xoay siêu nhanh (x2 speed)
 local function faceInstant(toPos)
     if not HRP or not toPos then return end
     local fromPos = HRP.Position
     local lookAt = Vector3.new(toPos.X, fromPos.Y, toPos.Z)
-    HRP.CFrame = CFrame.new(fromPos, lookAt)
+    local targetCF = CFrame.new(fromPos, lookAt)
+    HRP.CFrame = HRP.CFrame:Lerp(targetCF, 1) -- xoay cực nhanh
 end
 
 -- 📌 Helpers Coinflip
@@ -1244,17 +1241,14 @@ RunService.RenderStepped:Connect(function()
                     HRP.AssemblyAngularVelocity = Vector3.zero
                     local targetHRP = getValidTarget()
                     if targetHRP then
-                        -- chọn aimPos theo chế độ đã set
                         local aimPos = computeAimPos(targetHRP)
 
-                        -- 🎯 Quay theo hướng target di chuyển (giữ nguyên ý tưởng cũ)
                         if targetHRP.Velocity.Magnitude > 0.1 then
                             local moveDir = targetHRP.Velocity.Unit
                             local lookAtPos = HRP.Position + Vector3.new(moveDir.X, 0, moveDir.Z)
                             HRP.CFrame = CFrame.new(HRP.Position, lookAtPos)
                         end
 
-                        -- ⚡ Xoay tức thời vào aimPos (nhanh và chính xác hơn)
                         faceInstant(aimPos)
                     end
                 else
@@ -1276,17 +1270,14 @@ RunService.RenderStepped:Connect(function()
                     HRP.AssemblyAngularVelocity = Vector3.zero
                     local targetHRP = getValidTarget()
                     if targetHRP then
-                        -- chọn aimPos theo chế độ đã set
                         local aimPos = computeAimPos(targetHRP)
 
-                        -- 🎯 Quay theo hướng target di chuyển (giữ nguyên ý tưởng cũ)
                         if targetHRP.Velocity.Magnitude > 0.1 then
                             local moveDir = targetHRP.Velocity.Unit
                             local lookAtPos = HRP.Position + Vector3.new(moveDir.X, 0, moveDir.Z)
                             HRP.CFrame = CFrame.new(HRP.Position, lookAtPos)
                         end
 
-                        -- ⚡ Xoay tức thời vào aimPos (nhanh và chính xác hơn)
                         faceInstant(aimPos)
                     end
                 else
