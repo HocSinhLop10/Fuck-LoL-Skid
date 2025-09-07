@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Free] | Forsaken",
-    SubTitle = "Version 4.1.5",
+    SubTitle = "Version 4.1.6",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -1091,13 +1091,12 @@ Tabs.Main:AddDropdown("PredictionMode", {
     Callback = function(val) predictionMode = val end
 })
 
--- ✅ Coinflip Point Dropdown (bên dưới 2 dropdown Aimbot) - hiển thị "1 Point/2 Point/3 Point"
+-- ✅ Coinflip Point Dropdown
 Tabs.Main:AddDropdown("CoinflipChargeDropdown", {
     Title = "Select Score",
     Values = {"1 Point", "2 Point", "3 Point"},
     Default = "3 Point",
 }):OnChanged(function(val)
-    -- tách số ở đầu chuỗi: "3 Point" -> 3
     local num = tonumber(val and val:match("%d+"))
     if num then
         coinflipTargetCharge = num
@@ -1174,6 +1173,31 @@ local function getPredictedAimPosInfrontHRPPing(targetHRP)
     return targetHRP.Position + (targetHRP.CFrame.LookVector * studs)
 end
 
+-- ⭐ NEW: chọn aimPos theo chế độ hiện có (giữ nguyên logic dự đoán)
+local function computeAimPos(targetHRP)
+    if predictionMode == "Ping" then
+        return getPredictedAimPosPing(targetHRP)
+    elseif predictionMode == "front" then
+        return targetHRP.Position + targetHRP.CFrame.LookVector * 4
+    elseif predictionMode == "No Lag" then
+        return getPredictedAimPosInfrontHRPPing(targetHRP)
+    else -- "Speed" (giữ nguyên)
+        if targetHRP.Velocity.Magnitude > 0.1 then
+            return targetHRP.Position + targetHRP.Velocity * (4 / 60)
+        else
+            return targetHRP.Position
+        end
+    end
+end
+
+-- ⭐ NEW: xoay tức thời nhìn về vị trí mong muốn (nhanh hơn math.atan2)
+local function faceInstant(toPos)
+    if not HRP or not toPos then return end
+    local fromPos = HRP.Position
+    local lookAt = Vector3.new(toPos.X, fromPos.Y, toPos.Z)
+    HRP.CFrame = CFrame.new(fromPos, lookAt)
+end
+
 -- 📌 Helpers Coinflip
 local function readCoinflipChargesText()
     local ok, txt = pcall(function()
@@ -1220,21 +1244,18 @@ RunService.RenderStepped:Connect(function()
                     HRP.AssemblyAngularVelocity = Vector3.zero
                     local targetHRP = getValidTarget()
                     if targetHRP then
-                        local aimPos
-                        if predictionMode == "Ping" then
-                            aimPos = getPredictedAimPosPing(targetHRP)
-                        elseif predictionMode == "front" then
-                            aimPos = targetHRP.Position + targetHRP.CFrame.LookVector * 4
-                        elseif predictionMode == "No Lag" then
-                            aimPos = getPredictedAimPosInfrontHRPPing(targetHRP)
-                        else
-                            aimPos = targetHRP.Position + targetHRP.Velocity * (4 / 60)
+                        -- chọn aimPos theo chế độ đã set
+                        local aimPos = computeAimPos(targetHRP)
+
+                        -- 🎯 Quay theo hướng target di chuyển (giữ nguyên ý tưởng cũ)
+                        if targetHRP.Velocity.Magnitude > 0.1 then
+                            local moveDir = targetHRP.Velocity.Unit
+                            local lookAtPos = HRP.Position + Vector3.new(moveDir.X, 0, moveDir.Z)
+                            HRP.CFrame = CFrame.new(HRP.Position, lookAtPos)
                         end
-                        if aimPos then
-                            local direction = (aimPos - HRP.Position).Unit
-                            local yRot = math.atan2(-direction.X, -direction.Z)
-                            HRP.CFrame = CFrame.new(HRP.Position) * CFrame.Angles(0, yRot, 0)
-                        end
+
+                        -- ⚡ Xoay tức thời vào aimPos (nhanh và chính xác hơn)
+                        faceInstant(aimPos)
                     end
                 else
                     aiming = false
@@ -1255,21 +1276,18 @@ RunService.RenderStepped:Connect(function()
                     HRP.AssemblyAngularVelocity = Vector3.zero
                     local targetHRP = getValidTarget()
                     if targetHRP then
-                        local aimPos
-                        if predictionMode == "Ping" then
-                            aimPos = getPredictedAimPosPing(targetHRP)
-                        elseif predictionMode == "front" then
-                            aimPos = targetHRP.Position + targetHRP.CFrame.LookVector * 4
-                        elseif predictionMode == "No Lag" then
-                            aimPos = getPredictedAimPosInfrontHRPPing(targetHRP)
-                        else
-                            aimPos = targetHRP.Position + targetHRP.Velocity * (4 / 60)
+                        -- chọn aimPos theo chế độ đã set
+                        local aimPos = computeAimPos(targetHRP)
+
+                        -- 🎯 Quay theo hướng target di chuyển (giữ nguyên ý tưởng cũ)
+                        if targetHRP.Velocity.Magnitude > 0.1 then
+                            local moveDir = targetHRP.Velocity.Unit
+                            local lookAtPos = HRP.Position + Vector3.new(moveDir.X, 0, moveDir.Z)
+                            HRP.CFrame = CFrame.new(HRP.Position, lookAtPos)
                         end
-                        if aimPos then
-                            local direction = (aimPos - HRP.Position).Unit
-                            local yRot = math.atan2(-direction.X, -direction.Z)
-                            HRP.CFrame = CFrame.new(HRP.Position) * CFrame.Angles(0, yRot, 0)
-                        end
+
+                        -- ⚡ Xoay tức thời vào aimPos (nhanh và chính xác hơn)
+                        faceInstant(aimPos)
                     end
                 else
                     aiming = false
