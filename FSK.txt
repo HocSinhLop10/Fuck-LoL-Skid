@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Free] | Forsaken",
-    SubTitle = "Version 4.1.4",
+    SubTitle = "Version 4.1.5",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -709,10 +709,10 @@ Tabs.Farm:AddToggle("AutoFollowSurvivor", {
                                 UseSkills()
                             end
                         end
-                        task.wait(0.3)
+                        task.wait(0.01)
                     end
                 else
-                    task.wait(1) -- không tìm thấy → nghỉ 1s rồi tìm lại
+                    task.wait(0.01) -- không tìm thấy → nghỉ 0.01 rồi tìm lại
                 end
             end
         end)
