@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Premium] | Forsaken",
-    SubTitle = "Version 4.1.1",
+    SubTitle = "Version 4.1.5",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -100,123 +100,6 @@ local Options = Fluent.Options
 
 -- Tabs.Farm
 
-do
-    local Players = game:GetService("Players")
-    local LocalPlayer = Players.LocalPlayer
-
-    local Active = false
-    local loopRunning = false
-    local CurrentTarget = nil
-    local lastAttack = 0
-
-    -- 🟢 Danh sách ưu tiên
-    local PriorityList = {
-        ["0206octavio"] = true
-    }
-
-    local function GetPriorityTarget()
-        local survivorsFolder = workspace:FindFirstChild("Players") and workspace.Players:FindFirstChild("Survivors")
-        if not survivorsFolder then return nil end
-
-        for _, survivor in ipairs(survivorsFolder:GetChildren()) do
-            -- chỉ check model survivors
-            if survivor:IsA("Model") and survivor:FindFirstChild("HumanoidRootPart") then
-                if PriorityList[survivor.Name] then
-                    local humanoid = survivor:FindFirstChildOfClass("Humanoid")
-                    if humanoid and humanoid.Health > 0 then
-                        return survivor
-                    end
-                end
-            end
-        end
-        return nil
-    end
-
-    local function GetClosestSurvivor()
-        -- 🔴 Check ưu tiên trong Survivors trước
-        local priorityTarget = GetPriorityTarget()
-        if priorityTarget then
-            return priorityTarget
-        end
-
-        -- 🔵 Nếu không có trong danh sách ưu tiên → chọn gần nhất
-        local localChar = LocalPlayer.Character
-        if not (localChar and localChar:FindFirstChild("HumanoidRootPart")) then return nil end
-        local survivorsFolder = workspace:FindFirstChild("Players") and workspace.Players:FindFirstChild("Survivors")
-        if not survivorsFolder then return nil end
-
-        local closest, minDist = nil, math.huge
-        for _, survivor in ipairs(survivorsFolder:GetChildren()) do
-            local humanoid = survivor:FindFirstChildOfClass("Humanoid")
-            if survivor:IsA("Model") and survivor:FindFirstChild("HumanoidRootPart") and humanoid and humanoid.Health > 0 then
-                local dist = (localChar.HumanoidRootPart.Position - survivor.HumanoidRootPart.Position).Magnitude
-                if dist < minDist then
-                    minDist = dist
-                    closest = survivor
-                end
-            end
-        end
-        return closest
-    end
-
-    local function KillTarget(target)
-        pcall(function()
-            if not target then return end
-            local localChar = LocalPlayer.Character
-            if not (localChar and localChar:FindFirstChild("HumanoidRootPart")) then return end
-
-            -- Dịch chuyển tới mục tiêu
-            localChar.HumanoidRootPart.CFrame = target.HumanoidRootPart.CFrame
-
-            -- Chỉ đánh nếu đã qua 0.5 giây từ lần đánh trước
-            if tick() - lastAttack >= 0.5 then
-                lastAttack = tick()
-                local ReplicatedStorage = game:GetService("ReplicatedStorage")
-                local remote = ReplicatedStorage:FindFirstChild("Modules")
-                              and ReplicatedStorage.Modules:FindFirstChild("Network")
-                              and ReplicatedStorage.Modules.Network:FindFirstChild("RemoteEvent")
-                if remote and typeof(remote.FireServer) == "function" then
-                    remote:FireServer("UseActorAbility", "Slash")
-                    task.wait(0.05)
-                    remote:FireServer("UseActorAbility", "Stab")
-                    task.wait(0.05)
-                    remote:FireServer("UseActorAbility", "Punch")
-                end
-            end
-        end)
-    end
-
-    local function StartLoop()
-        if loopRunning then return end
-        loopRunning = true
-        task.spawn(function()
-            while Active do
-                if not CurrentTarget 
-                   or not CurrentTarget.Parent 
-                   or not CurrentTarget:FindFirstChildOfClass("Humanoid") 
-                   or CurrentTarget:FindFirstChildOfClass("Humanoid").Health <= 0 then
-                    CurrentTarget = GetClosestSurvivor()
-                end
-                if CurrentTarget then
-                    KillTarget(CurrentTarget)
-                end
-                task.wait(0.01)
-            end
-            loopRunning = false
-        end)
-    end
-
-    Tabs.Farm:AddToggle("AutoKillSurvivors", {
-        Title = "Auto Kill Survivors",
-        Default = false,
-        Callback = function(Value)
-            Active = Value
-            if Active then
-                StartLoop()
-            end
-        end
-    })
-end
 
 
 
@@ -567,6 +450,278 @@ Tabs.Farm:AddToggle("AutoFinishGen", {
 end)
 
 
+
+
+
+
+    Tabs.Farm:AddSection("↳ Killers")
+
+
+do
+    local Players = game:GetService("Players")
+    local LocalPlayer = Players.LocalPlayer
+
+    local Active = false
+    local loopRunning = false
+    local CurrentTarget = nil
+    local lastAttack = 0
+
+    -- 🟢 Danh sách ưu tiên
+    local PriorityList = {
+        ["0206octavio"] = true
+    }
+
+    local function GetPriorityTarget()
+        local survivorsFolder = workspace:FindFirstChild("Players") and workspace.Players:FindFirstChild("Survivors")
+        if not survivorsFolder then return nil end
+
+        for _, survivor in ipairs(survivorsFolder:GetChildren()) do
+            -- chỉ check model survivors
+            if survivor:IsA("Model") and survivor:FindFirstChild("HumanoidRootPart") then
+                if PriorityList[survivor.Name] then
+                    local humanoid = survivor:FindFirstChildOfClass("Humanoid")
+                    if humanoid and humanoid.Health > 0 then
+                        return survivor
+                    end
+                end
+            end
+        end
+        return nil
+    end
+
+    local function GetClosestSurvivor()
+        -- 🔴 Check ưu tiên trong Survivors trước
+        local priorityTarget = GetPriorityTarget()
+        if priorityTarget then
+            return priorityTarget
+        end
+
+        -- 🔵 Nếu không có trong danh sách ưu tiên → chọn gần nhất
+        local localChar = LocalPlayer.Character
+        if not (localChar and localChar:FindFirstChild("HumanoidRootPart")) then return nil end
+        local survivorsFolder = workspace:FindFirstChild("Players") and workspace.Players:FindFirstChild("Survivors")
+        if not survivorsFolder then return nil end
+
+        local closest, minDist = nil, math.huge
+        for _, survivor in ipairs(survivorsFolder:GetChildren()) do
+            local humanoid = survivor:FindFirstChildOfClass("Humanoid")
+            if survivor:IsA("Model") and survivor:FindFirstChild("HumanoidRootPart") and humanoid and humanoid.Health > 0 then
+                local dist = (localChar.HumanoidRootPart.Position - survivor.HumanoidRootPart.Position).Magnitude
+                if dist < minDist then
+                    minDist = dist
+                    closest = survivor
+                end
+            end
+        end
+        return closest
+    end
+
+    local function KillTarget(target)
+        pcall(function()
+            if not target then return end
+            local localChar = LocalPlayer.Character
+            if not (localChar and localChar:FindFirstChild("HumanoidRootPart")) then return end
+
+            -- Dịch chuyển tới mục tiêu
+            localChar.HumanoidRootPart.CFrame = target.HumanoidRootPart.CFrame
+
+            -- Chỉ đánh nếu đã qua 0.5 giây từ lần đánh trước
+            if tick() - lastAttack >= 0.5 then
+                lastAttack = tick()
+                local ReplicatedStorage = game:GetService("ReplicatedStorage")
+                local remote = ReplicatedStorage:FindFirstChild("Modules")
+                              and ReplicatedStorage.Modules:FindFirstChild("Network")
+                              and ReplicatedStorage.Modules.Network:FindFirstChild("RemoteEvent")
+                if remote and typeof(remote.FireServer) == "function" then
+                    remote:FireServer("UseActorAbility", "Slash")
+                    task.wait(0.05)
+                    remote:FireServer("UseActorAbility", "Stab")
+                    task.wait(0.05)
+                    remote:FireServer("UseActorAbility", "Punch")
+                end
+            end
+        end)
+    end
+
+    local function StartLoop()
+        if loopRunning then return end
+        loopRunning = true
+        task.spawn(function()
+            while Active do
+                if not CurrentTarget 
+                   or not CurrentTarget.Parent 
+                   or not CurrentTarget:FindFirstChildOfClass("Humanoid") 
+                   or CurrentTarget:FindFirstChildOfClass("Humanoid").Health <= 0 then
+                    CurrentTarget = GetClosestSurvivor()
+                end
+                if CurrentTarget then
+                    KillTarget(CurrentTarget)
+                end
+                task.wait(0.01)
+            end
+            loopRunning = false
+        end)
+    end
+
+    Tabs.Farm:AddToggle("AutoKillSurvivors", {
+        Title = "Auto Kill Survivors",
+        Default = false,
+        Callback = function(Value)
+            Active = Value
+            if Active then
+                StartLoop()
+            end
+        end
+    })
+end
+
+
+
+do
+local PathfindingService = game:GetService("PathfindingService")
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local h = 0 -- cancel token
+local lastAttack = 0 -- cooldown
+
+-- 🔹 Danh sách Killers
+local KillersList = {
+    ["Slasher"] = true,
+    ["1x1x1x1"] = true,
+    ["c00lkidd"] = true,
+    ["Noli"] = true,
+    ["JohnDoe"] = true,
+    ["Quest666"] = true,
+}
+
+-- 🔹 Hàm dùng skill
+local function UseSkills()
+    local remote = ReplicatedStorage:FindFirstChild("Modules")
+                  and ReplicatedStorage.Modules:FindFirstChild("Network")
+                  and ReplicatedStorage.Modules.Network:FindFirstChild("RemoteEvent")
+
+    if remote and typeof(remote.FireServer) == "function" then
+        remote:FireServer("UseActorAbility", "Slash")
+        task.wait(0.05)
+        remote:FireServer("UseActorAbility", "Stab")
+        task.wait(0.05)
+        remote:FireServer("UseActorAbility", "Punch")
+    end
+end
+
+-- 🔹 Pathfinding tới vị trí
+local function pathfindTo(targetPos)
+    local hNow = h
+    local plr = Players.LocalPlayer
+    local char = plr and plr.Character
+    if not char then return end
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    local root = char:FindFirstChild("HumanoidRootPart")
+    if not (hum and root) then return end
+
+    local path = PathfindingService:CreatePath({
+        AgentRadius = 2,
+        AgentHeight = 5,
+        AgentCanJump = false,
+        AgentJumpHeight = 10,
+        AgentMaxSlope = 45
+    })
+
+    local ok = pcall(function()
+        path:ComputeAsync(root.Position, targetPos)
+    end)
+    if not ok or path.Status ~= Enum.PathStatus.Success then return end
+
+    for _, waypoint in ipairs(path:GetWaypoints()) do
+        if hNow ~= h then return end
+        if not (hum and root and root.Parent) then return end
+
+        hum:MoveTo(waypoint.Position)
+        repeat task.wait()
+        until hNow ~= h
+           or not root.Parent
+           or ((root.Position * Vector3.new(1,0,1) - waypoint.Position * Vector3.new(1,0,1)).Magnitude <= 2)
+
+        if waypoint.Action == Enum.PathWaypointAction.Jump then
+            hum.Jump = true
+        end
+    end
+end
+
+-- 🔹 tìm survivor gần nhất
+local function getClosestSurvivor()
+    local plr = Players.LocalPlayer
+    local hrp = plr and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart")
+    if not hrp then return nil end
+
+    if not (workspace:FindFirstChild("Players") and workspace.Players:FindFirstChild("Survivors")) then return nil end
+
+    local closest, dist = nil, math.huge
+    for _, s in pairs(workspace.Players.Survivors:GetChildren()) do
+        local hrp2 = s:FindFirstChild("HumanoidRootPart")
+        local hum = s:FindFirstChildOfClass("Humanoid")
+        if hrp2 and hum and hum.Health > 0 then
+            local d = (hrp.Position - hrp2.Position).Magnitude
+            if d < dist then
+                closest, dist = s, d
+            end
+        end
+    end
+    return closest, dist
+end
+
+-- ✅ 1 toggle duy nhất
+Tabs.Farm:AddToggle("AutoFollowSurvivor", {
+    Title = "Auto Kill Survivors V2",
+    Default = false,
+}):OnChanged(function(enabled)
+    if enabled then
+        task.spawn(function()
+            while enabled do
+                local plr = Players.LocalPlayer
+                local char = plr and plr.Character
+
+                -- 🔒 luôn check lại: chỉ chạy nếu mình là Killer
+                if not (char and KillersList[char.Name]) then
+                    task.wait(1)
+                    continue
+                end
+
+                local target, dist = getClosestSurvivor()
+                if target then
+                    local hrp = target:FindFirstChild("HumanoidRootPart")
+                    local hum = target:FindFirstChildOfClass("Humanoid")
+                    while enabled 
+                        and char and KillersList[char.Name] -- 🔒 kiểm tra lại liên tục
+                        and target.Parent 
+                        and hrp and hrp.Parent 
+                        and hum and hum.Health > 0 do
+                        
+                        -- luôn pathfind tới Survivor
+                        pathfindTo(hrp.Position)
+
+                        -- nếu trong 30m thì đánh skill
+                        local localHrp = char:FindFirstChild("HumanoidRootPart")
+                        if localHrp and (localHrp.Position - hrp.Position).Magnitude <= 6 then
+                            if tick() - lastAttack >= 0.5 then
+                                lastAttack = tick()
+                                UseSkills()
+                            end
+                        end
+                        task.wait(0.01)
+                    end
+                else
+                    task.wait(0.01) -- không tìm thấy → nghỉ 0.01 rồi tìm lại
+                end
+            end
+        end)
+    else
+        -- tăng token để cancel path hiện tại
+        h = h + 1
+    end
+end)
+end
 
 
     Tabs.Farm:AddSection("↳ Items")
@@ -2053,6 +2208,126 @@ else
     warn("[InfStamina] Sprinting module not found, toggle disabled.")  
 end
 
+
+
+    Tabs.Player:AddSection("↳ Troller")
+
+
+do
+-- Lưu callback Backflip để toggle gọi lại
+local function doBackflip()
+    local plr = game.Players.LocalPlayer
+    local char = plr and plr.Character
+    if not char then return end
+
+    local hum = char:FindFirstChild("Humanoid")
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    local animator = hum and hum:FindFirstChildOfClass("Animator")
+    if not (hum and hrp) then return end
+
+    if char:FindFirstChild("Animate") then
+        char.Animate.Disabled = true
+    end
+
+    if animator then
+        for _, v in ipairs(animator:GetPlayingAnimationTracks()) do
+            v:Stop()
+        end
+    end
+
+    for _, s in ipairs({
+        Enum.HumanoidStateType.FallingDown,
+        Enum.HumanoidStateType.Freefall,
+        Enum.HumanoidStateType.Running,
+        Enum.HumanoidStateType.Seated,
+        Enum.HumanoidStateType.Climbing
+    }) do
+        hum:SetStateEnabled(s, false)
+    end
+    hum:ChangeState(Enum.HumanoidStateType.Physics)
+
+    local d, s = 0.45, 120
+    local cf = hrp.CFrame
+    local dir = cf.LookVector -- ✅ bay theo hướng nhìn
+    local up = Vector3.yAxis
+
+    task.spawn(function()
+        local t0 = tick()
+        for i = 1, s do
+            local t = i / s
+            local y = 4 * (t - t ^ 2) * 10
+            local targetPos = cf.Position + dir * (35 * t) + up * y
+            local r = CFrame.Angles(math.rad(360 * t), 0, 0)
+
+            -- ✅ Raycast check trước khi PivotTo
+            local rayParams = RaycastParams.new()
+            rayParams.FilterDescendantsInstances = {char}
+            rayParams.FilterType = Enum.RaycastFilterType.Blacklist
+
+            local result = workspace:Raycast(hrp.Position, (targetPos - hrp.Position), rayParams)
+
+            if result then
+                -- Nếu có tường chặn → dừng tại vị trí va chạm
+                targetPos = result.Position + result.Normal * 2
+            end
+
+            char:PivotTo(CFrame.new(targetPos) * cf.Rotation * r)
+
+            local wt = (d / s) * i - (tick() - t0)
+            if wt > 0 then task.wait(wt) end
+        end
+
+        -- Kiểm tra va chạm tại điểm kết thúc
+        local finalTarget = cf.Position + dir * 35
+        local rayParams = RaycastParams.new()
+        rayParams.FilterDescendantsInstances = {char}
+        rayParams.FilterType = Enum.RaycastFilterType.Blacklist
+        local result = workspace:Raycast(hrp.Position, (finalTarget - hrp.Position), rayParams)
+        if result then
+            finalTarget = result.Position + result.Normal * 2
+        end
+
+        char:PivotTo(CFrame.new(finalTarget) * cf.Rotation)
+
+        for _, s in ipairs({
+            Enum.HumanoidStateType.FallingDown,
+            Enum.HumanoidStateType.Freefall,
+            Enum.HumanoidStateType.Running,
+            Enum.HumanoidStateType.Seated,
+            Enum.HumanoidStateType.Climbing
+        }) do
+            hum:SetStateEnabled(s, true)
+        end
+        hum:ChangeState(Enum.HumanoidStateType.Running)
+        char.Animate.Disabled = false
+    end)
+end
+
+-- Nút Backflip
+Tabs.Player:AddButton({
+    Title = "Backflip",
+    Description = "Perform a backflip",
+    Callback = doBackflip
+})
+
+-- Toggle Auto Backflip
+local autoFlip = false
+Tabs.Player:AddToggle("AutoBackflip", {
+    Title = "Auto Backflip",
+    Default = false,
+    Callback = function(Value)
+        autoFlip = Value
+        if autoFlip then
+            task.spawn(function()
+                while autoFlip do
+                    doBackflip()
+                    task.wait(1.25)
+                end
+            end)
+        end
+    end
+})
+end
 
 
 
