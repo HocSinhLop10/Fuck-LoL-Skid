@@ -1192,7 +1192,7 @@ local function faceInstant(toPos)
     local fromPos = HRP.Position
     local lookAt = Vector3.new(toPos.X, fromPos.Y, toPos.Z)
     local targetCF = CFrame.new(fromPos, lookAt)
-    HRP.CFrame = HRP.CFrame:Lerp(targetCF, 0.9) -- xoay cực nhanh
+    HRP.CFrame = HRP.CFrame:Lerp(targetCF, 0.99) -- xoay cực nhanh
 end
 
 -- 📌 Helpers Coinflip
