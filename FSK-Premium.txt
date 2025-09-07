@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Free] | Forsaken",
-    SubTitle = "Version 4.1.6",
+    SubTitle = "Version 4.1.8",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -4114,6 +4114,24 @@ end)
 
 
     Tabs.Misc:AddSection("↳ Fix Lag")
+
+local FpsbfButton = Tabs.Misc:AddButton({
+    Title = "FPS Boost",
+    Description = "Giảm đồ họa vật thể để tăng FPS",
+    Callback = function()
+        for _, v in ipairs(game:GetDescendants()) do
+            if v:IsA("BasePart") then
+                v.Material = Enum.Material.SmoothPlastic
+                v.Reflectance = 0
+            end
+        end
+    end
+})
+
+
+
+
+
 
 Tabs.Misc:AddToggle("UnlockFPS", { -- "UnlockFPS" là ID toggle
     Title = "Unlock FPS",
