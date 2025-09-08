@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Free] | Forsaken",
-    SubTitle = "Version 4.1.9",
+    SubTitle = "Version 4.2.0",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -1269,7 +1269,7 @@ end
     Tabs.Main:AddSection("↳ Chance")
 
 -- ==================================================
--- 📌 Hợp nhất: Aimbot + Auto Coinflip (siêu nhanh)
+-- 📌 Hợp nhất: Aimbot + Auto Coinflip (siêu nhanh, auto điều chỉnh độ lệch)
 -- ==================================================
 
 do
@@ -1285,6 +1285,7 @@ local LocalPlayer = Players.LocalPlayer
 -- 🎯 AIMBOT STATE
 -- ==================================================
 local active = false
+local useOffset = true -- ⭐ mặc định bật độ lệch
 local predictionMode = "Speed"
 local aimMode = "Normal"
 local aimDuration = 1.7
@@ -1336,6 +1337,13 @@ Tabs.Main:AddDropdown("CoinflipChargeDropdown", {
         coinflipTargetCharge = num
     end
 end)
+
+-- ⭐ Toggle bật/tắt độ lệch (ngay trên nút Auto Aim Shoot)
+Tabs.Main:AddToggle("OffsetToggle", {
+    Title = "Enable Offset",
+    Default = true,
+    Callback = function(state) useOffset = state end
+})
 
 Tabs.Main:AddToggle("AimbotToggle", {
     Title = "Auto Aim Shoot",
@@ -1405,7 +1413,7 @@ local function getPredictedAimPosInfrontHRPPing(targetHRP)
     return targetHRP.Position + (targetHRP.CFrame.LookVector * studs)
 end
 
--- ⭐ chọn aimPos theo chế độ
+-- ⭐ chọn aimPos theo chế độ (có thể bật/tắt độ lệch)
 local function computeAimPos(targetHRP)
     if predictionMode == "Ping" then
         return getPredictedAimPosPing(targetHRP)
@@ -1414,21 +1422,33 @@ local function computeAimPos(targetHRP)
     elseif predictionMode == "No Lag" then
         return getPredictedAimPosInfrontHRPPing(targetHRP)
     else
-        if targetHRP.Velocity.Magnitude > 0.1 then
-            return targetHRP.Position + targetHRP.Velocity * (4 / 60)
+        local velocity = targetHRP.Velocity
+        if velocity.Magnitude > 0.1 then
+            if useOffset then
+                local toTarget = (targetHRP.Position - HRP.Position).Unit
+                local moveDir = velocity.Unit
+                local dot = toTarget:Dot(moveDir)
+                if math.abs(dot) < 0.85 then
+                    return targetHRP.Position + velocity * (4 / 60)
+                else
+                    return targetHRP.Position
+                end
+            else
+                return targetHRP.Position
+            end
         else
             return targetHRP.Position
         end
     end
 end
 
--- ⭐ xoay siêu nhanh (x2 speed)
+-- ⭐ xoay siêu nhanh
 local function faceInstant(toPos)
     if not HRP or not toPos then return end
     local fromPos = HRP.Position
     local lookAt = Vector3.new(toPos.X, fromPos.Y, toPos.Z)
     local targetCF = CFrame.new(fromPos, lookAt)
-    HRP.CFrame = HRP.CFrame:Lerp(targetCF, 0.9) -- xoay cực nhanh
+    HRP.CFrame = HRP.CFrame:Lerp(targetCF, 0.9)
 end
 
 -- 📌 Helpers Coinflip
@@ -1478,13 +1498,11 @@ RunService.RenderStepped:Connect(function()
                     local targetHRP = getValidTarget()
                     if targetHRP then
                         local aimPos = computeAimPos(targetHRP)
-
                         if targetHRP.Velocity.Magnitude > 0.1 then
                             local moveDir = targetHRP.Velocity.Unit
                             local lookAtPos = HRP.Position + Vector3.new(moveDir.X, 0, moveDir.Z)
                             HRP.CFrame = CFrame.new(HRP.Position, lookAtPos)
                         end
-
                         faceInstant(aimPos)
                     end
                 else
@@ -1507,13 +1525,11 @@ RunService.RenderStepped:Connect(function()
                     local targetHRP = getValidTarget()
                     if targetHRP then
                         local aimPos = computeAimPos(targetHRP)
-
                         if targetHRP.Velocity.Magnitude > 0.1 then
                             local moveDir = targetHRP.Velocity.Unit
                             local lookAtPos = HRP.Position + Vector3.new(moveDir.X, 0, moveDir.Z)
                             HRP.CFrame = CFrame.new(HRP.Position, lookAtPos)
                         end
-
                         faceInstant(aimPos)
                     end
                 else
