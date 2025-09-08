@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Free] | Forsaken",
-    SubTitle = "Version 4.1.8",
+    SubTitle = "Version 4.1.9",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -451,6 +451,243 @@ end)
 
 
 
+local Players = game:GetService("Players")
+local PathfindingService = game:GetService("PathfindingService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Workspace = game:GetService("Workspace")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local LP = Players.LocalPlayer
+
+-- 🔹 Cancel token cho pathfinding
+local h = 0
+_G.PlayerControlled = false
+
+-- =========================
+--  DANH SÁCH SURVIVORS HỢP LỆ
+-- =========================
+local AllowedSurvivors = {
+    ["Noob"] = true, ["Guest1337"] = true, ["Elliot"] = true,
+    ["Shedletsky"] = true, ["TwoTime"] = true, ["007n7"] = true,
+    ["Chance"] = true, ["Builderman"] = true, ["Taph"] = true, ["Dusekkar"] = true,
+}
+
+local function isSurvivorValid()
+    local char = LP.Character
+    if not char then return false end
+    return AllowedSurvivors[char.Name] == true
+end
+
+-- =========================
+--  PHÁT HIỆN NGƯỜI CHƠI ĐIỀU KHIỂN
+-- =========================
+local moveKeys = {
+    [Enum.KeyCode.W] = true, [Enum.KeyCode.A] = true, [Enum.KeyCode.S] = true, [Enum.KeyCode.D] = true,
+    [Enum.KeyCode.Up] = true, [Enum.KeyCode.Left] = true, [Enum.KeyCode.Down] = true, [Enum.KeyCode.Right] = true,
+}
+local activeInputs, lastMoveTick = 0, 0
+local IDLE_GRACE = 0.25
+
+local function setControlled(flag)
+    if _G.PlayerControlled ~= flag then
+        _G.PlayerControlled = flag
+        if flag then h = h + 1 end -- hủy path ngay khi người chơi can thiệp
+    end
+end
+
+UserInputService.InputBegan:Connect(function(input, gp)
+    if gp then return end
+    if input.UserInputType == Enum.UserInputType.Keyboard and moveKeys[input.KeyCode] then
+        activeInputs += 1; setControlled(true)
+    elseif input.UserInputType == Enum.UserInputType.Gamepad1 then
+        activeInputs += 1; setControlled(true)
+    elseif input.UserInputType == Enum.UserInputType.Touch then
+        local cam = workspace.CurrentCamera
+        if cam and input.Position.X < cam.ViewportSize.X * 0.5 then
+            activeInputs += 1; setControlled(true)
+        end
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.Keyboard and moveKeys[input.KeyCode] then
+        activeInputs = math.max(0, activeInputs - 1)
+    elseif input.UserInputType == Enum.UserInputType.Gamepad1 or input.UserInputType == Enum.UserInputType.Touch then
+        activeInputs = math.max(0, activeInputs - 1)
+    end
+    if activeInputs == 0 then lastMoveTick = tick() end
+end)
+
+RunService.Heartbeat:Connect(function()
+    local hum = LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
+    if not hum then return end
+    if hum.MoveDirection.Magnitude > 0 then
+        lastMoveTick = tick(); setControlled(true)
+    elseif activeInputs == 0 and (tick() - lastMoveTick) >= IDLE_GRACE then
+        setControlled(false)
+    end
+end)
+
+-- =========================
+--  PATHFINDING
+-- =========================
+local function pathfindTo(targetPos)
+    local hNow = h
+    local char = LP.Character
+    if not char then return end
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    local root = char:FindFirstChild("HumanoidRootPart")
+    if not (hum and root) then return end
+
+    local path = PathfindingService:CreatePath({
+        AgentRadius = 2, AgentHeight = 5,
+        AgentCanJump = false, AgentJumpHeight = 10, AgentMaxSlope = 45
+    })
+
+    local ok = pcall(function() path:ComputeAsync(root.Position, targetPos) end)
+    if not ok or path.Status ~= Enum.PathStatus.Success then return end
+
+    for _, wp in ipairs(path:GetWaypoints()) do
+        if hNow ~= h or _G.PlayerControlled then return end
+        if not (hum and root and root.Parent) then return end
+
+        hum:MoveTo(wp.Position)
+        repeat task.wait()
+        until hNow ~= h or _G.PlayerControlled or not root.Parent
+           or ((root.Position * Vector3.new(1,0,1) - wp.Position * Vector3.new(1,0,1)).Magnitude <= 2)
+
+        if wp.Action == Enum.PathWaypointAction.Jump then hum.Jump = true end
+    end
+end
+
+-- =========================
+--  HỖ TRỢ KIỂM TRA KILLER
+-- =========================
+local function isKillerNearGenerator(generatorPos, distance)
+    local killersFolder = Workspace.Players:FindFirstChild("Killers")
+    if not killersFolder then return false end
+    for _, killer in ipairs(killersFolder:GetChildren()) do
+        local hrp = killer:FindFirstChild("HumanoidRootPart")
+        if hrp and (hrp.Position - generatorPos).Magnitude <= distance then
+            return true
+        end
+    end
+    return false
+end
+
+-- =========================
+--  TOGGLE AUTO WALK & FIX GENERATORS
+-- =========================
+local GenWalkToggle = Tabs.Farm:AddToggle("GenWalkToggle", {
+    Title = "Walk To Generator",
+    Default = false
+})
+
+GenWalkToggle:OnChanged(function(Value)
+    _G.AutoGenerators = Value
+    if not Value then h = h + 1 end
+
+    -- Auto Sprint (có kiểm soát stamina)
+    if Value then
+        _G.alwaysSprint = true
+        task.spawn(function()
+            local okSprint, sprint = pcall(function() return require(ReplicatedStorage.Systems.Character.Game.Sprinting) end)
+            local okStam, stamina = pcall(function() return require(ReplicatedStorage.Systems.Character.Game.StaminaHandler) end)
+            if not okSprint then return end
+
+            local LOW, HIGH, lastReset, forceStop = 10, 80, tick(), false
+            local function fireSprint(flag)
+                sprint.IsSprinting = flag
+                pcall(function() if sprint.__sprintedEvent then sprint.__sprintedEvent:Fire(flag) end end)
+            end
+
+            while _G.alwaysSprint and _G.AutoGenerators and task.wait() do
+                -- 🔒 Chỉ chạy khi là survivor hợp lệ; nếu không thì tắt sprint và chờ
+                if not isSurvivorValid() then
+                    if okSprint and sprint.IsSprinting then fireSprint(false) end
+                    continue
+                end
+
+                if okStam and type(stamina.Value) == "number" then
+                    if stamina.Value <= LOW then if sprint.IsSprinting then fireSprint(false) end; forceStop = true end
+                    if forceStop and stamina.Value >= HIGH then fireSprint(true); forceStop = false; lastReset = tick() end
+                end
+                if not forceStop and not sprint.IsSprinting then fireSprint(true); lastReset = tick() end
+                if not forceStop and tick() - lastReset >= 3 then
+                    fireSprint(false); task.wait(0.1); fireSprint(true); lastReset = tick()
+                end
+            end
+        end)
+    else
+        _G.alwaysSprint = false
+    end
+
+    -- Auto Generators loop
+    task.spawn(function()
+        while true do
+            if not _G.AutoGenerators then task.wait(1); continue end
+            if not isSurvivorValid() then task.wait(1); continue end -- ✅ chỉ cho phép survivors hợp lệ
+
+            if _G.PlayerControlled then task.wait(0.1); continue end
+
+            local hrp = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+            if not hrp then task.wait(1); continue end
+
+            local map = Workspace:FindFirstChild("Map") and Workspace.Map:FindFirstChild("Ingame") and Workspace.Map.Ingame:FindFirstChild("Map")
+            if not map then task.wait(2); continue end
+
+            local gens = {}
+            for _, gen in ipairs(map:GetChildren()) do
+                if gen.Name == "Generator" and gen:FindFirstChild("Progress") and gen.Progress.Value < 100 then
+                    table.insert(gens, gen)
+                end
+            end
+            if #gens == 0 then task.wait(3); continue end
+
+            table.sort(gens, function(a, b)
+                local ca, cb = a.Positions and a.Positions:FindFirstChild("Center"), b.Positions and b.Positions:FindFirstChild("Center") -- ✅ sửa 'và' -> 'and'
+                if ca and cb then
+                    return (hrp.Position - ca.Position).Magnitude < (hrp.Position - cb.Position).Magnitude
+                end
+                return false
+            end)
+
+            local targetGen = gens[1]
+            if targetGen and targetGen.Positions and targetGen.Positions:FindFirstChild("Center") then
+                local center = targetGen.Positions.Center.Position
+                if isKillerNearGenerator(center, 50) then task.wait(2); continue end
+
+                if not _G.PlayerControlled then pcall(function() pathfindTo(center) end) end
+                repeat task.wait(0.05)
+                until not _G.AutoGenerators or _G.PlayerControlled or not hrp.Parent or (hrp.Position - center).Magnitude <= 6
+                if _G.PlayerControlled then continue end
+
+                local prompt = targetGen.Main and targetGen.Main:FindFirstChild("Prompt")
+                if prompt and (hrp.Position - center).Magnitude <= 6 then
+                    prompt.HoldDuration, prompt.RequiresLineOfSight, prompt.MaxActivationDistance = 0, false, 99999
+                    while _G.AutoGenerators and not _G.PlayerControlled and targetGen.Parent and targetGen:FindFirstChild("Progress") and targetGen.Progress.Value < 100 do
+                        if (hrp.Position - center).Magnitude > 6 then break end
+                        -- 🔹 Nhấn 1 lần rồi chờ 3 giây
+                        pcall(function()
+                            prompt:InputHoldBegin()
+                        end)
+                        task.wait(0.2) -- giữ nhẹ để chắc chắn ăn lệnh
+                        pcall(function()
+                            prompt:InputHoldEnd()
+                        end)
+                        task.wait(3.0) -- nghỉ 3 giây
+                    end
+                end
+            end
+            task.wait(0.5)
+        end
+    end)
+end)
+
+-- Reset path khi map mới spawn
+Workspace.ChildAdded:Connect(function(child)
+    if child.Name == "Map" then h = h + 1 end
+end)
 
 
 
