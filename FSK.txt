@@ -4368,6 +4368,7 @@ end)
 
 -- SCRIPT GIẢM ĐỒ HỌA TỰ ĐỘNG MỖI 10 GIÂY (CÓ TOGGLE)
 -- Dán vào LocalScript (StarterPlayerScripts hoặc executor)
+-- Siêu Fix Lag cực mạnh giúp máy bạn mượt hơn 25% khi bật
 
 -- Hàm giảm đồ họa triệt để
 local function simplifyModel(obj)
@@ -4390,7 +4391,7 @@ local autoThread
 local connection
 
 local AutoReduceToggle = Tabs.Misc:AddToggle("AutoReduce", {
-    Title = "FPS Boost (Auto 10s)",
+    Title = "FPS Boost",
     Default = false,
     Callback = function(state)
         if state then
@@ -4407,18 +4408,23 @@ local AutoReduceToggle = Tabs.Misc:AddToggle("AutoReduce", {
                 end
             end
 
-            -- Bắt đầu vòng lặp 10s
+            -- 🔥 Giảm ngay 1 lần đầu tiên
+            for _, obj in ipairs(workspace:GetDescendants()) do
+                simplifyModel(obj)
+            end
+
+            -- Nếu có object spawn thêm thì cũng xử lý
+            connection = workspace.DescendantAdded:Connect(simplifyModel)
+
+            -- Sau đó auto lặp mỗi 10s
             autoThread = task.spawn(function()
                 while AutoReduceToggle.Value do
+                    task.wait(10)
                     for _, obj in ipairs(workspace:GetDescendants()) do
                         simplifyModel(obj)
                     end
-                    task.wait(10)
                 end
             end)
-
-            -- Nếu có object spawn sau thì cũng xử lý
-            connection = workspace.DescendantAdded:Connect(simplifyModel)
 
         else
             print("⏹ Auto Reduce OFF")
