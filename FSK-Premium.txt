@@ -4372,15 +4372,65 @@ end)
 
     Tabs.Misc:AddSection("↳ Fix Lag")
 
-local FpsbfButton = Tabs.Misc:AddButton({
+-- SCRIPT GIẢM ĐỒ HỌA TỰ ĐỘNG MỖI 10 GIÂY (CÓ TOGGLE)
+-- Dán vào LocalScript (StarterPlayerScripts hoặc executor)
+
+-- Giảm chất lượng render xuống mức thấp nhất ngay từ đầu
+settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
+
+-- Tắt bóng đổ và hiệu ứng lighting
+game.Lighting.GlobalShadows = false
+game.Lighting.FogEnd = 9e9
+game.Lighting.Brightness = 1
+for _, v in ipairs(game.Lighting:GetChildren()) do
+    if v:IsA("PostEffect") then
+        v.Enabled = false
+    end
+end
+
+-- Hàm giảm đồ họa triệt để
+local function simplifyModel(obj)
+    if obj:IsA("BasePart") then
+        obj.Material = Enum.Material.SmoothPlastic
+        obj.Color = Color3.fromRGB(163, 162, 165)
+        obj.Reflectance = 0
+        obj.CastShadow = false
+    elseif obj:IsA("Decal") or obj:IsA("Texture") or obj:IsA("SurfaceAppearance") then
+        obj:Destroy()
+    elseif obj:IsA("ParticleEmitter") or obj:IsA("Trail") or obj:IsA("Beam") or obj:IsA("Fire") or obj:IsA("Smoke") or obj:IsA("Sparkles") then
+        obj.Enabled = false
+    end
+end
+
+-- Áp dụng ngay từ đầu
+for _, obj in ipairs(workspace:GetDescendants()) do
+    simplifyModel(obj)
+end
+workspace.DescendantAdded:Connect(simplifyModel)
+
+print("✅ Đã giảm 100% đồ họa toàn bộ model trong game")
+
+-- ==============================
+-- Toggle Auto Reduce (10s)
+-- ==============================
+local autoThread
+
+local AutoReduceToggle = Tabs.Misc:AddToggle("AutoReduce", {
     Title = "FPS Boost",
-    Description = "Giảm đồ họa vật thể để tăng FPS",
-    Callback = function()
-        for _, v in ipairs(game:GetDescendants()) do
-            if v:IsA("BasePart") then
-                v.Material = Enum.Material.SmoothPlastic
-                v.Reflectance = 0
-            end
+    Default = false,
+    Callback = function(state)
+        if state then
+            print("🔄 Auto Reduce ON")
+            autoThread = task.spawn(function()
+                while AutoReduceToggle.Value do
+                    for _, obj in ipairs(workspace:GetDescendants()) do
+                        simplifyModel(obj)
+                    end
+                    task.wait(10)
+                end
+            end)
+        else
+            print("⏹ Auto Reduce OFF")
         end
     end
 })
