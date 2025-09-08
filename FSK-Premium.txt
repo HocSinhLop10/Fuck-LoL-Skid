@@ -451,6 +451,8 @@ end)
 
 
 
+
+do
 local Players = game:GetService("Players")
 local PathfindingService = game:GetService("PathfindingService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -688,7 +690,7 @@ end)
 Workspace.ChildAdded:Connect(function(child)
     if child.Name == "Map" then h = h + 1 end
 end)
-
+end
 
 
     Tabs.Farm:AddSection("↳ Killers")
