@@ -3238,9 +3238,10 @@ end
 
 
 
-
+do
 local RunService = game:GetService("RunService")
 local Camera = workspace.CurrentCamera
+local Players = game:GetService("Players")
 
 -- Danh sách model
 local allowedModelsWhite = {
@@ -3258,6 +3259,15 @@ local allowedModelsRed = {
 local drawingsWhite, drawingsRed = {}, {}
 local conWhiteLoop, conWhiteAdded, conWhiteRemoved
 local conRedLoop, conRedAdded, conRedRemoved
+
+-- Check model có phải player điều khiển không
+local function isControlledByPlayer(model)
+    if model:FindFirstChildOfClass("Humanoid") then
+        local plr = Players:GetPlayerFromCharacter(model)
+        return plr ~= nil
+    end
+    return false
+end
 
 -- Utility tạo/repair ESP
 local function createOrRepairESP(model, drawings, color)
@@ -3337,7 +3347,14 @@ local function updateESP(drawings, color)
             local dist = (hrp.Position - Camera.CFrame.Position).Magnitude
 
             if data.text then
-                data.text.Text = string.format("%s [%.0fm]", model.Name, dist)
+                local displayName = model.Name
+
+                -- Check riêng cho Noli
+                if model.Name == "Noli" and not isControlledByPlayer(model) then
+                    displayName = "Noli Fake"
+                end
+
+                data.text.Text = string.format("%s [%.0fm]", displayName, dist)
                 data.text.Position = Vector2.new(pos.X, pos.Y)
                 data.text.Visible = onScreen
             end
@@ -3443,6 +3460,7 @@ Tabs.Visual:AddToggle("ESPModelRedToggle", {
 }):OnChanged(function(enabled)
     if enabled then startESPRed() else stopESPRed() end
 end)
+end
 
 
 
