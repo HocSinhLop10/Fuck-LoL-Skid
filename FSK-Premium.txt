@@ -4372,13 +4372,53 @@ end)
 
     Tabs.Misc:AddSection("↳ Fix Lag")
 
--- SCRIPT GIẢM ĐỒ HỌA TỰ ĐỘNG MỖI 10 GIÂY (CÓ TOGGLE)
+-- SCRIPT GIẢM ĐỒ HỌA TỰ ĐỘNG MỖI 10 GIÂY (CÓ TOGGLE + RESTORE)
 -- Dán vào LocalScript (StarterPlayerScripts hoặc executor)
 -- Siêu Fix Lag cực mạnh giúp máy bạn mượt hơn 25% khi bật
+
+-- Lưu dữ liệu gốc
+local originalLighting = {}
+local originalParts = {}
+
+-- Hàm lưu Lighting gốc
+local function saveLighting()
+    originalLighting.QualityLevel = settings().Rendering.QualityLevel
+    originalLighting.GlobalShadows = game.Lighting.GlobalShadows
+    originalLighting.FogEnd = game.Lighting.FogEnd
+    originalLighting.Brightness = game.Lighting.Brightness
+    originalLighting.PostEffects = {}
+    for _, v in ipairs(game.Lighting:GetChildren()) do
+        if v:IsA("PostEffect") then
+            originalLighting.PostEffects[v] = v.Enabled
+        end
+    end
+end
+
+-- Hàm khôi phục Lighting
+local function restoreLighting()
+    if not originalLighting.QualityLevel then return end
+    settings().Rendering.QualityLevel = originalLighting.QualityLevel
+    game.Lighting.GlobalShadows = originalLighting.GlobalShadows
+    game.Lighting.FogEnd = originalLighting.FogEnd
+    game.Lighting.Brightness = originalLighting.Brightness
+    for effect, state in pairs(originalLighting.PostEffects) do
+        if effect and effect.Parent == game.Lighting then
+            effect.Enabled = state
+        end
+    end
+end
 
 -- Hàm giảm đồ họa triệt để
 local function simplifyModel(obj)
     if obj:IsA("BasePart") then
+        if not originalParts[obj] then
+            originalParts[obj] = {
+                Material = obj.Material,
+                Color = obj.Color,
+                Reflectance = obj.Reflectance,
+                CastShadow = obj.CastShadow
+            }
+        end
         obj.Material = Enum.Material.SmoothPlastic
         obj.Color = Color3.fromRGB(163, 162, 165)
         obj.Reflectance = 0
@@ -4388,6 +4428,19 @@ local function simplifyModel(obj)
     elseif obj:IsA("ParticleEmitter") or obj:IsA("Trail") or obj:IsA("Beam") or obj:IsA("Fire") or obj:IsA("Smoke") or obj:IsA("Sparkles") then
         obj.Enabled = false
     end
+end
+
+-- Hàm khôi phục BasePart
+local function restoreParts()
+    for part, data in pairs(originalParts) do
+        if part and part.Parent then
+            part.Material = data.Material
+            part.Color = data.Color
+            part.Reflectance = data.Reflectance
+            part.CastShadow = data.CastShadow
+        end
+    end
+    originalParts = {} -- reset
 end
 
 -- ==============================
@@ -4402,6 +4455,9 @@ local AutoReduceToggle = Tabs.Misc:AddToggle("AutoReduce", {
     Callback = function(state)
         if state then
             print("🔄 Auto Reduce ON")
+
+            -- Lưu lighting gốc
+            saveLighting()
 
             -- Giảm đồ họa lighting khi bật
             settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
@@ -4438,6 +4494,11 @@ local AutoReduceToggle = Tabs.Misc:AddToggle("AutoReduce", {
                 connection:Disconnect()
                 connection = nil
             end
+
+            -- Khôi phục đồ họa gốc
+            restoreLighting()
+            restoreParts()
+            print("✅ Đã khôi phục đồ họa gốc")
         end
     end
 })
