@@ -21,8 +21,8 @@ local minimizeUI = Enum.KeyCode.RightAlt
 
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
-    Title = "Hutao Hub [Free] | Forsaken",
-    SubTitle = "Version 4.2.0",
+    Title = "Hutao Hub [Premium] | Forsaken",
+    SubTitle = "Version 4.2.1",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -4239,7 +4239,8 @@ end
 
 
 
--- === SafeGenTeleport (Anti Killers V4 Fixed) ===
+do
+-- === SafeGenTeleport (Anti: ALL Moving Models/Parts/Effects) ===
 local Players = game:GetService("Players")
 local LP = Players.LocalPlayer
 
@@ -4273,8 +4274,106 @@ local Survivors = {
     Builderman = true, Taph = true, Dusekkar = true
 }
 
--- ✅ Kiểm tra có Killer hoặc Clone gần
+-- Whitelist: tên object/model/part KHÔNG bị tính là nguy hiểm (tùy bạn sửa)
+local SafeObjects = {
+    Pet = true,
+    Decoration = true,
+    Terrain = true,
+    Map = true
+}
+
+-- Cấu hình detect
+local MOVE_THRESHOLD = 0.5     -- thay đổi lớn hơn MOVE_THRESHOLD (stud) giữa 2 tick => moving
+local VEL_THRESHOLD  = 1       -- AssemblyLinearVelocity magnitude > VEL_THRESHOLD => moving
+local DETECT_RADIUS  = 75      -- bán kính (stud) để coi là "gần bạn"
+local SCAN_DELAY     = 0.12    -- thời gian giữa 2 lần scan (giảm nếu muốn nhạy hơn; tăng nếu lag)
+
+-- bảng lưu vị trí lần trước để so sánh
+local lastPositions = {}
+
+-- helper: tìm ancestor Character và Player (nếu có)
+local function findOwningCharacter(inst)
+    local cur = inst
+    while cur and cur ~= workspace and cur.Parent do
+        if cur:IsA("Model") then
+            local p = Players:GetPlayerFromCharacter(cur)
+            if p then
+                return cur, p
+            end
+        end
+        cur = cur.Parent
+    end
+    return nil, nil
+end
+
+-- helper: check xem part có force/constraint types gắn ở nó (gợi ý là đang bị điều khiển)
+local function hasForceOnPart(part)
+    if not part then return false end
+    -- các lớp thường dùng để điều khiển vận động
+    if part:FindFirstChildOfClass("BodyVelocity")
+    or part:FindFirstChildOfClass("BodyPosition")
+    or part:FindFirstChildOfClass("BodyForce")
+    or part:FindFirstChildOfClass("BodyGyro")
+    or part:FindFirstChildOfClass("LinearVelocity")
+    or part:FindFirstChildOfClass("VectorForce")
+    or part:FindFirstChildOfClass("AlignPosition")
+    or part:FindFirstChildOfClass("AlignOrientation") then
+        return true
+    end
+    return false
+end
+
+-- kiểm tra 1 BasePart có "di chuyển" hay không (so với lastPositions / velocity / force)
+local function isPartMoving(part)
+    if not part or not part:IsA("BasePart") then return false end
+    local ok, asmVel = pcall(function() return part.AssemblyLinearVelocity end)
+    local velMag = 0
+    if ok and asmVel then
+        velMag = asmVel.Magnitude or 0
+    else
+        -- fallback: try part.Velocity
+        local ok2, v2 = pcall(function() return part.Velocity end)
+        if ok2 and v2 then velMag = v2.Magnitude end
+    end
+
+    local last = lastPositions[part]
+    local pos = part.Position
+    local moved = false
+
+    if last then
+        local dist = (pos - last).Magnitude
+        if dist >= MOVE_THRESHOLD then
+            moved = true
+        end
+    else
+        -- nếu mới xuất hiện, coi là moving nếu có velocity hoặc force
+        if velMag >= VEL_THRESHOLD or hasForceOnPart(part) then
+            moved = true
+        end
+    end
+
+    -- cập nhật lastPositions
+    lastPositions[part] = pos
+    -- nếu có velocity lớn hoặc force thì chắc chắn moving
+    if velMag >= VEL_THRESHOLD or hasForceOnPart(part) then
+        moved = true
+    end
+
+    return moved
+end
+
+-- dọn bảng lastPositions (loại entry không còn trong workspace)
+local function pruneLastPositions()
+    for inst, _ in pairs(lastPositions) do
+        if not inst or not inst.Parent then
+            lastPositions[inst] = nil
+        end
+    end
+end
+
+-- Hàm chính: kiểm tra có vật "di chuyển" nguy hiểm gần position trong radius không
 local function isDangerNear(position, radius)
+    -- 1) Kiểm tra trực tiếp folder Killers (nếu Killer model đứng gần)
     local killersFolder = workspace:FindFirstChild("Players") and workspace.Players:FindFirstChild("Killers")
     if killersFolder then
         for _, killer in ipairs(killersFolder:GetChildren()) do
@@ -4287,10 +4386,44 @@ local function isDangerNear(position, radius)
             end
         end
     end
+
+    -- 2) Quét tất cả BasePart trong workspace (nhận diện projectiles, traps, effects gắn trên part, model parts...)
+    for _, inst in ipairs(workspace:GetDescendants()) do
+        if inst:IsA("BasePart") then
+            -- skip nếu tên thuộc whitelist
+            if SafeObjects[inst.Name] then
+                -- tiếp tục
+            else
+                local dist = (inst.Position - position).Magnitude
+                if dist <= radius then
+                    -- nếu part đang "di chuyển" -> nghiêm trọng
+                    if isPartMoving(inst) then
+                        -- kiểm tra owner (nằm trong 1 character của player thật không)
+                        local charModel, playerOwner = findOwningCharacter(inst)
+                        if playerOwner then
+                            -- nếu thuộc player thật: bỏ qua trừ khi tên character là killer/clone
+                            local charName = charModel and charModel.Name or ""
+                            if DangerousKillers[charName] or DangerousClones[charName] then
+                                return true
+                            else
+                                -- player thật điều khiển => ignore
+                            end
+                        else
+                            -- không phải player thật => NPC / skill / projectile / trap → nguy hiểm
+                            return true
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    -- prune các entry cũ
+    pruneLastPositions()
     return false
 end
 
--- ✅ Teleport đến generator an toàn
+-- Teleport tới generator an toàn (giữ nguyên logic của bạn)
 local function teleportToSafeGenerator()
     local character = LP.Character
     if not character or not character:FindFirstChild("HumanoidRootPart") then return end
@@ -4304,10 +4437,12 @@ local function teleportToSafeGenerator()
 
     for _, gen in ipairs(mapFolder:GetChildren()) do
         if gen.Name == "Generator" and gen:FindFirstChild("Progress") then
-            local genPos = gen:GetPivot().Position
+            local success, pivot = pcall(function() return gen:GetPivot() end)
+            if not success or not pivot then continue end
+            local genPos = pivot.Position
             local dist = (myPos - genPos).Magnitude
 
-            -- chỉ chọn generator xa & không có Killer/Clone gần
+            -- chọn generator xa & không có Danger gần
             if dist > bestDistance and not isDangerNear(genPos, 40) then
                 bestDistance = dist
                 bestGen = gen
@@ -4316,9 +4451,15 @@ local function teleportToSafeGenerator()
     end
 
     if bestGen then
-        local offset = CFrame.new(0, 5, -3) -- đứng cao hơn 5 studs, lùi ra sau 3 studs
+        local offset = CFrame.new(0, 5, -3)
         local goalCFrame = bestGen:GetPivot() * offset
-        character:PivotTo(goalCFrame)
+        if character and character.PrimaryPart then
+            character:PivotTo(goalCFrame)
+        else
+            -- fallback
+            local hrp = character and character:FindFirstChild("HumanoidRootPart")
+            if hrp then hrp.CFrame = goalCFrame end
+        end
         print("✅ Teleported safely to generator:", bestGen.Name)
     else
         print("⚠️ Không tìm thấy generator an toàn!")
@@ -4327,16 +4468,16 @@ end
 
 -- === Toggle GUI ===
 Tabs.Misc:AddToggle("SafeGenTeleport", {
-    Title = "Anti Killers V4",
+    Title = "Anti Killers V5",
     Default = false
 }):OnChanged(function(state)
     SafeGenRunning = state
     if state then
         SafeGenThread = task.spawn(function()
-            local delayTime = 0.1
+            local delayTime = SCAN_DELAY
             if AllowedPlayers[LP.Name] then
                 print("🚀 V2 Mode enabled for:", LP.Name)
-                delayTime = 0.0000001
+                delayTime = 0.01
             else
                 print("🐢 V1 Mode enabled for:", LP.Name)
             end
@@ -4347,13 +4488,10 @@ Tabs.Misc:AddToggle("SafeGenTeleport", {
                 if hrp then
                     local charName = character.Name
 
-                    -- 🚫 Nếu bạn là Killer hoặc Clone → không teleport
                     if DangerousKillers[charName] or DangerousClones[charName] then
-                        -- do nothing
-
-                    -- ✅ Nếu bạn là Survivor (hoặc chính tên account bạn)
+                        -- Nếu bạn là killer/clone → không teleport
                     elseif Survivors[charName] or charName == LP.Name then
-                        if isDangerNear(hrp.Position, 50) then
+                        if isDangerNear(hrp.Position, DETECT_RADIUS) then
                             teleportToSafeGenerator()
                         end
                     end
@@ -4367,6 +4505,7 @@ Tabs.Misc:AddToggle("SafeGenTeleport", {
         print("[SafeGenTeleport] Đã tắt.")
     end
 end)
+end
 
 
 
