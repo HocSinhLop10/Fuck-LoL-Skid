@@ -4278,7 +4278,7 @@ local SafeObjects = {
 -- Cấu hình detect
 local MOVE_THRESHOLD = 0.5     -- thay đổi lớn hơn MOVE_THRESHOLD (stud) giữa 2 tick => moving
 local VEL_THRESHOLD  = 1       -- AssemblyLinearVelocity magnitude > VEL_THRESHOLD => moving
-local DETECT_RADIUS  = 75      -- bán kính (stud) để coi là "gần bạn"
+local DETECT_RADIUS  = 70      -- bán kính (stud) để coi là "gần bạn"
 local SCAN_DELAY     = 0.12    -- thời gian giữa 2 lần scan (giảm nếu muốn nhạy hơn; tăng nếu lag)
 
 -- bảng lưu vị trí lần trước để so sánh
