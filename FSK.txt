@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Free] | Forsaken",
-    SubTitle = "Version 4.2.2",
+    SubTitle = "Version 4.2.3",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -2757,12 +2757,25 @@ local AttackAnimations = {
     'rbxassetid://139835501033932'
 }
 
--- gom reach logic thành hàm
+-- danh sách model killers và survivors (theo yêu cầu của bạn)
+local Killers = {
+    ["Slasher"] = true, ["1x1x1x1"] = true, ["c00lkidd"] = true,
+    ["Noli"] = true, ["JohnDoe"] = true, ["Quest666"] = true
+}
+
+local Survivors = {
+    ["Noob"] = true, ["Guest1337"] = true, ["Elliot"] = true,
+    ["Shedletsky"] = true, ["TwoTime"] = true, ["007n7"] = true,
+    ["Chance"] = true, ["Builderman"] = true, ["Taph"] = true, ["Dusekkar"] = true
+}
+
+-- gom reach logic thành hàm (đã chỉnh để ưu tiên nhắm phe đối nghịch nếu bạn ở dạng model)
 local function ForsakenReachLogic()
     if not ForsakenReachEnabled or not HumanoidRootPart then
         return
     end
 
+    -- kiểm tra animation attack (giữ nguyên)
     local Playing = false
     for _,v in Humanoid:GetPlayingAnimationTracks() do
         if table.find(AttackAnimations, v.Animation.AnimationId) and (v.TimePosition / v.Length < 0.75) then
@@ -2774,12 +2787,65 @@ local function ForsakenReachLogic()
         return
     end
 
-    local Target
+    -- xác định bạn đang là model thuộc phe nào (nếu có)
+    local PlayerRole = nil -- "Killer" | "Survivor" | nil
+    local myModelName = Character and Character.Name
+    if myModelName and Killers[myModelName] then
+        PlayerRole = "Killer"
+    elseif myModelName and Survivors[myModelName] then
+        PlayerRole = "Survivor"
+    end
+
+    local OppositeTable = nil
+    if PlayerRole == "Killer" then
+        OppositeTable = Survivors
+    elseif PlayerRole == "Survivor" then
+        OppositeTable = Killers
+    end
+
+    local Target = nil
     local CurrentNearestDist = NearestDist
 
-    local function loop(t)
-        for _,v in t do
-            if v == Character or not v:FindFirstChild("HumanoidRootPart") then
+    -- 1) Nếu bạn đang là model (có OppositeTable), ưu tiên tìm mục tiêu thuộc phe đối nghịch trước
+    local OppTarget = nil
+    local OppNearestDist = NearestDist
+
+    local function loopForOpp(t)
+        for _,v in pairs(t) do
+            if v == Character or not v:FindFirstChild("HumanoidRootPart") or not v:FindFirstChild("Humanoid") then
+                continue
+            end
+            local modelName = v.Name
+            if OppositeTable and OppositeTable[modelName] then
+                local Dist = (v.HumanoidRootPart.Position - HumanoidRootPart.Position).Magnitude
+                if Dist < OppNearestDist then
+                    OppNearestDist = Dist
+                    OppTarget = v
+                end
+            end
+        end
+    end
+
+    if OppositeTable then
+        loopForOpp(workspace.Players:GetDescendants())
+        local npcsFolder = workspace.Map:FindFirstChild("NPCs", true)
+        if npcsFolder then
+            loopForOpp(npcsFolder:GetChildren())
+        end
+    end
+
+    -- 2) Nếu không tìm được phe đối nghịch thì fallback về logic gốc nhưng vẫn bỏ qua model cùng phe với bạn
+    local function loopAll(t)
+        for _,v in pairs(t) do
+            if v == Character or not v:FindFirstChild("HumanoidRootPart") or not v:FindFirstChild("Humanoid") then
+                continue
+            end
+            local modelName = v.Name
+            -- bỏ qua cùng phe nếu bạn đang ở dạng model
+            if PlayerRole == "Killer" and Killers[modelName] then
+                continue
+            end
+            if PlayerRole == "Survivor" and Survivors[modelName] then
                 continue
             end
             local Dist = (v.HumanoidRootPart.Position - HumanoidRootPart.Position).Magnitude
@@ -2790,23 +2856,32 @@ local function ForsakenReachLogic()
         end
     end
 
-    loop(workspace.Players:GetDescendants())
-    local npcsFolder = workspace.Map:FindFirstChild("NPCs", true)
-    if npcsFolder then
-        loop(npcsFolder:GetChildren())
+    -- nếu tìm thấy OppTarget thì dùng luôn, không cần tìm tiếp
+    local FinalTarget = nil
+    if OppTarget then
+        FinalTarget = OppTarget
+    else
+        -- fallback: quét players + npcs giống trước nhưng đã loại cùng phe
+        loopAll(workspace.Players:GetDescendants())
+        local npcsFolder2 = workspace.Map:FindFirstChild("NPCs", true)
+        if npcsFolder2 then
+            loopAll(npcsFolder2:GetChildren())
+        end
+        FinalTarget = Target
     end
 
-    if not Target then
+    if not FinalTarget then
         return
     end
 
+    -- giữ nguyên phần tính velocity + áp dụng hit
     local OldVelocity = HumanoidRootPart.Velocity
     local NeededVelocity =
-        (Target.HumanoidRootPart.Position + Vector3.new(
+        (FinalTarget.HumanoidRootPart.Position + Vector3.new(
             RNG:NextNumber(-1.5, 1.5),
             0,
             RNG:NextNumber(-1.5, 1.5)
-        ) + (Target.HumanoidRootPart.Velocity * (Player:GetNetworkPing() * 1.25))
+        ) + (FinalTarget.HumanoidRootPart.Velocity * (Player:GetNetworkPing() * 1.25))
             - HumanoidRootPart.Position
         ) / (Player:GetNetworkPing() * 2)
 
@@ -2815,7 +2890,7 @@ local function ForsakenReachLogic()
     HumanoidRootPart.Velocity = OldVelocity
 end
 
--- vòng lặp auto gọi lại mỗi 0.1s
+-- vòng lặp auto gọi lại mỗi 0s (giữ nguyên)
 task.spawn(function()
     while true do
         task.wait(0)
