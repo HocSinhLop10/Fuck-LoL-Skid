@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Free] | Forsaken",
-    SubTitle = "Version 4.2.1",
+    SubTitle = "Version 4.2.2",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -2595,169 +2595,233 @@ end
     Tabs.Player:AddSection("↳ Hitbox")
 
 
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
+repeat task.wait() until game:IsLoaded()
 
--- Danh sách model cần tăng hitbox
-local targetModels = {
-    ["Noob"] = true,
-    ["Guest1337"] = true,
-    ["Elliot"] = true,
-    ["Shedletsky"] = true,
-    ["TwoTime"] = true,
-    ["007n7"] = true,
-    ["Chance"] = true,
-    ["Builderman"] = true,
-    ["Taph"] = true,
-    ["Dusekkar"] = true,
-    ["Slasher"] = true,
-    ["1x1x1x1"] = true,
-    ["c00lkidd"] = true,
-    ["Noli"] = true,
-    ["JohnDoe"] = true,
-    ["Quest666"] = true
+-- biến cấu hình
+local ForsakenReachEnabled = false
+local NearestDist = 120
+
+-- thêm toggle + slider vào Fluent (Tabs.Player bạn đã có sẵn)
+Tabs.Player:AddToggle("ForsakenReachToggle", {
+    Title = "Hitbox Devil",
+    Default = false,
+    Save = true
+}):OnChanged(function(Value)
+    ForsakenReachEnabled = Value
+end)
+
+Tabs.Player:AddSlider("ForsakenReachSlider", {
+    Title = "Distance",
+    Default = 120,
+    Min = 10,
+    Max = 300,
+    Rounding = 0,
+    Save = true,
+    Suffix = " studs"
+}):OnChanged(function(Value)
+    NearestDist = Value
+end)
+
+-- services & player setup
+local Players = game:GetService('Players')
+local Player = Players.LocalPlayer
+local Character = Player.Character or Player.CharacterAdded:Wait()
+local Humanoid = Character:WaitForChild("Humanoid")
+local HumanoidRootPart = Character:WaitForChild("HumanoidRootPart")
+
+Player.CharacterAdded:Connect(function(NewCharacter)
+    Character = NewCharacter
+    Humanoid = Character:WaitForChild("Humanoid")
+    HumanoidRootPart = Character:WaitForChild("HumanoidRootPart")
+end)
+
+local RNG = Random.new()
+
+-- full danh sách animations giữ nguyên từ code 1
+local AttackAnimations = {
+    'rbxassetid://131430497821198',
+    'rbxassetid://83829782357897',
+    'rbxassetid://126830014841198',
+    'rbxassetid://126355327951215',
+    'rbxassetid://121086746534252',
+    'rbxassetid://105458270463374',
+    'rbxassetid://127172483138092',
+    'rbxassetid://18885919947',
+    'rbxassetid://18885909645',
+    'rbxassetid://87259391926321',
+    'rbxassetid://106014898528300',
+    'rbxassetid://87259391926321',
+    'rbxassetid://86545133269813',
+    'rbxassetid://89448354637442',
+    'rbxassetid://90499469533503',
+    'rbxassetid://116618003477002',
+    'rbxassetid://106086955212611',
+    'rbxassetid://107640065977686',
+    'rbxassetid://77124578197357',
+    'rbxassetid://101771617803133',
+    'rbxassetid://134958187822107',
+    'rbxassetid://111313169447787',
+    'rbxassetid://71685573690338',
+    'rbxassetid://71685573690338',
+    'rbxassetid://129843313690921',
+    'rbxassetid://97623143664485',
+    'rbxassetid://129843313690921',
+    'rbxassetid://136007065400978',
+    'rbxassetid://136007065400978',
+    'rbxassetid://86096387000557',
+    'rbxassetid://86096387000557',
+    'rbxassetid://108807732150251',
+    'rbxassetid://138040001965654',
+    'rbxassetid://73502073176819',
+    'rbxassetid://129843313690921',
+    'rbxassetid://97623143664485',
+    'rbxassetid://129843313690921',
+    'rbxassetid://97623143664485',
+    'rbxassetid://97623143664485',
+    'rbxassetid://97623143664485',
+    'rbxassetid://86709774283672',
+    'rbxassetid://106014898528300',
+    'rbxassetid://87259391926321',
+    'rbxassetid://140703210927645',
+    'rbxassetid://96173857867228',
+    'rbxassetid://121255898612475',
+    'rbxassetid://98031287364865',
+    'rbxassetid://119462383658044',
+    'rbxassetid://77448521277146',
+    'rbxassetid://77448521277146',
+    'rbxassetid://103741352379819',
+    'rbxassetid://119462383658044',
+    'rbxassetid://131696603025265',
+    'rbxassetid://122503338277352',
+    'rbxassetid://97648548303678',
+    'rbxassetid://94162446513587',
+    'rbxassetid://84426150435898',
+    'rbxassetid://93069721274110',
+    'rbxassetid://114620047310688',
+    'rbxassetid://97433060861952',
+    'rbxassetid://82183356141401',
+    'rbxassetid://100592913030351',
+    'rbxassetid://121293883585738',
+    'rbxassetid://100592913030351',
+    'rbxassetid://121293883585738',
+    'rbxassetid://100592913030351',
+    'rbxassetid://121293883585738',
+    'rbxassetid://70447634862911',
+    'rbxassetid://92173139187970',
+    'rbxassetid://106847695270773',
+    'rbxassetid://125403313786645',
+    'rbxassetid://81639435858902',
+    'rbxassetid://137314737492715',
+    'rbxassetid://120112897026015',
+    'rbxassetid://82113744478546',
+    'rbxassetid://118298475669935',
+    'rbxassetid://82113744478546',
+    'rbxassetid://118298475669935',
+    'rbxassetid://126681776859538',
+    'rbxassetid://129976080405072',
+    'rbxassetid://109667959938617',
+    'rbxassetid://74707328554358',
+    'rbxassetid://133336594357903',
+    'rbxassetid://86204001129974',
+    'rbxassetid://82113744478546',
+    'rbxassetid://118298475669935',
+    'rbxassetid://124243639579224',
+    'rbxassetid://70371667919898',
+    'rbxassetid://131543461321709',
+    'rbxassetid://136323728355613',
+    'rbxassetid://109230267448394',
+    'rbxassetid://109230267448394',
+    'rbxassetid://109230267448394',
+    'rbxassetid://109230267448394',
+    'rbxassetid://109230267448394',
+    'rbxassetid://109230267448394',
+    'rbxassetid://109230267448394',
+    'rbxassetid://109230267448394',
+    'rbxassetid://109230267448394',
+    'rbxassetid://109230267448394',
+    'rbxassetid://109230267448394',
+    'rbxassetid://109230267448394',
+    'rbxassetid://109230267448394',
+    'rbxassetid://139835501033932',
+    'rbxassetid://139835501033932',
+    'rbxassetid://139835501033932',
+    'rbxassetid://139835501033932',
+    'rbxassetid://139835501033932',
+    'rbxassetid://139835501033932',
+    'rbxassetid://139835501033932',
+    'rbxassetid://139835501033932',
+    'rbxassetid://139835501033932',
+    'rbxassetid://139835501033932',
+    'rbxassetid://139835501033932',
+    'rbxassetid://139835501033932',
+    'rbxassetid://139835501033932'
 }
 
-local HitboxEnabled = false
-local HitboxScale = 8 -- mặc định
-local originalParts = {} -- lưu thuộc tính gốc theo part
+-- gom reach logic thành hàm
+local function ForsakenReachLogic()
+    if not ForsakenReachEnabled or not HumanoidRootPart then
+        return
+    end
 
-local function saveOriginal(part)
-    originalParts[part] = {
-        Size = part.Size,
-        Transparency = part.Transparency,
-        Color = part.Color,
-        Material = part.Material,
-        CanCollide = part.CanCollide,
-    }
-end
-
--- Hàm áp dụng hitbox (square trên XZ và tăng chiều cao Y theo HitboxScale)
-local function applyHitboxToCharacter(char, owner)
-    if not HitboxEnabled then return end
-    if not char or not char.Parent then return end
-    if not targetModels[char.Name] then return end
-    if owner == LocalPlayer then return end -- Không áp dụng cho bản thân
-
-    local part = char:FindFirstChild("HumanoidRootPart")
-    if part and part:IsA("BasePart") then
-        if not originalParts[part] then
-            saveOriginal(part)
+    local Playing = false
+    for _,v in Humanoid:GetPlayingAnimationTracks() do
+        if table.find(AttackAnimations, v.Animation.AnimationId) and (v.TimePosition / v.Length < 0.75) then
+            Playing = true
         end
-
-        local orig = originalParts[part]
-        -- Dùng max(orig.X, orig.Z) để được hình vuông trên mặt đất
-        local base = math.max(orig.Size.X, orig.Size.Z)
-        -- Tạo kích thước mới: X = Z = base * scale, Y = origY * scale (tăng cao)
-        local newSize = Vector3.new(base * HitboxScale, orig.Size.Y * HitboxScale, base * HitboxScale)
-
-        -- Dịch lên nửa phần chênh lệch chiều cao để giữ chân ở vị trí tương đối
-        local deltaY = (newSize.Y - orig.Size.Y) / 2
-        -- Thay đổi size trước rồi di chuyển lên xuống
-        part.Size = newSize
-        part.CFrame = part.CFrame + part.CFrame.UpVector * deltaY
-
-        -- Thay đổi hiển thị
-        part.Transparency = 0.8
-        part.Color = Color3.fromRGB(255, 0, 0)
-        part.Material = Enum.Material.Neon
-        part.CanCollide = false
     end
-end
 
--- Hàm reset hitbox (phục hồi đúng thuộc tính gốc và vị trí)
-local function resetHitbox(char)
-    if not char or not char.Parent then return end
-    local part = char:FindFirstChild("HumanoidRootPart")
-    if part and part:IsA("BasePart") and originalParts[part] then
-        local orig = originalParts[part]
-
-        -- Dịch xuống bằng nửa phần chênh lệch hiện tại -> gán size gốc
-        local deltaY = (part.Size.Y - orig.Size.Y) / 2
-        part.CFrame = part.CFrame - part.CFrame.UpVector * deltaY
-
-        part.Size = orig.Size
-        part.Transparency = orig.Transparency
-        part.Color = orig.Color
-        part.Material = orig.Material
-        part.CanCollide = orig.CanCollide
-
-        originalParts[part] = nil
+    if not Playing then
+        return
     end
-end
 
--- Slider chỉnh scale
-Tabs.Player:AddSlider("HitboxScale", {
-    Title = "Hitbox Scale",
-    Default = 8,
-    Min = 1,
-    Max = 100,
-    Rounding = 1
-}):OnChanged(function(value)
-    HitboxScale = value
-    if HitboxEnabled then
-        for _, plr in ipairs(Players:GetPlayers()) do
-            if plr ~= LocalPlayer and plr.Character then
-                applyHitboxToCharacter(plr.Character, plr)
+    local Target
+    local CurrentNearestDist = NearestDist
+
+    local function loop(t)
+        for _,v in t do
+            if v == Character or not v:FindFirstChild("HumanoidRootPart") then
+                continue
+            end
+            local Dist = (v.HumanoidRootPart.Position - HumanoidRootPart.Position).Magnitude
+            if Dist < CurrentNearestDist then
+                CurrentNearestDist = Dist
+                Target = v
             end
         end
     end
-end)
 
--- Toggle bật/tắt (nằm dưới slider)
-Tabs.Player:AddToggle("HitboxToggle", {
-    Title = "Hitbox Survivors",
-    Default = false
-}):OnChanged(function(state)
-    HitboxEnabled = state
-
-    for _, player in ipairs(Players:GetPlayers()) do
-        if player.Character then
-            if state then
-                applyHitboxToCharacter(player.Character, player)
-            else
-                resetHitbox(player.Character)
-            end
-        end
+    loop(workspace.Players:GetDescendants())
+    local npcsFolder = workspace.Map:FindFirstChild("NPCs", true)
+    if npcsFolder then
+        loop(npcsFolder:GetChildren())
     end
-end)
 
--- Theo dõi player mới vào và respawn / rời
-Players.PlayerAdded:Connect(function(plr)
-    plr.CharacterAdded:Connect(function(char)
-        task.wait(0.1)
-        if HitboxEnabled then
-            applyHitboxToCharacter(char, plr)
-        end
-    end)
-    plr.CharacterRemoving:Connect(function(char)
-        resetHitbox(char)
-    end)
-end)
-
-Players.PlayerRemoving:Connect(function(plr)
-    if plr.Character then
-        resetHitbox(plr.Character)
+    if not Target then
+        return
     end
-end)
 
--- Áp dụng cho player hiện tại
-for _, plr in ipairs(Players:GetPlayers()) do
-    plr.CharacterAdded:Connect(function(char)
-        task.wait(0.1)
-        if HitboxEnabled then
-            applyHitboxToCharacter(char, plr)
-        end
-    end)
-    plr.CharacterRemoving:Connect(function(char)
-        resetHitbox(char)
-    end)
-    if plr.Character then
-        if HitboxEnabled then
-            applyHitboxToCharacter(plr.Character, plr)
-        end
-    end
+    local OldVelocity = HumanoidRootPart.Velocity
+    local NeededVelocity =
+        (Target.HumanoidRootPart.Position + Vector3.new(
+            RNG:NextNumber(-1.5, 1.5),
+            0,
+            RNG:NextNumber(-1.5, 1.5)
+        ) + (Target.HumanoidRootPart.Velocity * (Player:GetNetworkPing() * 1.25))
+            - HumanoidRootPart.Position
+        ) / (Player:GetNetworkPing() * 2)
+
+    HumanoidRootPart.Velocity = NeededVelocity
+    game:GetService('RunService').RenderStepped:Wait()
+    HumanoidRootPart.Velocity = OldVelocity
 end
+
+-- vòng lặp auto gọi lại mỗi 0.1s
+task.spawn(function()
+    while true do
+        task.wait(0)
+        pcall(ForsakenReachLogic)
+    end
+end)
 
 
 
@@ -4208,7 +4272,7 @@ end)
 -- =========================
 Tabs.Misc:AddToggle("AntiNoclip", {
     Title = "Anti Noclip",
-    Default = true,
+    Default = false,
     Callback = function(Value)
         AntiNoclipEnabled = Value
         -- báo nhanh khi bật/tắt (không bắt buộc)
@@ -4656,13 +4720,13 @@ local AutoReduceToggle = Tabs.Misc:AddToggle("AutoReduce", {
 
 Tabs.Misc:AddToggle("UnlockFPS", { -- "UnlockFPS" là ID toggle
     Title = "Unlock FPS",
-    Default = false,
+    Default = true,
     Callback = function(v)
         if setfpscap then
             setfpscap(v and 1000 or 60)
         end
     end
-})
+}) 
 
     Tabs.Misc:AddSection("↳ Show")
 
