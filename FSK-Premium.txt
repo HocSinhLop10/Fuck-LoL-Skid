@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Premium] | Forsaken",
-    SubTitle = "Version 4.2.6",
+    SubTitle = "Version 4.2.7",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -1803,27 +1803,46 @@ do
     local Players = game:GetService("Players")
     local localPlayer = Players.LocalPlayer
 
-    -- ✅ Animation IDs cần block
+    -- ✅ Animation IDs cần block (đã merge đầy đủ từ code 1)
     local animationIds = {
-        ["126830014841198"] = true,
-        ["126355327951215"] = true,
-        ["121086746534252"] = true,
-        ["18885909645"]     = true,
-        ["105458270463374"] = true,
-        ["83829782357897"]  = true,
-        ["125403313786645"] = true,
-        ["118298475669935"] = true,
-        ["82113744478546"]  = true,
-        ["70371667919898"]  = true,
-        ["109230267448394"] = true,
-        ["139835501033932"] = true,
-        ["109667959938617"] = true,
-        ["126681776859538"] = true,
-        ["129976080405072"] = true,
-        ["121293883585738"] = true,
-        ["81639435858902"]  = true,
-        ["137314737492715"] = true,
-        ["92173139187970"]  = true,
+        ["131430497821198"] = true, -- MassInfection, 1x1x1x1
+        ["83829782357897"]  = true, -- Slash, 1x1x1x1
+        ["126830014841198"] = true, -- Slash, Jason
+        ["126355327951215"] = true, -- Behead, Jason
+        ["121086746534252"] = true, -- GashingWoundStart, Jason
+        ["105458270463374"] = true, -- Slash, JohnDoe
+        ["127172483138092"] = true, -- CorruptEnergy, JohnDoe
+        ["18885919947"]     = true, -- CorruptNature, c00lkidd
+        ["18885909645"]     = true, -- Attack, c00lkid
+        ["94162446513587"]  = true, -- Slash, JohnDoe, Skin: !Joner
+        ["84426150435898"]  = true, -- CorruptEnergy, JohnDoe, Skin: !Joner
+        ["93069721274110"]  = true, -- Slash, JohnDoe, Skin: AnnihilationJohnDoe
+        ["114620047310688"] = true, -- CorruptEnergy, JohnDoe, Skin: AnnihilationJohnDoe
+        ["97433060861952"]  = true, -- Slash, JohnDoe, Skin: #SK
+        ["82183356141401"]  = true, -- CorruptEnergy, JohnDoe, Skin: #SK
+        ["100592913030351"] = true, -- MassInfection, 1x1x1x1 (Fleskhjerta/AceOfSpades/Lancer)
+        ["121293883585738"] = true, -- Slash, 1x1x1x1 (Fleskhjerta/AceOfSpades/Lancer)
+        ["70447634862911"]  = true, -- MassInfection, Skin: Hacklord1x1x1x1
+        ["92173139187970"]  = true, -- Slash, Skin: Hacklord1x1x1x1
+        ["106847695270773"] = true, -- GashingWoundStart, Jason, Skin: Subject0Jason
+        ["125403313786645"] = true, -- Slash, Jason, Skin: Subject0Jason
+        ["81639435858902"]  = true, -- Behead, Jason, Skin: WhitePumpkinJason
+        ["137314737492715"] = true, -- GashingWoundStart, Jason, Skin: WhitePumpkinJason
+        ["120112897026015"] = true, -- Slash, Jason, Skin: WhitePumpkinJason
+        ["82113744478546"]  = true, -- Behead, Jason (nhiều skin)
+        ["118298475669935"] = true, -- Slash, Jason (nhiều skin)
+        ["126681776859538"] = true, -- Behead, Jason, Skin: PursuerJason
+        ["129976080405072"] = true, -- GashingWoundStart, Jason, Skin: PursuerJason
+        ["109667959938617"] = true, -- Slash, Jason, Skin: PursuerJason
+        ["74707328554358"]  = true, -- Slash, Jason, Skin: #DeadRabbitsJason
+        ["133336594357903"] = true, -- Behead, Jason, Skin: #DeadRabbitsJason
+        ["86204001129974"]  = true, -- GashingWoundStart, Jason, Skin: #DeadRabbitsJason
+        ["124243639579224"] = true, -- CorruptNature, c00lkidd, Skin: MafiosoC00l
+        ["70371667919898"]  = true, -- Attack, c00lkidd, Skin: MafiosoC00l
+        ["131543461321709"] = true, -- Attack, c00lkidd, Skin: SaviorC00l
+        ["136323728355613"] = true, -- Swing, Noli
+        ["109230267448394"] = true, -- Swing, Noli (all skins)
+        ["139835501033932"] = true, -- VoidRush, Noli (all skins)
     }
 
     local toggleOn = false
@@ -1922,10 +1941,10 @@ do
     -- ===============================
     -- Event-based animation detection
     -- ===============================
-    local playerConns = {}      -- player => {connections...} (to disconnect later)
-    local recentBlocks = {}     -- recentBlocks[player.UserId] = { [animId] = lastTick }
-    local COOLDOWN_ZERO = 0.05  -- cooldown when TimePosition == 0 path
-    local COOLDOWN_MISS = 0.25  -- fallback cooldown when TimePosition > 0 (missed exact 0)
+    local playerConns = {}
+    local recentBlocks = {}
+    local COOLDOWN_ZERO = 0.05
+    local COOLDOWN_MISS = 0.25
 
     local function cleanupPlayerConns(p)
         local tbl = playerConns[p]
@@ -1945,7 +1964,6 @@ do
         local last = recentBlocks[p.UserId][animId] or 0
         local now = tick()
 
-        -- giữ nguyên điều kiện (0 + 0) như bạn muốn
         if track.TimePosition <= (0 + 0) then
             if now - last >= COOLDOWN_ZERO then
                 recentBlocks[p.UserId][animId] = now
@@ -1953,7 +1971,6 @@ do
             end
             return false
         else
-            -- nếu event tới trễ (TimePosition > 0) thì cho phép fallback 1 lần sau cooldown lớn hơn
             if now - last >= COOLDOWN_MISS then
                 recentBlocks[p.UserId][animId] = now
                 return true
@@ -1970,7 +1987,6 @@ do
         local id = string.match(animIdStr, "%d+")
         if not id or not animationIds[id] then return end
 
-        -- check range nếu bật strict
         if strictRangeOn then
             local myChar = localPlayer.Character
             local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
@@ -1980,7 +1996,6 @@ do
             if dist > detectionRange then return end
         end
 
-        -- quyết định có block hay không (vẫn giữ (0 + 0) logic)
         if shouldBlockNow(player, id, track) then
             clickBlockButton()
         end
@@ -1988,64 +2003,38 @@ do
 
     local function monitorCharacter(player, char)
         if not player or not char then return end
-
-        -- đảm bảo Humanoid tồn tại
         local hum = char:FindFirstChildOfClass("Humanoid") or char:WaitForChild("Humanoid", 5)
         if not hum then return end
 
-        -- connect AnimationPlayed (bắt ngay khi animation play)
         local con = hum.AnimationPlayed:Connect(function(track)
-            -- chạy trong spawn để tránh blocking
             task.spawn(onAnimationPlayed, player, char, track)
         end)
 
         playerConns[player] = playerConns[player] or {}
         table.insert(playerConns[player], con)
-
-        -- nếu character bị remove, kết nối CharacterAdded sẽ tái tạo theo player scope
     end
 
     local function onPlayerAdded(player)
         if player == localPlayer then return end
-
-        -- monitor hiện có character
         if player.Character then
             monitorCharacter(player, player.Character)
         end
-
-        -- connect cho character sau này
         local conCharAdded = player.CharacterAdded:Connect(function(char)
-            task.wait(0.03) -- chờ chút để humanoid/parts xuất hiện ổn định
+            task.wait(0.03)
             monitorCharacter(player, char)
         end)
-
         playerConns[player] = playerConns[player] or {}
         table.insert(playerConns[player], conCharAdded)
     end
 
-    -- init cho players đã có
     for _, p in ipairs(Players:GetPlayers()) do
         onPlayerAdded(p)
     end
 
-    -- new players
     Players.PlayerAdded:Connect(onPlayerAdded)
     Players.PlayerRemoving:Connect(function(p)
         cleanupPlayerConns(p)
     end)
-
-    -- fallback: nếu bạn vẫn muốn vòng lặp nhẹ để cover edge-case (không bắt được AnimationPlayed),
-    -- có thể bật 1 vòng loop rất nhẹ. Hiện để off (commented).
-    --[[
-    task.spawn(function()
-        while true do
-            if toggleOn then
-                -- (nếu cần giữ lại)
-            end
-            task.wait(0.2)
-        end
-    end)
-    --]]
 end
 
 
