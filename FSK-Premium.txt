@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Premium] | Forsaken",
-    SubTitle = "Version 4.2.4",
+    SubTitle = "Version 4.2.5",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -1791,7 +1791,7 @@ do
     local Players = game:GetService("Players")
     local localPlayer = Players.LocalPlayer
 
-    -- ✅ Animation IDs cần block (list rút gọn, bạn có thể thay bằng full list từ code 1)
+    -- ✅ Animation IDs cần block
     local animationIds = {
         ["126830014841198"] = true,
         ["126355327951215"] = true,
@@ -1881,7 +1881,7 @@ do
 
     -- 🕹 GUI
     Tabs.Main:AddToggle("AutoBlockV2", {
-        Title = "Auto Block",
+        Title = "Auto Block V2",
         Default = toggleOn,
     }):OnChanged(function(state)
         toggleOn = state
@@ -1889,7 +1889,7 @@ do
     end)
 
     Tabs.Main:AddToggle("StrictRangeCheck", {
-        Title = "Auto Check",
+        Title = "Auto Check V2",
         Default = strictRangeOn,
     }):OnChanged(function(state)
         strictRangeOn = state
@@ -1907,45 +1907,133 @@ do
         rangeFlag.Value = value
     end)
 
-    -- ⚡ Loop check anim trực tiếp (logic từ code 1 + dự đoán ping)
+    -- ===============================
+    -- Event-based animation detection
+    -- ===============================
+    local playerConns = {}      -- player => {connections...} (to disconnect later)
+    local recentBlocks = {}     -- recentBlocks[player.UserId] = { [animId] = lastTick }
+    local COOLDOWN_ZERO = 0.05  -- cooldown when TimePosition == 0 path
+    local COOLDOWN_MISS = 0.25  -- fallback cooldown when TimePosition > 0 (missed exact 0)
+
+    local function cleanupPlayerConns(p)
+        local tbl = playerConns[p]
+        if tbl then
+            for _, c in ipairs(tbl) do
+                if c and c.Disconnect then
+                    c:Disconnect()
+                end
+            end
+            playerConns[p] = nil
+        end
+        recentBlocks[p.UserId] = nil
+    end
+
+    local function shouldBlockNow(p, animId, track)
+        recentBlocks[p.UserId] = recentBlocks[p.UserId] or {}
+        local last = recentBlocks[p.UserId][animId] or 0
+        local now = tick()
+
+        -- giữ nguyên điều kiện (0 + 0) như bạn muốn
+        if track.TimePosition <= (0 + 0) then
+            if now - last >= COOLDOWN_ZERO then
+                recentBlocks[p.UserId][animId] = now
+                return true
+            end
+            return false
+        else
+            -- nếu event tới trễ (TimePosition > 0) thì cho phép fallback 1 lần sau cooldown lớn hơn
+            if now - last >= COOLDOWN_MISS then
+                recentBlocks[p.UserId][animId] = now
+                return true
+            end
+            return false
+        end
+    end
+
+    local function onAnimationPlayed(player, char, track)
+        if not toggleOn then return end
+        if not (track and track.Animation) then return end
+        local animIdStr = track.Animation.AnimationId
+        if not animIdStr then return end
+        local id = string.match(animIdStr, "%d+")
+        if not id or not animationIds[id] then return end
+
+        -- check range nếu bật strict
+        if strictRangeOn then
+            local myChar = localPlayer.Character
+            local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
+            local root = char and char:FindFirstChild("HumanoidRootPart")
+            if not myRoot or not root then return end
+            local dist = (root.Position - myRoot.Position).Magnitude
+            if dist > detectionRange then return end
+        end
+
+        -- quyết định có block hay không (vẫn giữ (0 + 0) logic)
+        if shouldBlockNow(player, id, track) then
+            clickBlockButton()
+        end
+    end
+
+    local function monitorCharacter(player, char)
+        if not player or not char then return end
+
+        -- đảm bảo Humanoid tồn tại
+        local hum = char:FindFirstChildOfClass("Humanoid") or char:WaitForChild("Humanoid", 5)
+        if not hum then return end
+
+        -- connect AnimationPlayed (bắt ngay khi animation play)
+        local con = hum.AnimationPlayed:Connect(function(track)
+            -- chạy trong spawn để tránh blocking
+            task.spawn(onAnimationPlayed, player, char, track)
+        end)
+
+        playerConns[player] = playerConns[player] or {}
+        table.insert(playerConns[player], con)
+
+        -- nếu character bị remove, kết nối CharacterAdded sẽ tái tạo theo player scope
+    end
+
+    local function onPlayerAdded(player)
+        if player == localPlayer then return end
+
+        -- monitor hiện có character
+        if player.Character then
+            monitorCharacter(player, player.Character)
+        end
+
+        -- connect cho character sau này
+        local conCharAdded = player.CharacterAdded:Connect(function(char)
+            task.wait(0.03) -- chờ chút để humanoid/parts xuất hiện ổn định
+            monitorCharacter(player, char)
+        end)
+
+        playerConns[player] = playerConns[player] or {}
+        table.insert(playerConns[player], conCharAdded)
+    end
+
+    -- init cho players đã có
+    for _, p in ipairs(Players:GetPlayers()) do
+        onPlayerAdded(p)
+    end
+
+    -- new players
+    Players.PlayerAdded:Connect(onPlayerAdded)
+    Players.PlayerRemoving:Connect(function(p)
+        cleanupPlayerConns(p)
+    end)
+
+    -- fallback: nếu bạn vẫn muốn vòng lặp nhẹ để cover edge-case (không bắt được AnimationPlayed),
+    -- có thể bật 1 vòng loop rất nhẹ. Hiện để off (commented).
+    --[[
     task.spawn(function()
         while true do
             if toggleOn then
-                local myChar = localPlayer.Character
-                local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
-                if myChar and myRoot then
-                    for _, p in ipairs(Players:GetPlayers()) do
-                        if p ~= localPlayer and p.Character then
-                            local hum = p.Character:FindFirstChildOfClass("Humanoid")
-                            local root = p.Character:FindFirstChild("HumanoidRootPart")
-                            if hum and root then
-                                for _, track in hum:GetPlayingAnimationTracks() do
-                                    local animId = track.Animation and track.Animation.AnimationId
-                                    if animId then
-                                        local id = string.match(animId, "%d+")
-                                        if id and animationIds[id] then
-                                            -- check range nếu bật strict
-                                            if strictRangeOn then
-                                                local dist = (root.Position - myRoot.Position).Magnitude
-                                                if dist > detectionRange then continue end
-                                            end
-
-                                            -- 🚀 Block NGAY khi animation mới start
-                                            local ping = localPlayer:GetNetworkPing()
-                                            if track.TimePosition <= (0 + ping) then
-                                                clickBlockButton()
-                                            end
-                                        end
-                                    end
-                                end
-                            end
-                        end
-                    end
-                end
+                -- (nếu cần giữ lại)
             end
-            task.wait(0)
+            task.wait(0.2)
         end
     end)
+    --]]
 end
 
 
