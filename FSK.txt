@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Free] | Forsaken",
-    SubTitle = "Version 4.2.5",
+    SubTitle = "Version 4.2.6",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -820,6 +820,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local h = 0 -- cancel token
 local lastAttack = 0 -- cooldown
+local AutoFarmRunning = false -- trạng thái toggle
 
 -- 🔹 Danh sách Killers
 local KillersList = {
@@ -833,17 +834,20 @@ local KillersList = {
 
 -- 🔹 Hàm dùng skill
 local function UseSkills()
-    local remote = ReplicatedStorage:FindFirstChild("Modules")
-                  and ReplicatedStorage.Modules:FindFirstChild("Network")
-                  and ReplicatedStorage.Modules.Network:FindFirstChild("RemoteEvent")
+    local success, err = pcall(function()
+        local remote = ReplicatedStorage:FindFirstChild("Modules")
+                    and ReplicatedStorage.Modules:FindFirstChild("Network")
+                    and ReplicatedStorage.Modules.Network:FindFirstChild("RemoteEvent")
 
-    if remote and typeof(remote.FireServer) == "function" then
-        remote:FireServer("UseActorAbility", "Slash")
-        task.wait(0.05)
-        remote:FireServer("UseActorAbility", "Stab")
-        task.wait(0.05)
-        remote:FireServer("UseActorAbility", "Punch")
-    end
+        if remote and typeof(remote.FireServer) == "function" then
+            remote:FireServer("UseActorAbility", "Slash")
+            task.wait(0.05)
+            remote:FireServer("UseActorAbility", "Stab")
+            task.wait(0.05)
+            remote:FireServer("UseActorAbility", "Punch")
+        end
+    end)
+    if not success then warn("UseSkills error:", err) end
 end
 
 -- 🔹 Pathfinding tới vị trí
@@ -851,7 +855,7 @@ local function pathfindTo(targetPos)
     local hNow = h
     local plr = Players.LocalPlayer
     local char = plr and plr.Character
-    if not char then return end
+    if not char or not AutoFarmRunning then return end
     local hum = char:FindFirstChildOfClass("Humanoid")
     local root = char:FindFirstChild("HumanoidRootPart")
     if not (hum and root) then return end
@@ -870,12 +874,13 @@ local function pathfindTo(targetPos)
     if not ok or path.Status ~= Enum.PathStatus.Success then return end
 
     for _, waypoint in ipairs(path:GetWaypoints()) do
-        if hNow ~= h then return end
+        if hNow ~= h or not AutoFarmRunning then return end
         if not (hum and root and root.Parent) then return end
 
         hum:MoveTo(waypoint.Position)
         repeat task.wait()
         until hNow ~= h
+           or not AutoFarmRunning
            or not root.Parent
            or ((root.Position * Vector3.new(1,0,1) - waypoint.Position * Vector3.new(1,0,1)).Magnitude <= 2)
 
@@ -907,53 +912,60 @@ local function getClosestSurvivor()
     return closest, dist
 end
 
--- ✅ 1 toggle duy nhất
+-- ✅ Toggle Auto Farm
 Tabs.Farm:AddToggle("AutoFollowSurvivor", {
     Title = "Auto Kill Survivors V2",
     Default = false,
 }):OnChanged(function(enabled)
+    AutoFarmRunning = enabled
     if enabled then
         task.spawn(function()
-            while enabled do
-                local plr = Players.LocalPlayer
-                local char = plr and plr.Character
+            while AutoFarmRunning do
+                local ok, err = pcall(function()
+                    local plr = Players.LocalPlayer
+                    local char = plr and plr.Character
 
-                -- 🔒 luôn check lại: chỉ chạy nếu mình là Killer
-                if not (char and KillersList[char.Name]) then
-                    task.wait(1)
-                    continue
-                end
-
-                local target, dist = getClosestSurvivor()
-                if target then
-                    local hrp = target:FindFirstChild("HumanoidRootPart")
-                    local hum = target:FindFirstChildOfClass("Humanoid")
-                    while enabled 
-                        and char and KillersList[char.Name] -- 🔒 kiểm tra lại liên tục
-                        and target.Parent 
-                        and hrp and hrp.Parent 
-                        and hum and hum.Health > 0 do
-                        
-                        -- luôn pathfind tới Survivor
-                        pathfindTo(hrp.Position)
-
-                        -- nếu trong 30m thì đánh skill
-                        local localHrp = char:FindFirstChild("HumanoidRootPart")
-                        if localHrp and (localHrp.Position - hrp.Position).Magnitude <= 6 then
-                            if tick() - lastAttack >= 0.5 then
-                                lastAttack = tick()
-                                UseSkills()
-                            end
-                        end
-                        task.wait(0.01)
+                    -- 🔒 chỉ chạy nếu mình là Killer
+                    if not (char and KillersList[char.Name]) then
+                        task.wait(1)
+                        return
                     end
-                else
-                    task.wait(0.01) -- không tìm thấy → nghỉ 0.01 rồi tìm lại
+
+                    local target, dist = getClosestSurvivor()
+                    if target then
+                        local hrp = target:FindFirstChild("HumanoidRootPart")
+                        local hum = target:FindFirstChildOfClass("Humanoid")
+                        while AutoFarmRunning
+                            and char and KillersList[char.Name]
+                            and target.Parent
+                            and hrp and hrp.Parent
+                            and hum and hum.Health > 0 do
+                            
+                            pathfindTo(hrp.Position)
+
+                            -- Nếu trong 6m thì dùng skill
+                            local localHrp = char:FindFirstChild("HumanoidRootPart")
+                            if localHrp and (localHrp.Position - hrp.Position).Magnitude <= 6 then
+                                if tick() - lastAttack >= 0.5 then
+                                    lastAttack = tick()
+                                    UseSkills()
+                                end
+                            end
+                            task.wait(0.01)
+                        end
+                    else
+                        task.wait(0) -- nghỉ nhẹ khi không có survivor
+                    end
+                end)
+
+                if not ok then
+                    warn("AutoFarm error:", err)
+                    task.wait(1) -- chờ 1s rồi chạy lại để tránh crash
                 end
             end
         end)
     else
-        -- tăng token để cancel path hiện tại
+        -- tắt → tăng token để hủy path hiện tại
         h = h + 1
     end
 end)
