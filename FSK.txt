@@ -2710,6 +2710,64 @@ end
 
 
 
+
+do
+    local Players = game:GetService("Players")
+    local player = Players.LocalPlayer
+
+    -- Animation object
+    local fakeFixAnim = Instance.new("Animation")
+    fakeFixAnim.AnimationId = "rbxassetid://82691533602949"
+
+    local animator, fakeFixTrack
+
+    -- Hàm tìm animator của nhân vật
+    local function getAnimator()
+        local char = player.Character
+        if not char then return nil end
+        local humanoid = char:FindFirstChildOfClass("Humanoid") or char:FindFirstChildOfClass("AnimationController")
+        if not humanoid then return nil end
+        local anim = humanoid:FindFirstChildOfClass("Animator")
+        if not anim then
+            anim = Instance.new("Animator")
+            anim.Parent = humanoid
+        end
+        return anim
+    end
+
+    -- Toggle UI
+    Tabs.Player:AddToggle("FakeFixGen", {
+        Title = "Fake Fix Gen",
+        Default = false,
+        Callback = function(state)
+            animator = getAnimator()
+            if not animator then return end
+
+            if state then
+                if not fakeFixTrack then
+                    local ok, track = pcall(function()
+                        return animator:LoadAnimation(fakeFixAnim)
+                    end)
+                    if ok and track then
+                        fakeFixTrack = track
+                        fakeFixTrack.Looped = true
+                        fakeFixTrack:Play()
+                    end
+                end
+            else
+                if fakeFixTrack then
+                    fakeFixTrack:Stop()
+                    fakeFixTrack = nil
+                end
+            end
+        end
+    })
+end
+
+
+
+
+
 do
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
