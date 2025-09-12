@@ -2684,7 +2684,7 @@ end
 -- Nút Backflip
 Tabs.Player:AddButton({
     Title = "Backflip",
-    Description = "Perform a backflip",
+    -- Description = "Perform a backflip",
     Callback = doBackflip
 })
 
@@ -2713,13 +2713,26 @@ end
 do
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local player = Players.LocalPlayer
+
+-- Thử require module Sprinting (nếu game có)
+local sprintModule
+pcall(function()
+    sprintModule = require(ReplicatedStorage:WaitForChild("Systems")
+        .Character.Game.Sprinting)
+end)
 
 -- Animation instances
 local idleAnim = Instance.new("Animation")
 idleAnim.Name = "CustomIdleAnim"
 idleAnim.AnimationId = "rbxassetid://116050994905421"
+
+local walkAnim = Instance.new("Animation")
+walkAnim.Name = "CustomWalkAnim"
+walkAnim.AnimationId = "rbxassetid://93622022596108" -- thay ID anim đi bộ
 
 local runAnim = Instance.new("Animation")
 runAnim.Name = "CustomRunAnim"
@@ -2728,10 +2741,11 @@ runAnim.AnimationId = "rbxassetid://93054787145505"
 -- State / references
 local enabled = false
 local character, humanoid, animator
-local idleTrack, runTrack
+local idleTrack, walkTrack, runTrack
+local _isSprinting = false -- fallback PC/mobile custom
 
 -- Connections we may need to disconnect
-local runningConn, heartbeatConn, characterRemovingConn
+local runningConn, heartbeatConn, characterRemovingConn, inputBeganConn, inputEndedConn
 
 -- Throttle for Heartbeat fallback
 local heartbeatAccumulator = 0
@@ -2739,14 +2753,12 @@ local HEARTBEAT_CHECK_INTERVAL = 0.12 -- seconds
 
 -- Utility: stop & nil tracks safely
 local function stopAndClearTracks()
-    if idleTrack then
-        pcall(function() idleTrack:Stop() end)
-        idleTrack = nil
+    for _,track in ipairs({idleTrack, walkTrack, runTrack}) do
+        if track then
+            pcall(function() track:Stop() end)
+        end
     end
-    if runTrack then
-        pcall(function() runTrack:Stop() end)
-        runTrack = nil
-    end
+    idleTrack, walkTrack, runTrack = nil,nil,nil
 end
 
 -- Disconnect movement/listener connections (but DON'T disconnect Player.CharacterAdded)
@@ -2754,6 +2766,8 @@ local function disconnectListeners()
     if runningConn then runningConn:Disconnect() runningConn = nil end
     if heartbeatConn then heartbeatConn:Disconnect() heartbeatConn = nil end
     if characterRemovingConn then characterRemovingConn:Disconnect() characterRemovingConn = nil end
+    if inputBeganConn then inputBeganConn:Disconnect() inputBeganConn = nil end
+    if inputEndedConn then inputEndedConn:Disconnect() inputEndedConn = nil end
 end
 
 -- Full cleanup for current character (called before rebinding or when toggle off)
@@ -2766,62 +2780,78 @@ local function cleanupCurrentCharacter()
 end
 
 -- Play functions (ensure animator exists)
-local function playIdle()
+local function playAnim(animObj, trackRefName)
     if not animator then return end
-    if runTrack then
-        pcall(function() runTrack:Stop() end)
-        runTrack = nil
+
+    -- stop others
+    for name,track in pairs({Idle=idleTrack, Walk=walkTrack, Run=runTrack}) do
+        if name ~= trackRefName and track then
+            pcall(function() track:Stop() end)
+            if name=="Idle" then idleTrack=nil
+            elseif name=="Walk" then walkTrack=nil
+            elseif name=="Run" then runTrack=nil end
+        end
     end
-    if not idleTrack then
-        local ok, t = pcall(function() return animator:LoadAnimation(idleAnim) end)
-        if ok then idleTrack = t end
+
+    -- load if missing
+    local track = nil
+    if trackRefName=="Idle" and not idleTrack then
+        local ok,t = pcall(function() return animator:LoadAnimation(idleAnim) end)
+        if ok then idleTrack=t end
+        track = idleTrack
+    elseif trackRefName=="Walk" and not walkTrack then
+        local ok,t = pcall(function() return animator:LoadAnimation(walkAnim) end)
+        if ok then walkTrack=t end
+        track = walkTrack
+    elseif trackRefName=="Run" and not runTrack then
+        local ok,t = pcall(function() return animator:LoadAnimation(runAnim) end)
+        if ok then runTrack=t end
+        track = runTrack
+    else
+        track = (trackRefName=="Idle" and idleTrack) or (trackRefName=="Walk" and walkTrack) or runTrack
     end
-    if idleTrack and not idleTrack.IsPlaying then
-        pcall(function() idleTrack:Play() end)
+
+    if track and not track.IsPlaying then
+        pcall(function() track:Play() end)
     end
 end
 
-local function playRun()
-    if not animator then return end
-    if idleTrack then
-        pcall(function() idleTrack:Stop() end)
-        idleTrack = nil
-    end
-    if not runTrack then
-        local ok, t = pcall(function() return animator:LoadAnimation(runAnim) end)
-        if ok then runTrack = t end
-    end
-    if runTrack and not runTrack.IsPlaying then
-        pcall(function() runTrack:Play() end)
-    end
-end
+local function playIdle() playAnim(idleAnim,"Idle") end
+local function playWalk() playAnim(walkAnim,"Walk") end
+local function playRun() playAnim(runAnim,"Run") end
 
--- Movement detection to decide idle/run (works with Humanoid or fallback to HumanoidRootPart velocity)
+-- Movement detection to decide idle/walk/run
 local function updateMovementState()
     if not enabled or not character then return end
 
     local moving = false
-
     if humanoid and humanoid.MoveDirection then
-        if humanoid.MoveDirection.Magnitude > 0 then
-            moving = true
-        else
-            -- sometimes MoveDirection is zero, check velocity as backup
+        moving = humanoid.MoveDirection.Magnitude > 0
+        if not moving then
             local root = character:FindFirstChild("HumanoidRootPart") or character.PrimaryPart
-            if root and root.Velocity and root.Velocity.Magnitude > 1 then
+            if root and root.Velocity.Magnitude > 1 then
                 moving = true
             end
         end
     else
-        -- no humanoid available: fallback to rootpart velocity
         local root = character:FindFirstChild("HumanoidRootPart") or character.PrimaryPart
-        if root and root.Velocity and root.Velocity.Magnitude > 1 then
+        if root and root.Velocity.Magnitude > 1 then
             moving = true
         end
     end
 
     if moving then
-        playRun()
+        local sprintingNow = false
+        if sprintModule and type(sprintModule.IsSprinting)=="boolean" then
+            sprintingNow = sprintModule.IsSprinting
+        else
+            sprintingNow = _isSprinting
+        end
+        if sprintingNow then
+            playRun()
+        else
+            playWalk()
+        end
     else
         playIdle()
     end
@@ -2831,23 +2861,36 @@ end
 local function setupMovementListeners()
     disconnectListeners() -- ensure no duplicates
 
+    -- Input detection (for PC fallback)
+    inputBeganConn = UserInputService.InputBegan:Connect(function(input, gp)
+        if gp then return end
+        if input.KeyCode==Enum.KeyCode.LeftShift then
+            _isSprinting=true
+        end
+    end)
+    inputEndedConn = UserInputService.InputEnded:Connect(function(input, gp)
+        if gp then return end
+        if input.KeyCode==Enum.KeyCode.LeftShift then
+            _isSprinting=false
+        end
+    end)
+
     if humanoid and humanoid:IsA("Humanoid") and humanoid.Running then
         runningConn = humanoid.Running:Connect(function(speed)
             if not enabled then return end
-            if speed > 0 then
-                playRun()
+            if speed>0 then
+                updateMovementState()
             else
                 playIdle()
             end
         end)
     else
-        -- fallback: periodic check using Heartbeat
-        heartbeatAccumulator = 0
+        heartbeatAccumulator=0
         heartbeatConn = RunService.Heartbeat:Connect(function(dt)
             if not enabled or not character then return end
-            heartbeatAccumulator = heartbeatAccumulator + dt
-            if heartbeatAccumulator >= HEARTBEAT_CHECK_INTERVAL then
-                heartbeatAccumulator = 0
+            heartbeatAccumulator += dt
+            if heartbeatAccumulator>=HEARTBEAT_CHECK_INTERVAL then
+                heartbeatAccumulator=0
                 updateMovementState()
             end
         end)
@@ -2857,77 +2900,57 @@ end
 -- Called whenever a new character model appears (including on respawn)
 local function onCharacterBound(char)
     cleanupCurrentCharacter()
-
     character = char
-    -- try to find Humanoid or AnimationController (some games use AnimationController)
     humanoid = character:FindFirstChildOfClass("Humanoid") or character:FindFirstChildOfClass("AnimationController")
 
-    -- wait shortly for humanoid/controller if not present yet
     if not humanoid then
-        local timeout = 5
-        local elapsed = 0
-        while elapsed < timeout and not humanoid do
-            humanoid = character:FindFirstChildOfClass("Humanoid") or character:FindFirstChildOfClass("AnimationController")
+        local timeout,elapsed=5,0
+        while elapsed<timeout and not humanoid do
+            humanoid=character:FindFirstChildOfClass("Humanoid") or character:FindFirstChildOfClass("AnimationController")
             if humanoid then break end
-            wait(0.1)
-            elapsed = elapsed + 0.1
+            task.wait(0.1)
+            elapsed+=0.1
         end
     end
 
     if humanoid then
-        -- ensure Animator exists (works both for Humanoid and AnimationController)
         animator = humanoid:FindFirstChildOfClass("Animator")
         if not animator then
-            animator = Instance.new("Animator")
-            animator.Name = "CustomAnimator"
-            animator.Parent = humanoid
+            animator=Instance.new("Animator")
+            animator.Name="CustomAnimator"
+            animator.Parent=humanoid
         end
-    else
-        animator = nil
-        -- no humanoid found: we'll rely on rootpart velocity fallback
     end
 
-    -- listen for character being removed from world to cleanup
     characterRemovingConn = char.AncestryChanged:Connect(function(_, parent)
         if not parent then
             cleanupCurrentCharacter()
         end
     end)
 
-    -- if toggle is on, bind movement listeners and start appropriate anim
     if enabled then
         setupMovementListeners()
-        -- immediate initial check
         updateMovementState()
     end
 end
 
--- Keep listening for CharacterAdded (always active)
-local charAddedConn = player.CharacterAdded:Connect(function(char)
-    onCharacterBound(char)
-end)
-
--- If player already has a character when script runs, bind it
-if player.Character then
-    onCharacterBound(player.Character)
-end
+-- Listen CharacterAdded
+player.CharacterAdded:Connect(function(char) onCharacterBound(char) end)
+if player.Character then onCharacterBound(player.Character) end
 
 -- Toggle UI
 Tabs.Player:AddToggle("AnimationShasher", {
-    Title = "Shasher",
-    Default = false,
-    Callback = function(state)
-        enabled = state
+    Title="Shasher",
+    Default=false,
+    Callback=function(state)
+        enabled=state
         if enabled then
-            -- bind to current character immediately (or wait for next CharacterAdded)
             if player.Character then
                 onCharacterBound(player.Character)
             end
         else
-            -- disable: stop custom anims and remove movement listeners for current character
             stopAndClearTracks()
             disconnectListeners()
-            -- don't disconnect player.CharacterAdded so toggle can be enabled again later and still rebind on respawn
         end
     end
 })
@@ -2935,17 +2958,29 @@ end
 
 
 
-
 do
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local player = Players.LocalPlayer
+
+-- Thử require module Sprinting (nếu game có)
+local sprintModule
+pcall(function()
+    sprintModule = require(ReplicatedStorage:WaitForChild("Systems")
+        .Character.Game.Sprinting)
+end)
 
 -- Animation instances
 local idleAnim = Instance.new("Animation")
 idleAnim.Name = "CustomIdleAnim"
 idleAnim.AnimationId = "rbxassetid://18885903667"
+
+local walkAnim = Instance.new("Animation")
+walkAnim.Name = "CustomWalkAnim"
+walkAnim.AnimationId = "rbxassetid://18885906143" -- thay ID anim đi bộ
 
 local runAnim = Instance.new("Animation")
 runAnim.Name = "CustomRunAnim"
@@ -2954,10 +2989,11 @@ runAnim.AnimationId = "rbxassetid://96571077893813"
 -- State / references
 local enabled = false
 local character, humanoid, animator
-local idleTrack, runTrack
+local idleTrack, walkTrack, runTrack
+local _isSprinting = false -- fallback PC/mobile custom
 
 -- Connections we may need to disconnect
-local runningConn, heartbeatConn, characterRemovingConn
+local runningConn, heartbeatConn, characterRemovingConn, inputBeganConn, inputEndedConn
 
 -- Throttle for Heartbeat fallback
 local heartbeatAccumulator = 0
@@ -2965,14 +3001,12 @@ local HEARTBEAT_CHECK_INTERVAL = 0.12 -- seconds
 
 -- Utility: stop & nil tracks safely
 local function stopAndClearTracks()
-    if idleTrack then
-        pcall(function() idleTrack:Stop() end)
-        idleTrack = nil
+    for _,track in ipairs({idleTrack, walkTrack, runTrack}) do
+        if track then
+            pcall(function() track:Stop() end)
+        end
     end
-    if runTrack then
-        pcall(function() runTrack:Stop() end)
-        runTrack = nil
-    end
+    idleTrack, walkTrack, runTrack = nil,nil,nil
 end
 
 -- Disconnect movement/listener connections (but DON'T disconnect Player.CharacterAdded)
@@ -2980,6 +3014,8 @@ local function disconnectListeners()
     if runningConn then runningConn:Disconnect() runningConn = nil end
     if heartbeatConn then heartbeatConn:Disconnect() heartbeatConn = nil end
     if characterRemovingConn then characterRemovingConn:Disconnect() characterRemovingConn = nil end
+    if inputBeganConn then inputBeganConn:Disconnect() inputBeganConn = nil end
+    if inputEndedConn then inputEndedConn:Disconnect() inputEndedConn = nil end
 end
 
 -- Full cleanup for current character (called before rebinding or when toggle off)
@@ -2992,62 +3028,78 @@ local function cleanupCurrentCharacter()
 end
 
 -- Play functions (ensure animator exists)
-local function playIdle()
+local function playAnim(animObj, trackRefName)
     if not animator then return end
-    if runTrack then
-        pcall(function() runTrack:Stop() end)
-        runTrack = nil
+
+    -- stop others
+    for name,track in pairs({Idle=idleTrack, Walk=walkTrack, Run=runTrack}) do
+        if name ~= trackRefName and track then
+            pcall(function() track:Stop() end)
+            if name=="Idle" then idleTrack=nil
+            elseif name=="Walk" then walkTrack=nil
+            elseif name=="Run" then runTrack=nil end
+        end
     end
-    if not idleTrack then
-        local ok, t = pcall(function() return animator:LoadAnimation(idleAnim) end)
-        if ok then idleTrack = t end
+
+    -- load if missing
+    local track = nil
+    if trackRefName=="Idle" and not idleTrack then
+        local ok,t = pcall(function() return animator:LoadAnimation(idleAnim) end)
+        if ok then idleTrack=t end
+        track = idleTrack
+    elseif trackRefName=="Walk" and not walkTrack then
+        local ok,t = pcall(function() return animator:LoadAnimation(walkAnim) end)
+        if ok then walkTrack=t end
+        track = walkTrack
+    elseif trackRefName=="Run" and not runTrack then
+        local ok,t = pcall(function() return animator:LoadAnimation(runAnim) end)
+        if ok then runTrack=t end
+        track = runTrack
+    else
+        track = (trackRefName=="Idle" and idleTrack) or (trackRefName=="Walk" and walkTrack) or runTrack
     end
-    if idleTrack and not idleTrack.IsPlaying then
-        pcall(function() idleTrack:Play() end)
+
+    if track and not track.IsPlaying then
+        pcall(function() track:Play() end)
     end
 end
 
-local function playRun()
-    if not animator then return end
-    if idleTrack then
-        pcall(function() idleTrack:Stop() end)
-        idleTrack = nil
-    end
-    if not runTrack then
-        local ok, t = pcall(function() return animator:LoadAnimation(runAnim) end)
-        if ok then runTrack = t end
-    end
-    if runTrack and not runTrack.IsPlaying then
-        pcall(function() runTrack:Play() end)
-    end
-end
+local function playIdle() playAnim(idleAnim,"Idle") end
+local function playWalk() playAnim(walkAnim,"Walk") end
+local function playRun() playAnim(runAnim,"Run") end
 
--- Movement detection to decide idle/run (works with Humanoid or fallback to HumanoidRootPart velocity)
+-- Movement detection to decide idle/walk/run
 local function updateMovementState()
     if not enabled or not character then return end
 
     local moving = false
-
     if humanoid and humanoid.MoveDirection then
-        if humanoid.MoveDirection.Magnitude > 0 then
-            moving = true
-        else
-            -- sometimes MoveDirection is zero, check velocity as backup
+        moving = humanoid.MoveDirection.Magnitude > 0
+        if not moving then
             local root = character:FindFirstChild("HumanoidRootPart") or character.PrimaryPart
-            if root and root.Velocity and root.Velocity.Magnitude > 1 then
+            if root and root.Velocity.Magnitude > 1 then
                 moving = true
             end
         end
     else
-        -- no humanoid available: fallback to rootpart velocity
         local root = character:FindFirstChild("HumanoidRootPart") or character.PrimaryPart
-        if root and root.Velocity and root.Velocity.Magnitude > 1 then
+        if root and root.Velocity.Magnitude > 1 then
             moving = true
         end
     end
 
     if moving then
-        playRun()
+        local sprintingNow = false
+        if sprintModule and type(sprintModule.IsSprinting)=="boolean" then
+            sprintingNow = sprintModule.IsSprinting
+        else
+            sprintingNow = _isSprinting
+        end
+        if sprintingNow then
+            playRun()
+        else
+            playWalk()
+        end
     else
         playIdle()
     end
@@ -3057,23 +3109,36 @@ end
 local function setupMovementListeners()
     disconnectListeners() -- ensure no duplicates
 
+    -- Input detection (for PC fallback)
+    inputBeganConn = UserInputService.InputBegan:Connect(function(input, gp)
+        if gp then return end
+        if input.KeyCode==Enum.KeyCode.LeftShift then
+            _isSprinting=true
+        end
+    end)
+    inputEndedConn = UserInputService.InputEnded:Connect(function(input, gp)
+        if gp then return end
+        if input.KeyCode==Enum.KeyCode.LeftShift then
+            _isSprinting=false
+        end
+    end)
+
     if humanoid and humanoid:IsA("Humanoid") and humanoid.Running then
         runningConn = humanoid.Running:Connect(function(speed)
             if not enabled then return end
-            if speed > 0 then
-                playRun()
+            if speed>0 then
+                updateMovementState()
             else
                 playIdle()
             end
         end)
     else
-        -- fallback: periodic check using Heartbeat
-        heartbeatAccumulator = 0
+        heartbeatAccumulator=0
         heartbeatConn = RunService.Heartbeat:Connect(function(dt)
             if not enabled or not character then return end
-            heartbeatAccumulator = heartbeatAccumulator + dt
-            if heartbeatAccumulator >= HEARTBEAT_CHECK_INTERVAL then
-                heartbeatAccumulator = 0
+            heartbeatAccumulator += dt
+            if heartbeatAccumulator>=HEARTBEAT_CHECK_INTERVAL then
+                heartbeatAccumulator=0
                 updateMovementState()
             end
         end)
@@ -3083,77 +3148,57 @@ end
 -- Called whenever a new character model appears (including on respawn)
 local function onCharacterBound(char)
     cleanupCurrentCharacter()
-
     character = char
-    -- try to find Humanoid or AnimationController (some games use AnimationController)
     humanoid = character:FindFirstChildOfClass("Humanoid") or character:FindFirstChildOfClass("AnimationController")
 
-    -- wait shortly for humanoid/controller if not present yet
     if not humanoid then
-        local timeout = 5
-        local elapsed = 0
-        while elapsed < timeout and not humanoid do
-            humanoid = character:FindFirstChildOfClass("Humanoid") or character:FindFirstChildOfClass("AnimationController")
+        local timeout,elapsed=5,0
+        while elapsed<timeout and not humanoid do
+            humanoid=character:FindFirstChildOfClass("Humanoid") or character:FindFirstChildOfClass("AnimationController")
             if humanoid then break end
-            wait(0.1)
-            elapsed = elapsed + 0.1
+            task.wait(0.1)
+            elapsed+=0.1
         end
     end
 
     if humanoid then
-        -- ensure Animator exists (works both for Humanoid and AnimationController)
         animator = humanoid:FindFirstChildOfClass("Animator")
         if not animator then
-            animator = Instance.new("Animator")
-            animator.Name = "CustomAnimator"
-            animator.Parent = humanoid
+            animator=Instance.new("Animator")
+            animator.Name="CustomAnimator"
+            animator.Parent=humanoid
         end
-    else
-        animator = nil
-        -- no humanoid found: we'll rely on rootpart velocity fallback
     end
 
-    -- listen for character being removed from world to cleanup
     characterRemovingConn = char.AncestryChanged:Connect(function(_, parent)
         if not parent then
             cleanupCurrentCharacter()
         end
     end)
 
-    -- if toggle is on, bind movement listeners and start appropriate anim
     if enabled then
         setupMovementListeners()
-        -- immediate initial check
         updateMovementState()
     end
 end
 
--- Keep listening for CharacterAdded (always active)
-local charAddedConn = player.CharacterAdded:Connect(function(char)
-    onCharacterBound(char)
-end)
-
--- If player already has a character when script runs, bind it
-if player.Character then
-    onCharacterBound(player.Character)
-end
+-- Listen CharacterAdded
+player.CharacterAdded:Connect(function(char) onCharacterBound(char) end)
+if player.Character then onCharacterBound(player.Character) end
 
 -- Toggle UI
 Tabs.Player:AddToggle("AnimationCoolkidd", {
-    Title = "Coolkidd",
-    Default = false,
-    Callback = function(state)
-        enabled = state
+    Title="Coolkidd",
+    Default=false,
+    Callback=function(state)
+        enabled=state
         if enabled then
-            -- bind to current character immediately (or wait for next CharacterAdded)
             if player.Character then
                 onCharacterBound(player.Character)
             end
         else
-            -- disable: stop custom anims and remove movement listeners for current character
             stopAndClearTracks()
             disconnectListeners()
-            -- don't disconnect player.CharacterAdded so toggle can be enabled again later and still rebind on respawn
         end
     end
 })
@@ -3166,13 +3211,26 @@ end
 do
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local player = Players.LocalPlayer
+
+-- Thử require module Sprinting (nếu game có)
+local sprintModule
+pcall(function()
+    sprintModule = require(ReplicatedStorage:WaitForChild("Systems")
+        .Character.Game.Sprinting)
+end)
 
 -- Animation instances
 local idleAnim = Instance.new("Animation")
 idleAnim.Name = "CustomIdleAnim"
 idleAnim.AnimationId = "rbxassetid://105880087711722"
+
+local walkAnim = Instance.new("Animation")
+walkAnim.Name = "CustomWalkAnim"
+walkAnim.AnimationId = "rbxassetid://81193817424328" -- thay ID anim đi bộ
 
 local runAnim = Instance.new("Animation")
 runAnim.Name = "CustomRunAnim"
@@ -3181,10 +3239,11 @@ runAnim.AnimationId = "rbxassetid://132653655520682"
 -- State / references
 local enabled = false
 local character, humanoid, animator
-local idleTrack, runTrack
+local idleTrack, walkTrack, runTrack
+local _isSprinting = false -- fallback PC/mobile custom
 
 -- Connections we may need to disconnect
-local runningConn, heartbeatConn, characterRemovingConn
+local runningConn, heartbeatConn, characterRemovingConn, inputBeganConn, inputEndedConn
 
 -- Throttle for Heartbeat fallback
 local heartbeatAccumulator = 0
@@ -3192,14 +3251,12 @@ local HEARTBEAT_CHECK_INTERVAL = 0.12 -- seconds
 
 -- Utility: stop & nil tracks safely
 local function stopAndClearTracks()
-    if idleTrack then
-        pcall(function() idleTrack:Stop() end)
-        idleTrack = nil
+    for _,track in ipairs({idleTrack, walkTrack, runTrack}) do
+        if track then
+            pcall(function() track:Stop() end)
+        end
     end
-    if runTrack then
-        pcall(function() runTrack:Stop() end)
-        runTrack = nil
-    end
+    idleTrack, walkTrack, runTrack = nil,nil,nil
 end
 
 -- Disconnect movement/listener connections (but DON'T disconnect Player.CharacterAdded)
@@ -3207,6 +3264,8 @@ local function disconnectListeners()
     if runningConn then runningConn:Disconnect() runningConn = nil end
     if heartbeatConn then heartbeatConn:Disconnect() heartbeatConn = nil end
     if characterRemovingConn then characterRemovingConn:Disconnect() characterRemovingConn = nil end
+    if inputBeganConn then inputBeganConn:Disconnect() inputBeganConn = nil end
+    if inputEndedConn then inputEndedConn:Disconnect() inputEndedConn = nil end
 end
 
 -- Full cleanup for current character (called before rebinding or when toggle off)
@@ -3219,62 +3278,78 @@ local function cleanupCurrentCharacter()
 end
 
 -- Play functions (ensure animator exists)
-local function playIdle()
+local function playAnim(animObj, trackRefName)
     if not animator then return end
-    if runTrack then
-        pcall(function() runTrack:Stop() end)
-        runTrack = nil
+
+    -- stop others
+    for name,track in pairs({Idle=idleTrack, Walk=walkTrack, Run=runTrack}) do
+        if name ~= trackRefName and track then
+            pcall(function() track:Stop() end)
+            if name=="Idle" then idleTrack=nil
+            elseif name=="Walk" then walkTrack=nil
+            elseif name=="Run" then runTrack=nil end
+        end
     end
-    if not idleTrack then
-        local ok, t = pcall(function() return animator:LoadAnimation(idleAnim) end)
-        if ok then idleTrack = t end
+
+    -- load if missing
+    local track = nil
+    if trackRefName=="Idle" and not idleTrack then
+        local ok,t = pcall(function() return animator:LoadAnimation(idleAnim) end)
+        if ok then idleTrack=t end
+        track = idleTrack
+    elseif trackRefName=="Walk" and not walkTrack then
+        local ok,t = pcall(function() return animator:LoadAnimation(walkAnim) end)
+        if ok then walkTrack=t end
+        track = walkTrack
+    elseif trackRefName=="Run" and not runTrack then
+        local ok,t = pcall(function() return animator:LoadAnimation(runAnim) end)
+        if ok then runTrack=t end
+        track = runTrack
+    else
+        track = (trackRefName=="Idle" and idleTrack) or (trackRefName=="Walk" and walkTrack) or runTrack
     end
-    if idleTrack and not idleTrack.IsPlaying then
-        pcall(function() idleTrack:Play() end)
+
+    if track and not track.IsPlaying then
+        pcall(function() track:Play() end)
     end
 end
 
-local function playRun()
-    if not animator then return end
-    if idleTrack then
-        pcall(function() idleTrack:Stop() end)
-        idleTrack = nil
-    end
-    if not runTrack then
-        local ok, t = pcall(function() return animator:LoadAnimation(runAnim) end)
-        if ok then runTrack = t end
-    end
-    if runTrack and not runTrack.IsPlaying then
-        pcall(function() runTrack:Play() end)
-    end
-end
+local function playIdle() playAnim(idleAnim,"Idle") end
+local function playWalk() playAnim(walkAnim,"Walk") end
+local function playRun() playAnim(runAnim,"Run") end
 
--- Movement detection to decide idle/run (works with Humanoid or fallback to HumanoidRootPart velocity)
+-- Movement detection to decide idle/walk/run
 local function updateMovementState()
     if not enabled or not character then return end
 
     local moving = false
-
     if humanoid and humanoid.MoveDirection then
-        if humanoid.MoveDirection.Magnitude > 0 then
-            moving = true
-        else
-            -- sometimes MoveDirection is zero, check velocity as backup
+        moving = humanoid.MoveDirection.Magnitude > 0
+        if not moving then
             local root = character:FindFirstChild("HumanoidRootPart") or character.PrimaryPart
-            if root and root.Velocity and root.Velocity.Magnitude > 1 then
+            if root and root.Velocity.Magnitude > 1 then
                 moving = true
             end
         end
     else
-        -- no humanoid available: fallback to rootpart velocity
         local root = character:FindFirstChild("HumanoidRootPart") or character.PrimaryPart
-        if root and root.Velocity and root.Velocity.Magnitude > 1 then
+        if root and root.Velocity.Magnitude > 1 then
             moving = true
         end
     end
 
     if moving then
-        playRun()
+        local sprintingNow = false
+        if sprintModule and type(sprintModule.IsSprinting)=="boolean" then
+            sprintingNow = sprintModule.IsSprinting
+        else
+            sprintingNow = _isSprinting
+        end
+        if sprintingNow then
+            playRun()
+        else
+            playWalk()
+        end
     else
         playIdle()
     end
@@ -3284,23 +3359,36 @@ end
 local function setupMovementListeners()
     disconnectListeners() -- ensure no duplicates
 
+    -- Input detection (for PC fallback)
+    inputBeganConn = UserInputService.InputBegan:Connect(function(input, gp)
+        if gp then return end
+        if input.KeyCode==Enum.KeyCode.LeftShift then
+            _isSprinting=true
+        end
+    end)
+    inputEndedConn = UserInputService.InputEnded:Connect(function(input, gp)
+        if gp then return end
+        if input.KeyCode==Enum.KeyCode.LeftShift then
+            _isSprinting=false
+        end
+    end)
+
     if humanoid and humanoid:IsA("Humanoid") and humanoid.Running then
         runningConn = humanoid.Running:Connect(function(speed)
             if not enabled then return end
-            if speed > 0 then
-                playRun()
+            if speed>0 then
+                updateMovementState()
             else
                 playIdle()
             end
         end)
     else
-        -- fallback: periodic check using Heartbeat
-        heartbeatAccumulator = 0
+        heartbeatAccumulator=0
         heartbeatConn = RunService.Heartbeat:Connect(function(dt)
             if not enabled or not character then return end
-            heartbeatAccumulator = heartbeatAccumulator + dt
-            if heartbeatAccumulator >= HEARTBEAT_CHECK_INTERVAL then
-                heartbeatAccumulator = 0
+            heartbeatAccumulator += dt
+            if heartbeatAccumulator>=HEARTBEAT_CHECK_INTERVAL then
+                heartbeatAccumulator=0
                 updateMovementState()
             end
         end)
@@ -3310,77 +3398,57 @@ end
 -- Called whenever a new character model appears (including on respawn)
 local function onCharacterBound(char)
     cleanupCurrentCharacter()
-
     character = char
-    -- try to find Humanoid or AnimationController (some games use AnimationController)
     humanoid = character:FindFirstChildOfClass("Humanoid") or character:FindFirstChildOfClass("AnimationController")
 
-    -- wait shortly for humanoid/controller if not present yet
     if not humanoid then
-        local timeout = 5
-        local elapsed = 0
-        while elapsed < timeout and not humanoid do
-            humanoid = character:FindFirstChildOfClass("Humanoid") or character:FindFirstChildOfClass("AnimationController")
+        local timeout,elapsed=5,0
+        while elapsed<timeout and not humanoid do
+            humanoid=character:FindFirstChildOfClass("Humanoid") or character:FindFirstChildOfClass("AnimationController")
             if humanoid then break end
-            wait(0.1)
-            elapsed = elapsed + 0.1
+            task.wait(0.1)
+            elapsed+=0.1
         end
     end
 
     if humanoid then
-        -- ensure Animator exists (works both for Humanoid and AnimationController)
         animator = humanoid:FindFirstChildOfClass("Animator")
         if not animator then
-            animator = Instance.new("Animator")
-            animator.Name = "CustomAnimator"
-            animator.Parent = humanoid
+            animator=Instance.new("Animator")
+            animator.Name="CustomAnimator"
+            animator.Parent=humanoid
         end
-    else
-        animator = nil
-        -- no humanoid found: we'll rely on rootpart velocity fallback
     end
 
-    -- listen for character being removed from world to cleanup
     characterRemovingConn = char.AncestryChanged:Connect(function(_, parent)
         if not parent then
             cleanupCurrentCharacter()
         end
     end)
 
-    -- if toggle is on, bind movement listeners and start appropriate anim
     if enabled then
         setupMovementListeners()
-        -- immediate initial check
         updateMovementState()
     end
 end
 
--- Keep listening for CharacterAdded (always active)
-local charAddedConn = player.CharacterAdded:Connect(function(char)
-    onCharacterBound(char)
-end)
-
--- If player already has a character when script runs, bind it
-if player.Character then
-    onCharacterBound(player.Character)
-end
+-- Listen CharacterAdded
+player.CharacterAdded:Connect(function(char) onCharacterBound(char) end)
+if player.Character then onCharacterBound(player.Character) end
 
 -- Toggle UI
-Tabs.Player:AddToggle("CustomAnimToggle", {
-    Title = "John Doe",
-    Default = false,
-    Callback = function(state)
-        enabled = state
+Tabs.Player:AddToggle("AnimationJohnDoe", {
+    Title="John Doe",
+    Default=false,
+    Callback=function(state)
+        enabled=state
         if enabled then
-            -- bind to current character immediately (or wait for next CharacterAdded)
             if player.Character then
                 onCharacterBound(player.Character)
             end
         else
-            -- disable: stop custom anims and remove movement listeners for current character
             stopAndClearTracks()
             disconnectListeners()
-            -- don't disconnect player.CharacterAdded so toggle can be enabled again later and still rebind on respawn
         end
     end
 })
@@ -3388,17 +3456,29 @@ end
 
 
 
-
 do
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local player = Players.LocalPlayer
+
+-- Thử require module Sprinting (nếu game có)
+local sprintModule
+pcall(function()
+    sprintModule = require(ReplicatedStorage:WaitForChild("Systems")
+        .Character.Game.Sprinting)
+end)
 
 -- Animation instances
 local idleAnim = Instance.new("Animation")
 idleAnim.Name = "CustomIdleAnim"
 idleAnim.AnimationId = "rbxassetid://93841120533318"
+
+local walkAnim = Instance.new("Animation")
+walkAnim.Name = "CustomWalkAnim"
+walkAnim.AnimationId = "rbxassetid://109700476007435" -- thay ID anim đi bộ
 
 local runAnim = Instance.new("Animation")
 runAnim.Name = "CustomRunAnim"
@@ -3407,10 +3487,11 @@ runAnim.AnimationId = "rbxassetid://117451341682452"
 -- State / references
 local enabled = false
 local character, humanoid, animator
-local idleTrack, runTrack
+local idleTrack, walkTrack, runTrack
+local _isSprinting = false -- fallback PC/mobile custom
 
 -- Connections we may need to disconnect
-local runningConn, heartbeatConn, characterRemovingConn
+local runningConn, heartbeatConn, characterRemovingConn, inputBeganConn, inputEndedConn
 
 -- Throttle for Heartbeat fallback
 local heartbeatAccumulator = 0
@@ -3418,14 +3499,12 @@ local HEARTBEAT_CHECK_INTERVAL = 0.12 -- seconds
 
 -- Utility: stop & nil tracks safely
 local function stopAndClearTracks()
-    if idleTrack then
-        pcall(function() idleTrack:Stop() end)
-        idleTrack = nil
+    for _,track in ipairs({idleTrack, walkTrack, runTrack}) do
+        if track then
+            pcall(function() track:Stop() end)
+        end
     end
-    if runTrack then
-        pcall(function() runTrack:Stop() end)
-        runTrack = nil
-    end
+    idleTrack, walkTrack, runTrack = nil,nil,nil
 end
 
 -- Disconnect movement/listener connections (but DON'T disconnect Player.CharacterAdded)
@@ -3433,6 +3512,8 @@ local function disconnectListeners()
     if runningConn then runningConn:Disconnect() runningConn = nil end
     if heartbeatConn then heartbeatConn:Disconnect() heartbeatConn = nil end
     if characterRemovingConn then characterRemovingConn:Disconnect() characterRemovingConn = nil end
+    if inputBeganConn then inputBeganConn:Disconnect() inputBeganConn = nil end
+    if inputEndedConn then inputEndedConn:Disconnect() inputEndedConn = nil end
 end
 
 -- Full cleanup for current character (called before rebinding or when toggle off)
@@ -3445,62 +3526,78 @@ local function cleanupCurrentCharacter()
 end
 
 -- Play functions (ensure animator exists)
-local function playIdle()
+local function playAnim(animObj, trackRefName)
     if not animator then return end
-    if runTrack then
-        pcall(function() runTrack:Stop() end)
-        runTrack = nil
+
+    -- stop others
+    for name,track in pairs({Idle=idleTrack, Walk=walkTrack, Run=runTrack}) do
+        if name ~= trackRefName and track then
+            pcall(function() track:Stop() end)
+            if name=="Idle" then idleTrack=nil
+            elseif name=="Walk" then walkTrack=nil
+            elseif name=="Run" then runTrack=nil end
+        end
     end
-    if not idleTrack then
-        local ok, t = pcall(function() return animator:LoadAnimation(idleAnim) end)
-        if ok then idleTrack = t end
+
+    -- load if missing
+    local track = nil
+    if trackRefName=="Idle" and not idleTrack then
+        local ok,t = pcall(function() return animator:LoadAnimation(idleAnim) end)
+        if ok then idleTrack=t end
+        track = idleTrack
+    elseif trackRefName=="Walk" and not walkTrack then
+        local ok,t = pcall(function() return animator:LoadAnimation(walkAnim) end)
+        if ok then walkTrack=t end
+        track = walkTrack
+    elseif trackRefName=="Run" and not runTrack then
+        local ok,t = pcall(function() return animator:LoadAnimation(runAnim) end)
+        if ok then runTrack=t end
+        track = runTrack
+    else
+        track = (trackRefName=="Idle" and idleTrack) or (trackRefName=="Walk" and walkTrack) or runTrack
     end
-    if idleTrack and not idleTrack.IsPlaying then
-        pcall(function() idleTrack:Play() end)
+
+    if track and not track.IsPlaying then
+        pcall(function() track:Play() end)
     end
 end
 
-local function playRun()
-    if not animator then return end
-    if idleTrack then
-        pcall(function() idleTrack:Stop() end)
-        idleTrack = nil
-    end
-    if not runTrack then
-        local ok, t = pcall(function() return animator:LoadAnimation(runAnim) end)
-        if ok then runTrack = t end
-    end
-    if runTrack and not runTrack.IsPlaying then
-        pcall(function() runTrack:Play() end)
-    end
-end
+local function playIdle() playAnim(idleAnim,"Idle") end
+local function playWalk() playAnim(walkAnim,"Walk") end
+local function playRun() playAnim(runAnim,"Run") end
 
--- Movement detection to decide idle/run (works with Humanoid or fallback to HumanoidRootPart velocity)
+-- Movement detection to decide idle/walk/run
 local function updateMovementState()
     if not enabled or not character then return end
 
     local moving = false
-
     if humanoid and humanoid.MoveDirection then
-        if humanoid.MoveDirection.Magnitude > 0 then
-            moving = true
-        else
-            -- sometimes MoveDirection is zero, check velocity as backup
+        moving = humanoid.MoveDirection.Magnitude > 0
+        if not moving then
             local root = character:FindFirstChild("HumanoidRootPart") or character.PrimaryPart
-            if root and root.Velocity and root.Velocity.Magnitude > 1 then
+            if root and root.Velocity.Magnitude > 1 then
                 moving = true
             end
         end
     else
-        -- no humanoid available: fallback to rootpart velocity
         local root = character:FindFirstChild("HumanoidRootPart") or character.PrimaryPart
-        if root and root.Velocity and root.Velocity.Magnitude > 1 then
+        if root and root.Velocity.Magnitude > 1 then
             moving = true
         end
     end
 
     if moving then
-        playRun()
+        local sprintingNow = false
+        if sprintModule and type(sprintModule.IsSprinting)=="boolean" then
+            sprintingNow = sprintModule.IsSprinting
+        else
+            sprintingNow = _isSprinting
+        end
+        if sprintingNow then
+            playRun()
+        else
+            playWalk()
+        end
     else
         playIdle()
     end
@@ -3510,23 +3607,36 @@ end
 local function setupMovementListeners()
     disconnectListeners() -- ensure no duplicates
 
+    -- Input detection (for PC fallback)
+    inputBeganConn = UserInputService.InputBegan:Connect(function(input, gp)
+        if gp then return end
+        if input.KeyCode==Enum.KeyCode.LeftShift then
+            _isSprinting=true
+        end
+    end)
+    inputEndedConn = UserInputService.InputEnded:Connect(function(input, gp)
+        if gp then return end
+        if input.KeyCode==Enum.KeyCode.LeftShift then
+            _isSprinting=false
+        end
+    end)
+
     if humanoid and humanoid:IsA("Humanoid") and humanoid.Running then
         runningConn = humanoid.Running:Connect(function(speed)
             if not enabled then return end
-            if speed > 0 then
-                playRun()
+            if speed>0 then
+                updateMovementState()
             else
                 playIdle()
             end
         end)
     else
-        -- fallback: periodic check using Heartbeat
-        heartbeatAccumulator = 0
+        heartbeatAccumulator=0
         heartbeatConn = RunService.Heartbeat:Connect(function(dt)
             if not enabled or not character then return end
-            heartbeatAccumulator = heartbeatAccumulator + dt
-            if heartbeatAccumulator >= HEARTBEAT_CHECK_INTERVAL then
-                heartbeatAccumulator = 0
+            heartbeatAccumulator += dt
+            if heartbeatAccumulator>=HEARTBEAT_CHECK_INTERVAL then
+                heartbeatAccumulator=0
                 updateMovementState()
             end
         end)
@@ -3536,77 +3646,57 @@ end
 -- Called whenever a new character model appears (including on respawn)
 local function onCharacterBound(char)
     cleanupCurrentCharacter()
-
     character = char
-    -- try to find Humanoid or AnimationController (some games use AnimationController)
     humanoid = character:FindFirstChildOfClass("Humanoid") or character:FindFirstChildOfClass("AnimationController")
 
-    -- wait shortly for humanoid/controller if not present yet
     if not humanoid then
-        local timeout = 5
-        local elapsed = 0
-        while elapsed < timeout and not humanoid do
-            humanoid = character:FindFirstChildOfClass("Humanoid") or character:FindFirstChildOfClass("AnimationController")
+        local timeout,elapsed=5,0
+        while elapsed<timeout and not humanoid do
+            humanoid=character:FindFirstChildOfClass("Humanoid") or character:FindFirstChildOfClass("AnimationController")
             if humanoid then break end
-            wait(0.1)
-            elapsed = elapsed + 0.1
+            task.wait(0.1)
+            elapsed+=0.1
         end
     end
 
     if humanoid then
-        -- ensure Animator exists (works both for Humanoid and AnimationController)
         animator = humanoid:FindFirstChildOfClass("Animator")
         if not animator then
-            animator = Instance.new("Animator")
-            animator.Name = "CustomAnimator"
-            animator.Parent = humanoid
+            animator=Instance.new("Animator")
+            animator.Name="CustomAnimator"
+            animator.Parent=humanoid
         end
-    else
-        animator = nil
-        -- no humanoid found: we'll rely on rootpart velocity fallback
     end
 
-    -- listen for character being removed from world to cleanup
     characterRemovingConn = char.AncestryChanged:Connect(function(_, parent)
         if not parent then
             cleanupCurrentCharacter()
         end
     end)
 
-    -- if toggle is on, bind movement listeners and start appropriate anim
     if enabled then
         setupMovementListeners()
-        -- immediate initial check
         updateMovementState()
     end
 end
 
--- Keep listening for CharacterAdded (always active)
-local charAddedConn = player.CharacterAdded:Connect(function(char)
-    onCharacterBound(char)
-end)
-
--- If player already has a character when script runs, bind it
-if player.Character then
-    onCharacterBound(player.Character)
-end
+-- Listen CharacterAdded
+player.CharacterAdded:Connect(function(char) onCharacterBound(char) end)
+if player.Character then onCharacterBound(player.Character) end
 
 -- Toggle UI
 Tabs.Player:AddToggle("AnimationNoli", {
-    Title = "Noli",
-    Default = false,
-    Callback = function(state)
-        enabled = state
+    Title="Noli",
+    Default=false,
+    Callback=function(state)
+        enabled=state
         if enabled then
-            -- bind to current character immediately (or wait for next CharacterAdded)
             if player.Character then
                 onCharacterBound(player.Character)
             end
         else
-            -- disable: stop custom anims and remove movement listeners for current character
             stopAndClearTracks()
             disconnectListeners()
-            -- don't disconnect player.CharacterAdded so toggle can be enabled again later and still rebind on respawn
         end
     end
 })
@@ -3617,13 +3707,26 @@ end
 do
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local player = Players.LocalPlayer
+
+-- Thử require module Sprinting (nếu game có)
+local sprintModule
+pcall(function()
+    sprintModule = require(ReplicatedStorage:WaitForChild("Systems")
+        .Character.Game.Sprinting)
+end)
 
 -- Animation instances
 local idleAnim = Instance.new("Animation")
 idleAnim.Name = "CustomIdleAnim"
 idleAnim.AnimationId = "rbxassetid://138754221537146"
+
+local walkAnim = Instance.new("Animation")
+walkAnim.Name = "CustomWalkAnim"
+walkAnim.AnimationId = "rbxassetid://131235528875091" -- thay ID anim đi bộ
 
 local runAnim = Instance.new("Animation")
 runAnim.Name = "CustomRunAnim"
@@ -3632,10 +3735,11 @@ runAnim.AnimationId = "rbxassetid://106485518413331"
 -- State / references
 local enabled = false
 local character, humanoid, animator
-local idleTrack, runTrack
+local idleTrack, walkTrack, runTrack
+local _isSprinting = false -- fallback PC/mobile custom
 
 -- Connections we may need to disconnect
-local runningConn, heartbeatConn, characterRemovingConn
+local runningConn, heartbeatConn, characterRemovingConn, inputBeganConn, inputEndedConn
 
 -- Throttle for Heartbeat fallback
 local heartbeatAccumulator = 0
@@ -3643,14 +3747,12 @@ local HEARTBEAT_CHECK_INTERVAL = 0.12 -- seconds
 
 -- Utility: stop & nil tracks safely
 local function stopAndClearTracks()
-    if idleTrack then
-        pcall(function() idleTrack:Stop() end)
-        idleTrack = nil
+    for _,track in ipairs({idleTrack, walkTrack, runTrack}) do
+        if track then
+            pcall(function() track:Stop() end)
+        end
     end
-    if runTrack then
-        pcall(function() runTrack:Stop() end)
-        runTrack = nil
-    end
+    idleTrack, walkTrack, runTrack = nil,nil,nil
 end
 
 -- Disconnect movement/listener connections (but DON'T disconnect Player.CharacterAdded)
@@ -3658,6 +3760,8 @@ local function disconnectListeners()
     if runningConn then runningConn:Disconnect() runningConn = nil end
     if heartbeatConn then heartbeatConn:Disconnect() heartbeatConn = nil end
     if characterRemovingConn then characterRemovingConn:Disconnect() characterRemovingConn = nil end
+    if inputBeganConn then inputBeganConn:Disconnect() inputBeganConn = nil end
+    if inputEndedConn then inputEndedConn:Disconnect() inputEndedConn = nil end
 end
 
 -- Full cleanup for current character (called before rebinding or when toggle off)
@@ -3670,62 +3774,78 @@ local function cleanupCurrentCharacter()
 end
 
 -- Play functions (ensure animator exists)
-local function playIdle()
+local function playAnim(animObj, trackRefName)
     if not animator then return end
-    if runTrack then
-        pcall(function() runTrack:Stop() end)
-        runTrack = nil
+
+    -- stop others
+    for name,track in pairs({Idle=idleTrack, Walk=walkTrack, Run=runTrack}) do
+        if name ~= trackRefName and track then
+            pcall(function() track:Stop() end)
+            if name=="Idle" then idleTrack=nil
+            elseif name=="Walk" then walkTrack=nil
+            elseif name=="Run" then runTrack=nil end
+        end
     end
-    if not idleTrack then
-        local ok, t = pcall(function() return animator:LoadAnimation(idleAnim) end)
-        if ok then idleTrack = t end
+
+    -- load if missing
+    local track = nil
+    if trackRefName=="Idle" and not idleTrack then
+        local ok,t = pcall(function() return animator:LoadAnimation(idleAnim) end)
+        if ok then idleTrack=t end
+        track = idleTrack
+    elseif trackRefName=="Walk" and not walkTrack then
+        local ok,t = pcall(function() return animator:LoadAnimation(walkAnim) end)
+        if ok then walkTrack=t end
+        track = walkTrack
+    elseif trackRefName=="Run" and not runTrack then
+        local ok,t = pcall(function() return animator:LoadAnimation(runAnim) end)
+        if ok then runTrack=t end
+        track = runTrack
+    else
+        track = (trackRefName=="Idle" and idleTrack) or (trackRefName=="Walk" and walkTrack) or runTrack
     end
-    if idleTrack and not idleTrack.IsPlaying then
-        pcall(function() idleTrack:Play() end)
+
+    if track and not track.IsPlaying then
+        pcall(function() track:Play() end)
     end
 end
 
-local function playRun()
-    if not animator then return end
-    if idleTrack then
-        pcall(function() idleTrack:Stop() end)
-        idleTrack = nil
-    end
-    if not runTrack then
-        local ok, t = pcall(function() return animator:LoadAnimation(runAnim) end)
-        if ok then runTrack = t end
-    end
-    if runTrack and not runTrack.IsPlaying then
-        pcall(function() runTrack:Play() end)
-    end
-end
+local function playIdle() playAnim(idleAnim,"Idle") end
+local function playWalk() playAnim(walkAnim,"Walk") end
+local function playRun() playAnim(runAnim,"Run") end
 
--- Movement detection to decide idle/run (works with Humanoid or fallback to HumanoidRootPart velocity)
+-- Movement detection to decide idle/walk/run
 local function updateMovementState()
     if not enabled or not character then return end
 
     local moving = false
-
     if humanoid and humanoid.MoveDirection then
-        if humanoid.MoveDirection.Magnitude > 0 then
-            moving = true
-        else
-            -- sometimes MoveDirection is zero, check velocity as backup
+        moving = humanoid.MoveDirection.Magnitude > 0
+        if not moving then
             local root = character:FindFirstChild("HumanoidRootPart") or character.PrimaryPart
-            if root and root.Velocity and root.Velocity.Magnitude > 1 then
+            if root and root.Velocity.Magnitude > 1 then
                 moving = true
             end
         end
     else
-        -- no humanoid available: fallback to rootpart velocity
         local root = character:FindFirstChild("HumanoidRootPart") or character.PrimaryPart
-        if root and root.Velocity and root.Velocity.Magnitude > 1 then
+        if root and root.Velocity.Magnitude > 1 then
             moving = true
         end
     end
 
     if moving then
-        playRun()
+        local sprintingNow = false
+        if sprintModule and type(sprintModule.IsSprinting)=="boolean" then
+            sprintingNow = sprintModule.IsSprinting
+        else
+            sprintingNow = _isSprinting
+        end
+        if sprintingNow then
+            playRun()
+        else
+            playWalk()
+        end
     else
         playIdle()
     end
@@ -3735,23 +3855,36 @@ end
 local function setupMovementListeners()
     disconnectListeners() -- ensure no duplicates
 
+    -- Input detection (for PC fallback)
+    inputBeganConn = UserInputService.InputBegan:Connect(function(input, gp)
+        if gp then return end
+        if input.KeyCode==Enum.KeyCode.LeftShift then
+            _isSprinting=true
+        end
+    end)
+    inputEndedConn = UserInputService.InputEnded:Connect(function(input, gp)
+        if gp then return end
+        if input.KeyCode==Enum.KeyCode.LeftShift then
+            _isSprinting=false
+        end
+    end)
+
     if humanoid and humanoid:IsA("Humanoid") and humanoid.Running then
         runningConn = humanoid.Running:Connect(function(speed)
             if not enabled then return end
-            if speed > 0 then
-                playRun()
+            if speed>0 then
+                updateMovementState()
             else
                 playIdle()
             end
         end)
     else
-        -- fallback: periodic check using Heartbeat
-        heartbeatAccumulator = 0
+        heartbeatAccumulator=0
         heartbeatConn = RunService.Heartbeat:Connect(function(dt)
             if not enabled or not character then return end
-            heartbeatAccumulator = heartbeatAccumulator + dt
-            if heartbeatAccumulator >= HEARTBEAT_CHECK_INTERVAL then
-                heartbeatAccumulator = 0
+            heartbeatAccumulator += dt
+            if heartbeatAccumulator>=HEARTBEAT_CHECK_INTERVAL then
+                heartbeatAccumulator=0
                 updateMovementState()
             end
         end)
@@ -3761,81 +3894,64 @@ end
 -- Called whenever a new character model appears (including on respawn)
 local function onCharacterBound(char)
     cleanupCurrentCharacter()
-
     character = char
-    -- try to find Humanoid or AnimationController (some games use AnimationController)
     humanoid = character:FindFirstChildOfClass("Humanoid") or character:FindFirstChildOfClass("AnimationController")
 
-    -- wait shortly for humanoid/controller if not present yet
     if not humanoid then
-        local timeout = 5
-        local elapsed = 0
-        while elapsed < timeout and not humanoid do
-            humanoid = character:FindFirstChildOfClass("Humanoid") or character:FindFirstChildOfClass("AnimationController")
+        local timeout,elapsed=5,0
+        while elapsed<timeout and not humanoid do
+            humanoid=character:FindFirstChildOfClass("Humanoid") or character:FindFirstChildOfClass("AnimationController")
             if humanoid then break end
-            wait(0.1)
-            elapsed = elapsed + 0.1
+            task.wait(0.1)
+            elapsed+=0.1
         end
     end
 
     if humanoid then
-        -- ensure Animator exists (works both for Humanoid and AnimationController)
         animator = humanoid:FindFirstChildOfClass("Animator")
         if not animator then
-            animator = Instance.new("Animator")
-            animator.Name = "CustomAnimator"
-            animator.Parent = humanoid
+            animator=Instance.new("Animator")
+            animator.Name="CustomAnimator"
+            animator.Parent=humanoid
         end
-    else
-        animator = nil
-        -- no humanoid found: we'll rely on rootpart velocity fallback
     end
 
-    -- listen for character being removed from world to cleanup
     characterRemovingConn = char.AncestryChanged:Connect(function(_, parent)
         if not parent then
             cleanupCurrentCharacter()
         end
     end)
 
-    -- if toggle is on, bind movement listeners and start appropriate anim
     if enabled then
         setupMovementListeners()
-        -- immediate initial check
         updateMovementState()
     end
 end
 
--- Keep listening for CharacterAdded (always active)
-local charAddedConn = player.CharacterAdded:Connect(function(char)
-    onCharacterBound(char)
-end)
-
--- If player already has a character when script runs, bind it
-if player.Character then
-    onCharacterBound(player.Character)
-end
+-- Listen CharacterAdded
+player.CharacterAdded:Connect(function(char) onCharacterBound(char) end)
+if player.Character then onCharacterBound(player.Character) end
 
 -- Toggle UI
 Tabs.Player:AddToggle("Animation1x1x1x1", {
-    Title = "1x1x1x1",
-    Default = false,
-    Callback = function(state)
-        enabled = state
+    Title="1x1x1x1",
+    Default=false,
+    Callback=function(state)
+        enabled=state
         if enabled then
-            -- bind to current character immediately (or wait for next CharacterAdded)
             if player.Character then
                 onCharacterBound(player.Character)
             end
         else
-            -- disable: stop custom anims and remove movement listeners for current character
             stopAndClearTracks()
             disconnectListeners()
-            -- don't disconnect player.CharacterAdded so toggle can be enabled again later and still rebind on respawn
         end
     end
 })
 end
+
+
+
 
 
 
