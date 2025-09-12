@@ -1843,6 +1843,7 @@ do
         ["136323728355613"] = true, -- Swing, Noli
         ["109230267448394"] = true, -- Swing, Noli (all skins)
         ["139835501033932"] = true, -- VoidRush, Noli (all skins)
+        ["106538427162796"] = true, -- Stab, All Noli
     }
 
     local toggleOn = false
@@ -2656,6 +2657,62 @@ end
 
 
 
+do
+local player = game.Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local humanoid = character:WaitForChild("Humanoid")
+
+local idleAnim = Instance.new("Animation")
+idleAnim.AnimationId = "rbxassetid://105880087711722"
+
+local runAnim = Instance.new("Animation")
+runAnim.AnimationId = "rbxassetid://132653655520682"
+
+local idleTrack, runTrack
+local animSystemEnabled = false
+
+-- Tạo toggle
+Tabs.Player:AddToggle("CustomAnimToggle", {
+    Title = "John Doe",
+    Default = false,
+    Callback = function(state)
+        animSystemEnabled = state
+        if not animSystemEnabled then
+            -- Tắt -> dừng anim custom và khôi phục mặc định
+            if idleTrack then idleTrack:Stop() end
+            if runTrack then runTrack:Stop() end
+        end
+    end
+})
+
+-- Hàm kiểm tra và phát anim phù hợp
+local function updateAnimation()
+    if not animSystemEnabled then return end
+    if humanoid.MoveDirection.Magnitude > 0 then
+        -- đang di chuyển
+        if idleTrack then idleTrack:Stop() end
+        if not runTrack or not runTrack.IsPlaying then
+            runTrack = humanoid:LoadAnimation(runAnim)
+            runTrack:Play()
+        end
+    else
+        -- đang đứng yên
+        if runTrack then runTrack:Stop() end
+        if not idleTrack or not idleTrack.IsPlaying then
+            idleTrack = humanoid:LoadAnimation(idleAnim)
+            idleTrack:Play()
+        end
+    end
+end
+
+-- Lắng nghe thay đổi trạng thái
+humanoid.Running:Connect(function(speed)
+    updateAnimation()
+end)
+
+-- Kiểm tra ban đầu
+updateAnimation()
+end
 
 
 
@@ -2880,7 +2937,8 @@ local AttackAnimations = {
     'rbxassetid://139835501033932',
     'rbxassetid://139835501033932',
     'rbxassetid://139835501033932',
-    'rbxassetid://139835501033932'
+    'rbxassetid://139835501033932',
+    'rbxassetid://106538427162796'
 }
 
 -- danh sách model killers và survivors (theo yêu cầu của bạn)
