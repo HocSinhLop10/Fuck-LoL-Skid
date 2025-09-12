@@ -1844,6 +1844,11 @@ do
         ["109230267448394"] = true, -- Swing, Noli (all skins)
         ["139835501033932"] = true, -- VoidRush, Noli (all skins)
         ["106538427162796"] = true, -- Stab, All Noli
+        ["126896426760253"] = true, -- VoidRush, Noli
+        ["97167027849946"] = true, -- ????
+        ["99135633258223"] = true, -- ????
+        ["98456918873918"] = true, -- ????
+        ["83251433279852"] = true, -- ????
     }
 
     local toggleOn = false
