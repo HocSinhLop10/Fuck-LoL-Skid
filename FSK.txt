@@ -1793,6 +1793,7 @@ end
 
     Tabs.Main:AddSection("↳ Guest1337")
 
+
 do
     local Players = game:GetService("Players")
     local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -1805,7 +1806,6 @@ do
         ["126355327951215"] = true, -- Behead, Jason
         ["121086746534252"] = true, -- GashingWoundStart, Jason
         ["105458270463374"] = true, -- Slash, JohnDoe
-        ["18885919947"]     = true, -- CorruptNature, c00lkidd
         ["18885909645"]     = true, -- Attack, c00lkid
         ["94162446513587"]  = true, -- Slash, JohnDoe, Skin: !Joner
         ["93069721274110"]  = true, -- Slash, JohnDoe, Skin: AnnihilationJohnDoe
@@ -1825,9 +1825,9 @@ do
         ["74707328554358"]  = true, -- Slash, Jason, Skin: #DeadRabbitsJason
         ["133336594357903"] = true, -- Behead, Jason, Skin: #DeadRabbitsJason
         ["86204001129974"]  = true, -- GashingWoundStart, Jason, Skin: #DeadRabbitsJason
-        ["124243639579224"] = true, -- CorruptNature, c00lkidd, Skin: MafiosoC00l
         ["70371667919898"]  = true, -- Attack, c00lkidd, Skin: MafiosoC00l
         ["131543461321709"] = true, -- Attack, c00lkidd, Skin: SaviorC00l
+        ["106776364623742"] = true, -- Walkspeed Overing, c00lkidd (all skins)
         ["136323728355613"] = true, -- Swing, Noli
         ["109230267448394"] = true, -- Swing, Noli (all skins)
         ["139835501033932"] = true, -- VoidRush, Noli (all skins)
