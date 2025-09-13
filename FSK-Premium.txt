@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Premium] | Forsaken",
-    SubTitle = "Version 4.2.8",
+    SubTitle = "Version 4.2.9",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -1801,28 +1801,22 @@ end
 
 do
     local Players = game:GetService("Players")
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")
     local localPlayer = Players.LocalPlayer
 
-    -- ✅ Animation IDs cần block (đã merge đầy đủ từ code 1)
+    -- ✅ Animation IDs cần block
     local animationIds = {
-        ["131430497821198"] = true, -- MassInfection, 1x1x1x1
         ["83829782357897"]  = true, -- Slash, 1x1x1x1
         ["126830014841198"] = true, -- Slash, Jason
         ["126355327951215"] = true, -- Behead, Jason
         ["121086746534252"] = true, -- GashingWoundStart, Jason
         ["105458270463374"] = true, -- Slash, JohnDoe
-        ["127172483138092"] = true, -- CorruptEnergy, JohnDoe
         ["18885919947"]     = true, -- CorruptNature, c00lkidd
         ["18885909645"]     = true, -- Attack, c00lkid
         ["94162446513587"]  = true, -- Slash, JohnDoe, Skin: !Joner
-        ["84426150435898"]  = true, -- CorruptEnergy, JohnDoe, Skin: !Joner
         ["93069721274110"]  = true, -- Slash, JohnDoe, Skin: AnnihilationJohnDoe
-        ["114620047310688"] = true, -- CorruptEnergy, JohnDoe, Skin: AnnihilationJohnDoe
         ["97433060861952"]  = true, -- Slash, JohnDoe, Skin: #SK
-        ["82183356141401"]  = true, -- CorruptEnergy, JohnDoe, Skin: #SK
-        ["100592913030351"] = true, -- MassInfection, 1x1x1x1 (Fleskhjerta/AceOfSpades/Lancer)
-        ["121293883585738"] = true, -- Slash, 1x1x1x1 (Fleskhjerta/AceOfSpades/Lancer)
-        ["70447634862911"]  = true, -- MassInfection, Skin: Hacklord1x1x1x1
+        ["121293883585738"] = true, -- Slash, 1x1x1x1
         ["92173139187970"]  = true, -- Slash, Skin: Hacklord1x1x1x1
         ["106847695270773"] = true, -- GashingWoundStart, Jason, Skin: Subject0Jason
         ["125403313786645"] = true, -- Slash, Jason, Skin: Subject0Jason
@@ -1845,18 +1839,50 @@ do
         ["139835501033932"] = true, -- VoidRush, Noli (all skins)
         ["106538427162796"] = true, -- Stab, All Noli
         ["126896426760253"] = true, -- VoidRush, Noli
-        ["97167027849946"] = true, -- ????
-        ["99135633258223"] = true, -- ????
-        ["98456918873918"] = true, -- ????
-        ["83251433279852"] = true, -- ????
+        ["97167027849946"]  = true,
+        ["99135633258223"]  = true,
+        ["98456918873918"]  = true,
+        ["83251433279852"]  = true,
+    }
+
+    -- ✅ Các animation cần delay riêng
+    local delayedAnimations = {
+        ["74707328554358"]  = 0,  -- Slash, Jason, Skin: #DeadRabbitsJason
+        ["109667959938617"] = 0, -- Slash, Jason, Skin: PursuerJason
+        ["118298475669935"] = 0, -- Slash, Jason (nhiều skin)
+        ["120112897026015"] = 0, -- Slash, Jason, Skin: WhitePumpkinJason
+        ["125403313786645"] = 0, -- Slash, Jason, Skin: Subject0Jason
+        ["126830014841198"] = 0, -- Slash, Jason
     }
 
     local toggleOn = false
     local strictRangeOn = false
     local detectionRange = 18
 
-    -- ⚡ Cache BlockButton & connections
+    -- ⚡ Remote & Button
+    local blockRemote
     local blockButton, connections = nil, {}
+
+    -- ✅ Tìm remote trong local scripts của BlockButton
+    local function findBlockRemote()
+        if blockRemote then return blockRemote end
+        if not blockButton then return nil end
+
+        for _, conn in ipairs(getconnections(blockButton.MouseButton1Click)) do
+            local f = conn.Function
+            if f and islclosure(f) then
+                local upvals = getupvalues(f)
+                for _, v in pairs(upvals) do
+                    if typeof(v) == "Instance" and v:IsA("RemoteEvent") then
+                        blockRemote = v
+                        warn("[AutoBlock] Found Block Remote:", v:GetFullName())
+                        return blockRemote
+                    end
+                end
+            end
+        end
+        return nil
+    end
 
     local function initBlockButton()
         local gui = localPlayer:FindFirstChild("PlayerGui")
@@ -1867,22 +1893,32 @@ do
 
         if blockButton and blockButton:IsA("ImageButton") then
             connections = getconnections(blockButton.MouseButton1Click)
+            findBlockRemote()
         end
     end
 
     initBlockButton()
     localPlayer.CharacterAdded:Connect(function()
-        task.wait(1)
+        task.wait(0)
         initBlockButton()
     end)
 
-    -- ✅ Hàm block nhanh
-    local function clickBlockButton()
-        if not blockButton or not blockButton.Visible then return end
-        for _, conn in ipairs(connections) do
-            pcall(function() conn:Fire() end)
+    -- ✅ Hàm block nhanh (ưu tiên remote, fallback UI)
+    local function fastBlock()
+        if blockRemote then
+            pcall(function()
+                blockRemote:FireServer(true) -- bắt đầu block
+                task.delay(0.00000000000000000000000000000000000000001, function()
+                    blockRemote:FireServer(false) -- nhả block nhanh
+                end)
+            end)
+        else
+            if not blockButton or not blockButton.Visible then return end
+            for _, conn in ipairs(connections) do
+                pcall(function() conn:Fire() end)
+            end
+            pcall(function() blockButton:Activate() end)
         end
-        pcall(function() blockButton:Activate() end)
     end
 
     -- 📝 Persistent flags
@@ -1950,7 +1986,7 @@ do
     local playerConns = {}
     local recentBlocks = {}
     local COOLDOWN_ZERO = 0.05
-    local COOLDOWN_MISS = 0.25
+    local COOLDOWN_MISS = 0
 
     local function cleanupPlayerConns(p)
         local tbl = playerConns[p]
@@ -1970,7 +2006,7 @@ do
         local last = recentBlocks[p.UserId][animId] or 0
         local now = tick()
 
-        if track.TimePosition <= (0 + 0) then
+        if track.TimePosition <= 0 then
             if now - last >= COOLDOWN_ZERO then
                 recentBlocks[p.UserId][animId] = now
                 return true
@@ -2003,7 +2039,10 @@ do
         end
 
         if shouldBlockNow(player, id, track) then
-            clickBlockButton()
+            local delayTime = delayedAnimations[id] or 0
+            task.delay(delayTime, function()
+                fastBlock()
+            end)
         end
     end
 
@@ -2026,7 +2065,7 @@ do
             monitorCharacter(player, player.Character)
         end
         local conCharAdded = player.CharacterAdded:Connect(function(char)
-            task.wait(0.03)
+            task.wait(0)
             monitorCharacter(player, char)
         end)
         playerConns[player] = playerConns[player] or {}
@@ -2042,6 +2081,7 @@ do
         cleanupPlayerConns(p)
     end)
 end
+
 
 
 
