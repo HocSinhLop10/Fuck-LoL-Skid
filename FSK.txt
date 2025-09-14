@@ -5554,164 +5554,172 @@ end
 
 
 do
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
-local LocalizationService = game:GetService("LocalizationService")
+    local Players = game:GetService("Players")
+    local LocalPlayer = Players.LocalPlayer
+    local LocalizationService = game:GetService("LocalizationService")
 
-shared.AntiBanSafe = shared.AntiBanSafe or {running = false, hooks = {}}
-local data = shared.AntiBanSafe
+    shared.AntiBanSafe = shared.AntiBanSafe or {running = false, hooks = {}}
+    local data = shared.AntiBanSafe
 
-local oldNamecall, oldIndex
-local protectionThread
+    local oldNamecall, oldIndex
+    local protectionThread
 
-local function safe(func, ...)
-    local ok, res = pcall(func, ...)
-    if ok then return res end
-end
+    local function safe(func, ...)
+        local ok, res = pcall(func, ...)
+        if ok then return res end
+    end
 
--- Disable screenshot/video flags
-local function disableReportFlags()
-    local flags = {
-        "AbuseReportScreenshot",
-        "AbuseReportScreenshotPercentage",
-        "AbuseReportEnabled",
-        "ReportAbuseMenu",
-        "EnableAbuseReportScreenshot",
-        "AbuseReportVideo",
-        "AbuseReportVideoPercentage",
-        "VideoCaptureEnabled",
-        "RecordVideo",
-        "VideoRecording"
-    }
-    for _, f in ipairs(flags) do
-        if type(setfflag) == "function" then
-            pcall(function() setfflag(f, "False") end)
+    -- Disable screenshot/video flags khi bật protection
+    local function disableReportFlags()
+        if typeof(setfflag) == "function" then
+            pcall(function()
+                setfflag("AbuseReportScreenshot", "False")
+                setfflag("AbuseReportScreenshotPercentage", "0") -- chỉnh về 0
+                setfflag("AbuseReportEnabled", "False")
+                setfflag("ReportAbuseMenu", "False")
+                setfflag("EnableAbuseReportScreenshot", "False")
+                setfflag("AbuseReportVideo", "False")
+                setfflag("AbuseReportVideoPercentage", "0")
+                setfflag("VideoCaptureEnabled", "False")
+                setfflag("RecordVideo", "False")
+            end)
         end
     end
-end
 
--- Hook requests (block report)
-local function hookRequests()
-    if data.hooks.requestHooked then return end
-    local oldRequest = (syn and syn.request) or request or http_request
-    if typeof(oldRequest) == "function" and typeof(hookfunction) == "function" then
-        hookfunction(oldRequest, function(req)
-            if req and req.Url and tostring(req.Url):lower():find("abuse") then
-                return {StatusCode = 200, Body = "Blocked"}
-            end
-            return oldRequest(req)
-        end)
-        data.hooks.requestHooked = true
-    end
-end
-
--- Hook FindFirstChild (block GUI video/screenshot)
-local function hookFindFirstChild()
-    if data.hooks.findHooked then return end
-    local oldFind = workspace.FindFirstChild
-    if typeof(oldFind) == "function" and typeof(hookfunction) == "function" then
-        hookfunction(oldFind, function(self, name, ...)
-            if name and tostring(name):lower():find("screenshot") then return nil end
-            if name and tostring(name):lower():find("video") then return nil end
-            return oldFind(self, name, ...)
-        end)
-        data.hooks.findHooked = true
-    end
-end
-
--- Safe bypass (__namecall)
-local function safeBypass()
-    if getrawmetatable and hookmetamethod and newcclosure then
-        local mt = getrawmetatable(game)
-        setreadonly(mt, false)
-        oldNamecall = oldNamecall or mt.__namecall
-        oldIndex = oldIndex or mt.__index
-
-        mt.__namecall = newcclosure(function(self, ...)
-            local method = getnamecallmethod()
-            local args = {...}
-
-            -- Block LocalPlayer kick/ban
-            if (method == "Kick" or method == "Ban") and self == LocalPlayer then return nil end
-
-            -- Block remote kick/ban
-            if (method == "FireServer" or method == "InvokeServer") and args[1] then
-                local msg = tostring(args[1]):lower()
-                if msg:find("kick") or msg:find("ban") then return nil end
-            end
-
-            -- Block LocalizationService
-            if self == LocalizationService and method == "GetCountryRegionForPlayerAsync" then
-                local success, result = pcall(function()
-                    return LocalizationService:GetCountryRegionForPlayerAsync(LocalPlayer)
-                end)
-                if success then return result else return "US" end
-            end
-
-            return oldNamecall(self, ...)
-        end)
-
-        mt.__index = newcclosure(function(t, k)
-            local key = tostring(k):lower()
-            if key:find("kick") or key:find("ban") then return function() return nil end end
-            return oldIndex(t, k)
-        end)
-
-        setreadonly(mt, true)
-    end
-end
-
--- Restore hooks
-local function restoreHooks()
-    if getrawmetatable then
-        local mt = getrawmetatable(game)
-        setreadonly(mt, false)
-        if oldNamecall then mt.__namecall = oldNamecall end
-        if oldIndex then mt.__index = oldIndex end
-        setreadonly(mt, true)
-        oldNamecall, oldIndex = nil, nil
-    end
-end
-
--- Start protection
-local function startAntiBanSafe()
-    if data.running then return end
-    data.running = true
-
-    safe(hookRequests)
-    safe(hookFindFirstChild)
-    safe(safeBypass)
-
-    protectionThread = task.spawn(function()
-        while data.running do
-            safe(disableReportFlags)
-            task.wait(0.2)
-        end
-    end)
-
-    print("[Anti-Ban Safe] 🛡️ ENABLED!")
-end
-
--- Stop protection
-local function stopAntiBanSafe()
-    data.running = false
-    protectionThread = nil
-    restoreHooks()
-    print("[Anti-Ban Safe] ⚠️ DISABLED!")
-end
-
--- Toggle
-Tabs.Misc:AddToggle("AntiBanV3", {
-    Title = "Anti Ban V3",
-    Default = true,
-    Callback = function(state)
-        if state then
-            startAntiBanSafe()
-        else
-            stopAntiBanSafe()
+    -- Restore flag về bình thường khi tắt protection
+    local function setFlagsOn()
+        if typeof(setfflag) == "function" then
+            pcall(function()
+                setfflag("AbuseReportScreenshot", "True")
+                setfflag("AbuseReportScreenshotPercentage", "100")
+            end)
         end
     end
-})
+
+    -- Hook requests (block report)
+    local function hookRequests()
+        if data.hooks.requestHooked then return end
+        local oldRequest = (syn and syn.request) or request or http_request
+        if typeof(oldRequest) == "function" and typeof(hookfunction) == "function" then
+            hookfunction(oldRequest, function(req)
+                if req and req.Url and tostring(req.Url):lower():find("abuse") then
+                    return {StatusCode = 200, Body = "Blocked"}
+                end
+                return oldRequest(req)
+            end)
+            data.hooks.requestHooked = true
+        end
+    end
+
+    -- Hook FindFirstChild (block GUI video/screenshot)
+    local function hookFindFirstChild()
+        if data.hooks.findHooked then return end
+        local oldFind = workspace.FindFirstChild
+        if typeof(oldFind) == "function" and typeof(hookfunction) == "function" then
+            hookfunction(oldFind, function(self, name, ...)
+                if name and tostring(name):lower():find("screenshot") then return nil end
+                if name and tostring(name):lower():find("video") then return nil end
+                return oldFind(self, name, ...)
+            end)
+            data.hooks.findHooked = true
+        end
+    end
+
+    -- Safe bypass (__namecall)
+    local function safeBypass()
+        if getrawmetatable and hookmetamethod and newcclosure then
+            local mt = getrawmetatable(game)
+            setreadonly(mt, false)
+            oldNamecall = oldNamecall or mt.__namecall
+            oldIndex = oldIndex or mt.__index
+
+            mt.__namecall = newcclosure(function(self, ...)
+                local method = getnamecallmethod()
+                local args = {...}
+
+                -- Block LocalPlayer kick/ban
+                if (method == "Kick" or method == "Ban") and self == LocalPlayer then return nil end
+
+                -- Block remote kick/ban
+                if (method == "FireServer" or method == "InvokeServer") and args[1] then
+                    local msg = tostring(args[1]):lower()
+                    if msg:find("kick") or msg:find("ban") then return nil end
+                end
+
+                -- Block LocalizationService
+                if self == LocalizationService and method == "GetCountryRegionForPlayerAsync" then
+                    local success, result = pcall(function()
+                        return LocalizationService:GetCountryRegionForPlayerAsync(LocalPlayer)
+                    end)
+                    if success then return result else return "US" end
+                end
+
+                return oldNamecall(self, ...)
+            end)
+
+            mt.__index = newcclosure(function(t, k)
+                local key = tostring(k):lower()
+                if key:find("kick") or key:find("ban") then return function() return nil end end
+                return oldIndex(t, k)
+            end)
+
+            setreadonly(mt, true)
+        end
+    end
+
+    -- Restore hooks
+    local function restoreHooks()
+        if getrawmetatable then
+            local mt = getrawmetatable(game)
+            setreadonly(mt, false)
+            if oldNamecall then mt.__namecall = oldNamecall end
+            if oldIndex then mt.__index = oldIndex end
+            setreadonly(mt, true)
+            oldNamecall, oldIndex = nil, nil
+        end
+    end
+
+    -- Start protection
+    local function startAntiBanSafe()
+        if data.running then return end
+        data.running = true
+
+        safe(hookRequests)
+        safe(hookFindFirstChild)
+        safe(safeBypass)
+
+        -- Disable screenshot/video
+        protectionThread = task.spawn(function()
+            while data.running do
+                safe(disableReportFlags)
+                task.wait(0.2)
+            end
+        end)
+
+        print("[Anti-Ban Safe] 🛡️ ENABLED!")
+    end
+
+    -- Stop protection
+    local function stopAntiBanSafe()
+        data.running = false
+        protectionThread = nil
+        restoreHooks()
+        setFlagsOn() -- phục hồi flag về bình thường
+        print("[Anti-Ban Safe] ⚠️ DISABLED!")
+    end
+
+    -- Toggle
+    Tabs.Misc:AddToggle("AntiBanV3", {
+        Title = "Anti Ban V3",
+        Default = true,
+        Callback = function(state)
+            if state then
+                startAntiBanSafe()
+            else
+                stopAntiBanSafe()
+            end
+        end
+    })
 end
 
 
