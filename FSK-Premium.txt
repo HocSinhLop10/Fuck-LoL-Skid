@@ -1837,6 +1837,7 @@ do
         ["136323728355613"] = true, -- Swing, Noli
         ["109230267448394"] = true, -- Swing, Noli (all skins)
         ["139835501033932"] = true, -- VoidRush, Noli (all skins)
+        ["114356208094580"] = true, -- VoidRush2, Noli
         ["106538427162796"] = true, -- Stab, All Noli
         ["126896426760253"] = true, -- VoidRush, Noli
         ["97167027849946"]  = true,
