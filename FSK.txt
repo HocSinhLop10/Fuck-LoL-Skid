@@ -2628,10 +2628,71 @@ Tabs.Player:AddButton({
             local animTrack = animator:LoadAnimation(animation)
             animTrack:Play()
         end
+
+        -- Âm thanh đầu tiên
+        local sound1 = Instance.new("Sound")
+        sound1.SoundId = "rbxassetid://81976396729343"
+        sound1.Parent = character:FindFirstChild("Head") or character:FindFirstChild("HumanoidRootPart")
+        sound1:Play()
+
+        -- Sau 0.75 giây thì tắt sound1 và phát sound2
+        task.delay(0.75, function()
+            if sound1.IsPlaying then
+                sound1:Stop()
+            end
+            local sound2 = Instance.new("Sound")
+            sound2.SoundId = "rbxassetid://122560631718612"
+            sound2.Parent = character:FindFirstChild("Head") or character:FindFirstChild("HumanoidRootPart")
+            sound2:Play()
+        end)
     end
 })
 
 
+
+
+Tabs.Player:AddButton({
+    Title = "Fake Punch v2",
+    Callback = function()
+        -- Tạo Animation object
+        local animation = Instance.new("Animation")
+        animation.AnimationId = "rbxassetid://86709774283672"
+
+        -- Lấy Humanoid của nhân vật
+        local player = game.Players.LocalPlayer
+        local character = player.Character or player.CharacterAdded:Wait()
+        local humanoid = character:FindFirstChildOfClass("Humanoid")
+
+        if humanoid then
+            local animator = humanoid:FindFirstChildOfClass("Animator")
+            if not animator then
+                animator = Instance.new("Animator")
+                animator.Parent = humanoid
+            end
+
+            -- Load và Play animation
+            local animTrack = animator:LoadAnimation(animation)
+            animTrack:Play()
+        end
+
+        -- Âm thanh đầu tiên
+        local sound1 = Instance.new("Sound")
+        sound1.SoundId = "rbxassetid://81976396729343"
+        sound1.Parent = character:FindFirstChild("Head") or character:FindFirstChild("HumanoidRootPart")
+        sound1:Play()
+
+        -- Sau 0.5 giây thì tắt sound1 và phát sound2
+        task.delay(0.5, function()
+            if sound1.IsPlaying then
+                sound1:Stop()
+            end
+            local sound2 = Instance.new("Sound")
+            sound2.SoundId = "rbxassetid://122560631718612"
+            sound2.Parent = character:FindFirstChild("Head") or character:FindFirstChild("HumanoidRootPart")
+            sound2:Play()
+        end)
+    end
+})
 
 
 
