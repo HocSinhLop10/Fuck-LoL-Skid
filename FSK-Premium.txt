@@ -5242,32 +5242,21 @@ end)
 
 
 do
--- ========= Items ESP (auto re-add nếu mất) =========
 local RunService = game:GetService("RunService")
 local Camera = workspace.CurrentCamera
 
-local itemsDraw = {}  -- [tool] = {text, highlight, part}
-local conItemsLoop, conItemsAdded, conItemsRemoved
+local itemsDraw = {}
+local conItemsAdded, conItemsRemoved, conItemsLoop
 
 local function getToolPart(tool)
     return tool:FindFirstChild("Handle") or tool:FindFirstChildWhichIsA("BasePart")
 end
 
 local function createItemESP(tool)
-    if not tool then return end
+    if itemsDraw[tool] then return end
     local part = getToolPart(tool)
     if not part then return end
 
-    -- Nếu đã có highlight thì chỉ update lại thôi
-    if itemsDraw[tool] then
-        local data = itemsDraw[tool]
-        if data.highlight and data.highlight.Parent then
-            data.part = part
-            return
-        end
-    end
-
-    -- Text
     local text = Drawing.new("Text")
     text.Size = 14
     text.Center = true
@@ -5275,7 +5264,6 @@ local function createItemESP(tool)
     text.Visible = false
     text.Color = Color3.fromRGB(255, 215, 0)
 
-    -- Highlight
     local hl = Instance.new("Highlight")
     hl.Name = "ItemESP_Highlight"
     hl.Adornee = part
@@ -5287,7 +5275,7 @@ local function createItemESP(tool)
     hl.Enabled = true
     hl.Parent = tool
 
-    itemsDraw[tool] = { text = text, highlight = hl, part = part }
+    itemsDraw[tool] = {text = text, highlight = hl, part = part}
 end
 
 local function removeItemESP(tool)
@@ -5320,58 +5308,50 @@ local function startESPItems()
 
     scanInitialItems()
 
-    -- Auto update
-    conItemsLoop = RunService.Heartbeat:Connect(function()
-        for _, tool in ipairs(workspace:GetDescendants()) do
-            if tool:IsA("Tool") and isInIngameFolder(tool) then
-                -- Nếu chưa có hoặc bị mất highlight => tạo lại
-                if not itemsDraw[tool] or not (itemsDraw[tool].highlight and itemsDraw[tool].highlight.Parent) then
-                    createItemESP(tool)
-                end
-            end
-        end
-
-        -- Update text/position
-        for tool, data in pairs(itemsDraw) do
-            local part = data.part or getToolPart(tool)
-            if not (tool.Parent and part and part.Parent) or not isInIngameFolder(tool) then
-                if data.text then data.text.Visible = false end
-                if tool.Parent == nil then
-                    removeItemESP(tool)
-                end
-            else
-                data.part = part
-                if data.highlight and data.highlight.Adornee ~= part then
-                    data.highlight.Adornee = part
-                end
-                local pos, onScreen = Camera:WorldToViewportPoint(part.Position + Vector3.new(0, 2, 0))
-                local dist = (part.Position - Camera.CFrame.Position).Magnitude
-                data.text.Text = string.format("%s [%.0fm]", tool.Name, dist)
-                data.text.Position = Vector2.new(pos.X, pos.Y)
-                data.text.Visible = onScreen
-                if data.highlight then data.highlight.Enabled = true end
-            end
+    -- Chỉ quét các tool mới thêm
+    conItemsAdded = workspace.DescendantAdded:Connect(function(obj)
+        if obj:IsA("Tool") and isInIngameFolder(obj) then
+            createItemESP(obj)
         end
     end)
 
-    -- Watch for removal
     conItemsRemoved = workspace.DescendantRemoving:Connect(function(obj)
         if itemsDraw[obj] then
             removeItemESP(obj)
         end
     end)
+
+    -- Cập nhật vị trí text mỗi frame
+    conItemsLoop = RunService.RenderStepped:Connect(function()
+        for tool, data in pairs(itemsDraw) do
+            local part = data.part
+            if not (tool.Parent and part and part.Parent) or not isInIngameFolder(tool) then
+                data.text.Visible = false
+            else
+                local pos, onScreen = Camera:WorldToViewportPoint(part.Position + Vector3.new(0,2,0))
+                local dist = (part.Position - Camera.CFrame.Position).Magnitude
+                data.text.Text = string.format("%s [%.0fm]", tool.Name, dist)
+                data.text.Position = Vector2.new(pos.X, pos.Y)
+                data.text.Visible = onScreen
+                if data.highlight then
+                    data.highlight.Adornee = part
+                    data.highlight.Enabled = true
+                end
+            end
+        end
+    end)
 end
 
 local function stopESPItems()
-    if conItemsLoop then conItemsLoop:Disconnect(); conItemsLoop = nil end
+    if conItemsAdded then conItemsAdded:Disconnect(); conItemsAdded = nil end
     if conItemsRemoved then conItemsRemoved:Disconnect(); conItemsRemoved = nil end
+    if conItemsLoop then conItemsLoop:Disconnect(); conItemsLoop = nil end
     for tool, _ in pairs(itemsDraw) do
         removeItemESP(tool)
     end
     itemsDraw = {}
 end
 
--- Fluent toggle
 Tabs.Visual:AddToggle("ESPItemsToggle", {
     Title = "ESP Items",
     Default = false,
