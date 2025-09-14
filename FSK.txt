@@ -1979,7 +1979,7 @@ do
     -- ===============================
     local playerConns = {}
     local recentBlocks = {}
-    local COOLDOWN_ZERO = 0.05
+    local COOLDOWN_ZERO = 0  -- chỉnh delay block
     local COOLDOWN_MISS = 0
 
     local function cleanupPlayerConns(p)
