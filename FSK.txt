@@ -1796,10 +1796,30 @@ end
 
 do
     local Players = game:GetService("Players")
-    local ReplicatedStorage = game:GetService("ReplicatedStorage")
+    local RunService = game:GetService("RunService")
     local localPlayer = Players.LocalPlayer
 
-    -- ✅ Animation IDs cần block
+    -- =====================================================
+    -- ========== KILLER LIST (Chỉ tạo vòng tròn cho) =====
+    -- =====================================================
+    local Killers = {
+        ["Slasher"] = true,
+        ["1x1x1x1"] = true,
+        ["c00lkidd"] = true,
+        ["Noli"] = true,
+        ["JohnDoe"] = true,
+        ["Quest666"] = true
+    }
+
+    local function isKiller(player)
+        local char = player.Character
+        if not char then return false end
+        return Killers[char.Name] == true
+    end
+
+    -- =====================================================
+    -- ========== AUTO BLOCK V2 ===========================
+    -- =====================================================
     local animationIds = {
         ["83829782357897"]  = true, -- Slash, 1x1x1x1
         ["126830014841198"] = true, -- Slash, Jason
@@ -1840,7 +1860,6 @@ do
         ["83251433279852"]  = true,
     }
 
-    -- ✅ Các animation cần delay riêng
     local delayedAnimations = {
         ["74707328554358"]  = 0,  -- Slash, Jason, Skin: #DeadRabbitsJason
         ["109667959938617"] = 0, -- Slash, Jason, Skin: PursuerJason
@@ -1854,15 +1873,13 @@ do
     local strictRangeOn = false
     local detectionRange = 18
 
-    -- ⚡ Remote & Button
     local blockRemote
     local blockButton, connections = nil, {}
 
-    -- ✅ Tìm remote trong local scripts của BlockButton
+    -- =================== Block Functions ===================
     local function findBlockRemote()
         if blockRemote then return blockRemote end
         if not blockButton then return nil end
-
         for _, conn in ipairs(getconnections(blockButton.MouseButton1Click)) do
             local f = conn.Function
             if f and islclosure(f) then
@@ -1885,7 +1902,6 @@ do
         local mainUI = gui:FindFirstChild("MainUI")
         local container = mainUI and mainUI:FindFirstChild("AbilityContainer")
         blockButton = container and container:FindFirstChild("Block")
-
         if blockButton and blockButton:IsA("ImageButton") then
             connections = getconnections(blockButton.MouseButton1Click)
             findBlockRemote()
@@ -1898,13 +1914,12 @@ do
         initBlockButton()
     end)
 
-    -- ✅ Hàm block nhanh (ưu tiên remote, fallback UI)
     local function fastBlock()
         if blockRemote then
             pcall(function()
-                blockRemote:FireServer(true) -- bắt đầu block
-                task.delay(0.00000000000000000000000000000000000000001, function()
-                    blockRemote:FireServer(false) -- nhả block nhanh
+                blockRemote:FireServer(true)
+                task.delay(1e-10, function()
+                    blockRemote:FireServer(false)
                 end)
             end)
         else
@@ -1916,7 +1931,6 @@ do
         end
     end
 
-    -- 📝 Persistent flags
     local function getBoolFlag(name, default)
         local flag = localPlayer:FindFirstChild(name)
         if not flag then
@@ -1947,7 +1961,6 @@ do
     strictRangeOn = strictFlag.Value
     detectionRange = rangeFlag.Value
 
-    -- 🕹 GUI
     Tabs.Main:AddToggle("AutoBlockV2", {
         Title = "Auto Block V2",
         Default = toggleOn,
@@ -1964,32 +1977,30 @@ do
         strictFlag.Value = state
     end)
 
-    Tabs.Main:AddSlider("RangeCheckSlider", {
+    -- =====================================================
+    -- ========== RANGE CHECK INPUT ========================
+    -- =====================================================
+    Tabs.Main:AddInput("RangeCheckInput", {
         Title = "Range Check",
-        Min = 1,
-        Max = 100,
-        Default = detectionRange,
-        Rounding = 1,
-    }):OnChanged(function(value)
-        detectionRange = value
-        rangeFlag.Value = value
+        Default = tostring(detectionRange),
+        Placeholder = "Enter detection range"
+    }):OnChanged(function(txt)
+        local val = tonumber(txt)
+        if val then
+            detectionRange = val
+            rangeFlag.Value = val
+        end
     end)
 
-    -- ===============================
-    -- Event-based animation detection
-    -- ===============================
     local playerConns = {}
     local recentBlocks = {}
-    local COOLDOWN_ZERO = 0  -- chỉnh delay block
-    local COOLDOWN_MISS = 0
+    local COOLDOWN_ZERO, COOLDOWN_MISS = 0, 0
 
     local function cleanupPlayerConns(p)
         local tbl = playerConns[p]
         if tbl then
             for _, c in ipairs(tbl) do
-                if c and c.Disconnect then
-                    c:Disconnect()
-                end
+                if c and c.Disconnect then c:Disconnect() end
             end
             playerConns[p] = nil
         end
@@ -2020,8 +2031,7 @@ do
         if not toggleOn then return end
         if not (track and track.Animation) then return end
         local animIdStr = track.Animation.AnimationId
-        if not animIdStr then return end
-        local id = string.match(animIdStr, "%d+")
+        local id = animIdStr and string.match(animIdStr, "%d+")
         if not id or not animationIds[id] then return end
 
         if strictRangeOn then
@@ -2035,9 +2045,7 @@ do
 
         if shouldBlockNow(player, id, track) then
             local delayTime = delayedAnimations[id] or 0
-            task.delay(delayTime, function()
-                fastBlock()
-            end)
+            task.delay(delayTime, function() fastBlock() end)
         end
     end
 
@@ -2045,20 +2053,16 @@ do
         if not player or not char then return end
         local hum = char:FindFirstChildOfClass("Humanoid") or char:WaitForChild("Humanoid", 5)
         if not hum then return end
-
         local con = hum.AnimationPlayed:Connect(function(track)
             task.spawn(onAnimationPlayed, player, char, track)
         end)
-
         playerConns[player] = playerConns[player] or {}
         table.insert(playerConns[player], con)
     end
 
     local function onPlayerAdded(player)
         if player == localPlayer then return end
-        if player.Character then
-            monitorCharacter(player, player.Character)
-        end
+        if player.Character then monitorCharacter(player, player.Character) end
         local conCharAdded = player.CharacterAdded:Connect(function(char)
             task.wait(0)
             monitorCharacter(player, char)
@@ -2067,14 +2071,66 @@ do
         table.insert(playerConns[player], conCharAdded)
     end
 
-    for _, p in ipairs(Players:GetPlayers()) do
-        onPlayerAdded(p)
+    for _, p in ipairs(Players:GetPlayers()) do onPlayerAdded(p) end
+    Players.PlayerAdded:Connect(onPlayerAdded)
+    Players.PlayerRemoving:Connect(cleanupPlayerConns)
+
+    -- =====================================================
+    -- ========== CIRCLE INDICATOR CHỈ CHO KILLERS =========
+    -- =====================================================
+    local circles = {}
+
+    local function createCircleFor(player, hrp)
+        if circles[player] then circles[player]:Destroy() end
+        local circle = Instance.new("Part")
+        circle.Anchored, circle.CanCollide = true, false
+        circle.Shape = Enum.PartType.Cylinder
+        circle.Size = Vector3.new(0.2, detectionRange * 2, detectionRange * 2)
+        circle.CFrame = hrp.CFrame * CFrame.Angles(0, 0, math.rad(90))
+        circle.Material, circle.Transparency = Enum.Material.Neon, 0.5
+        circle.Color = Color3.fromRGB(255, 0, 0)
+        circle.Parent = workspace
+        circles[player] = circle
     end
 
-    Players.PlayerAdded:Connect(onPlayerAdded)
-    Players.PlayerRemoving:Connect(function(p)
-        cleanupPlayerConns(p)
+    local function removeCircle(player)
+        if circles[player] then circles[player]:Destroy() circles[player] = nil end
+    end
+
+    RunService.Heartbeat:Connect(function()
+        if not strictRangeOn then
+            for _, circle in pairs(circles) do
+                if circle then circle.Transparency = 1 end
+            end
+            return
+        end
+
+        local myChar = localPlayer.Character
+        local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
+        if not myRoot then return end
+
+        for _, player in ipairs(Players:GetPlayers()) do
+            if player ~= localPlayer then
+                local char = player.Character
+                local hrp = char and char:FindFirstChild("HumanoidRootPart")
+                local hum = char and char:FindFirstChildOfClass("Humanoid")
+
+                if hrp and hum and hum.Health > 0 and isKiller(player) then
+                    if not circles[player] then createCircleFor(player, hrp) end
+                    local circle = circles[player]
+                    circle.Size = Vector3.new(0.2, detectionRange * 2, detectionRange * 2)
+                    circle.CFrame = hrp.CFrame * CFrame.Angles(0, 0, math.rad(90))
+                    local dist = (myRoot.Position - hrp.Position).Magnitude
+                    circle.Color = (dist <= detectionRange) and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 0, 0)
+                    circle.Transparency = 0.5
+                else
+                    removeCircle(player)
+                end
+            end
+        end
     end)
+
+    Players.PlayerRemoving:Connect(removeCircle)
 end
 
 
