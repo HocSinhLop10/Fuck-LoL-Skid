@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Premium] | Forsaken",
-    SubTitle = "Version 4.2.9",
+    SubTitle = "Version 4.3.0",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -5580,290 +5580,169 @@ end
 
 
 
+do
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local LocalizationService = game:GetService("LocalizationService")
 
+shared.AntiBanSafe = shared.AntiBanSafe or {running = false, hooks = {}}
+local data = shared.AntiBanSafe
 
-Tabs.Misc:AddToggle("AntiReportScreenshot", {
-    Title = "Anti-Ban V2",
+local oldNamecall, oldIndex
+local protectionThread
+
+local function safe(func, ...)
+    local ok, res = pcall(func, ...)
+    if ok then return res end
+end
+
+-- Disable screenshot/video flags
+local function disableReportFlags()
+    local flags = {
+        "AbuseReportScreenshot",
+        "AbuseReportScreenshotPercentage",
+        "AbuseReportEnabled",
+        "ReportAbuseMenu",
+        "EnableAbuseReportScreenshot",
+        "AbuseReportVideo",
+        "AbuseReportVideoPercentage",
+        "VideoCaptureEnabled",
+        "RecordVideo",
+        "VideoRecording"
+    }
+    for _, f in ipairs(flags) do
+        if type(setfflag) == "function" then
+            pcall(function() setfflag(f, "False") end)
+        end
+    end
+end
+
+-- Hook requests (block report)
+local function hookRequests()
+    if data.hooks.requestHooked then return end
+    local oldRequest = (syn and syn.request) or request or http_request
+    if typeof(oldRequest) == "function" and typeof(hookfunction) == "function" then
+        hookfunction(oldRequest, function(req)
+            if req and req.Url and tostring(req.Url):lower():find("abuse") then
+                return {StatusCode = 200, Body = "Blocked"}
+            end
+            return oldRequest(req)
+        end)
+        data.hooks.requestHooked = true
+    end
+end
+
+-- Hook FindFirstChild (block GUI video/screenshot)
+local function hookFindFirstChild()
+    if data.hooks.findHooked then return end
+    local oldFind = workspace.FindFirstChild
+    if typeof(oldFind) == "function" and typeof(hookfunction) == "function" then
+        hookfunction(oldFind, function(self, name, ...)
+            if name and tostring(name):lower():find("screenshot") then return nil end
+            if name and tostring(name):lower():find("video") then return nil end
+            return oldFind(self, name, ...)
+        end)
+        data.hooks.findHooked = true
+    end
+end
+
+-- Safe bypass (__namecall)
+local function safeBypass()
+    if getrawmetatable and hookmetamethod and newcclosure then
+        local mt = getrawmetatable(game)
+        setreadonly(mt, false)
+        oldNamecall = oldNamecall or mt.__namecall
+        oldIndex = oldIndex or mt.__index
+
+        mt.__namecall = newcclosure(function(self, ...)
+            local method = getnamecallmethod()
+            local args = {...}
+
+            -- Block LocalPlayer kick/ban
+            if (method == "Kick" or method == "Ban") and self == LocalPlayer then return nil end
+
+            -- Block remote kick/ban
+            if (method == "FireServer" or method == "InvokeServer") and args[1] then
+                local msg = tostring(args[1]):lower()
+                if msg:find("kick") or msg:find("ban") then return nil end
+            end
+
+            -- Block LocalizationService
+            if self == LocalizationService and method == "GetCountryRegionForPlayerAsync" then
+                local success, result = pcall(function()
+                    return LocalizationService:GetCountryRegionForPlayerAsync(LocalPlayer)
+                end)
+                if success then return result else return "US" end
+            end
+
+            return oldNamecall(self, ...)
+        end)
+
+        mt.__index = newcclosure(function(t, k)
+            local key = tostring(k):lower()
+            if key:find("kick") or key:find("ban") then return function() return nil end end
+            return oldIndex(t, k)
+        end)
+
+        setreadonly(mt, true)
+    end
+end
+
+-- Restore hooks
+local function restoreHooks()
+    if getrawmetatable then
+        local mt = getrawmetatable(game)
+        setreadonly(mt, false)
+        if oldNamecall then mt.__namecall = oldNamecall end
+        if oldIndex then mt.__index = oldIndex end
+        setreadonly(mt, true)
+        oldNamecall, oldIndex = nil, nil
+    end
+end
+
+-- Start protection
+local function startAntiBanSafe()
+    if data.running then return end
+    data.running = true
+
+    safe(hookRequests)
+    safe(hookFindFirstChild)
+    safe(safeBypass)
+
+    protectionThread = task.spawn(function()
+        while data.running do
+            safe(disableReportFlags)
+            task.wait(0)
+        end
+    end)
+
+    print("[Anti-Ban Safe] 🛡️ ENABLED!")
+end
+
+-- Stop protection
+local function stopAntiBanSafe()
+    data.running = false
+    protectionThread = nil
+    restoreHooks()
+    print("[Anti-Ban Safe] ⚠️ DISABLED!")
+end
+
+-- Toggle
+Tabs.Misc:AddToggle("AntiBanV3", {
+    Title = "Anti Ban V3",
     Default = true,
     Callback = function(state)
-        if not shared.AntiBanLoop then
-            shared.AntiBanLoop = {running = false, hooked = false}
-        end
-        local loopData = shared.AntiBanLoop
-
-        -- 🛡️ Function Anti Chat + Screenshot Logger (Code 1)
-        local function AntiChatLogger()
-            local StarterGui = game:GetService("StarterGui")
-            local Players = game:GetService("Players")
-            local Player = Players.LocalPlayer
-            local PlayerScripts = Player:WaitForChild("PlayerScripts")
-
-            local ChatMain = PlayerScripts:FindFirstChild("ChatMain", true)
-            if ChatMain then
-                local PostMessage = require(ChatMain).MessagePosted
-                if PostMessage then
-                    local OldHook
-                    OldHook = hookfunction(PostMessage.fire, function(self, Message)
-                        if not checkcaller() and self == PostMessage then
-                            return -- block chat logger
-                        end
-                        return OldHook(self, Message)
-                    end)
-                end
-            end
-            -- Disable abuse screenshot flags
-            if setfflag then
-                setfflag("AbuseReportScreenshot", "False")
-                setfflag("AbuseReportScreenshotPercentage", "0")
-            end
-        end
-
-        -- 🛡️ Function Hook Anti Report (Code 2)
-        local function hookOnce()
-            if not loopData.hookedFind then
-                local oldFind = workspace.FindFirstChild
-                if typeof(oldFind) == "function" and hookfunction then
-                    hookfunction(oldFind, function(self, ...)
-                        local args = {...}
-                        if tostring(args[1]):lower():find("screenshot") then
-                            return nil
-                        end
-                        return oldFind(self, unpack(args))
-                    end)
-                    loopData.hookedFind = true
-                end
-            end
-
-            if not loopData.hookedRequest then
-                local oldRequest = (syn and syn.request) or request or http_request
-                if hookfunction and typeof(oldRequest) == "function" then
-                    hookfunction(oldRequest, function(req)
-                        if req and req.Url and tostring(req.Url):lower():find("abuse") then
-                            return {StatusCode = 200, Body = "Blocked"}
-                        end
-                        return oldRequest(req)
-                    end)
-                    loopData.hookedRequest = true
-                end
-            end
-        end
-
-        local function setFlagsOff()
-            local flags = {
-                "AbuseReportScreenshot",
-                "AbuseReportScreenshotPercentage",
-                "AbuseReportEnabled",
-                "ReportAbuseMenu",
-                "EnableAbuseReportScreenshot"
-            }
-            for _, flag in ipairs(flags) do
-                if typeof(setfflag) == "function" then
-                    pcall(function()
-                        setfflag(flag, "False")
-                    end)
-                end
-            end
-            if typeof(setfflag) == "function" then
-                setfflag("AbuseReportScreenshotPercentage", "0")
-            end
-        end
-
-        local function setFlagsOn()
-            if typeof(setfflag) == "function" then
-                setfflag("AbuseReportScreenshot", "True")
-                setfflag("AbuseReportScreenshotPercentage", "100")
-            end
-        end
-
-        -- 🟢 Khi bật
         if state then
-            hookOnce()
-            AntiChatLogger()
-            setFlagsOff()
-            loopData.running = true
-            task.spawn(function()
-                while loopData.running do
-                    setFlagsOff()
-                    task.wait(0.05)
-                end
-            end)
-            print("[Anti-Ban] 🛡️ Protection ENABLED!")
+            startAntiBanSafe()
         else
-            -- 🔴 Khi tắt
-            loopData.running = false
-            setFlagsOn()
-            print("[Anti-Ban] ⚠️ Protection DISABLED.")
-        end
-    end
-})
-
-
-
-
-
-
-do
--- 🛡️ Anti Noclip Script với Toggle (Fluent UI Tabs.Misc)
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local LocalizationService = game:GetService("LocalizationService")
-local StarterGui = game:GetService("StarterGui")
-
-local LocalPlayer = Players.LocalPlayer
-local Character, HumanoidRootPart, Humanoid = nil, nil, nil
-
-local AntiNoclipEnabled = false
-local stuckTime = 0
-local requiredStuckSeconds = 1
-
--- chống reset liên tiếp & bỏ qua kiểm tra ngay khi spawn
-local lastResetAt = 0
-local resetCooldown = 1.5 -- giây
-local lastSpawnAt = 0
-local spawnGrace = 1 -- giây
-
--- ========= Notify helper (Fluent -> fallback SetCore) =========
-local function getLanguage()
-    local lang = LocalizationService.RobloxLocaleId or "en-us"
-    if string.sub(lang,1,2):lower() == "vi" then return "vi" end
-    return "en"
-end
-
-local function Notify(msg)
-    -- thử Fluent trước (nếu có)
-    local okFluent = false
-    pcall(function()
-        if Fluent and typeof(Fluent) == "table" and Fluent.Notify then
-            Fluent:Notify({
-                Title = "🛡️ Anti Noclip",
-                Content = msg,
-                Duration = 6
-            })
-            okFluent = true
-        end
-    end)
-    if okFluent then return end
-    -- fallback SetCore
-    pcall(function()
-        StarterGui:SetCore("SendNotification", {
-            Title = "🛡️ Anti Noclip",
-            Text = msg,
-            Duration = 6
-        })
-    end)
-end
-
--- ========= Character wiring =========
-local function SetupCharacter(char)
-    Character = char
-    HumanoidRootPart = char:WaitForChild("HumanoidRootPart", 5)
-    Humanoid = char:WaitForChild("Humanoid", 5)
-    lastSpawnAt = os.clock()
-    stuckTime = 0
-end
-
-if LocalPlayer.Character then
-    SetupCharacter(LocalPlayer.Character)
-end
-LocalPlayer.CharacterAdded:Connect(SetupCharacter)
-
--- ========= Kiểm tra kẹt bên trong tường (không tính đứng sát) =========
-local CoreNames = {"HumanoidRootPart","UpperTorso","LowerTorso","Torso","Head"}
-
-local function PartInsideOther(part, other)
-    -- Kiểm tra vị trí part có nằm trong thể tích other (CanCollide) không
-    local rel = other.CFrame:PointToObjectSpace(part.Position)
-    local half = other.Size * 0.5
-    local margin = 0.03 -- tránh biên
-    return math.abs(rel.X) < (half.X - margin)
-       and math.abs(rel.Y) < (half.Y - margin)
-       and math.abs(rel.Z) < (half.Z - margin)
-end
-
-local function IsInsideWall()
-    if not Character or not HumanoidRootPart then return false end
-    for _, name in ipairs(CoreNames) do
-        local p = Character:FindFirstChild(name)
-        if p and p:IsA("BasePart") then
-            -- chỉ coi là kẹt khi *Ở BÊN TRONG* vật thể CanCollide
-            local touching = p:GetTouchingParts()
-            for _, t in ipairs(touching) do
-                if t and t:IsA("BasePart")
-                    and t.CanCollide
-                    and t.Transparency < 1
-                    and not t:IsDescendantOf(Character)
-                then
-                    if PartInsideOther(p, t) then
-                        return true
-                    end
-                end
-            end
-        end
-    end
-    return false
-end
-
--- ========= Loop =========
-RunService.Heartbeat:Connect(function(dt)
-    if not AntiNoclipEnabled then return end
-    if not Character or not HumanoidRootPart or not Humanoid then return end
-
-    -- bỏ qua ngay sau spawn & trong thời gian cooldown sau khi reset
-    local now = os.clock()
-    if now - lastSpawnAt < spawnGrace then return end
-    if now - lastResetAt < resetCooldown then return end
-
-    if IsInsideWall() then
-        stuckTime += dt
-        if stuckTime >= requiredStuckSeconds then
-            -- reset 1 lần, sau đó có cooldown để script tiếp tục chạy được ở lần sau
-            lastResetAt = now
-            stuckTime = 0
-
-            -- reset nhân vật
-            if Humanoid and Humanoid.Health > 0 then
-                Humanoid.Health = 0
-            end
-
-            -- thông báo theo ngôn ngữ
-            local lang = getLanguage()
-            if lang == "vi" then
-                Notify("Hãy cẩn thận nếu không bạn sẽ bị banned!")
-            else
-                Notify("Be careful or you might get banned!")
-            end
-        end
-    else
-        stuckTime = 0
-    end
-end)
-
--- =========================
--- 🔘 Toggle ở Fluent Tabs.Misc
--- =========================
-Tabs.Misc:AddToggle("AntiNoclip", {
-    Title = "Anti Noclip",
-    Default = false,
-    Callback = function(Value)
-        AntiNoclipEnabled = Value
-        -- báo nhanh khi bật/tắt (không bắt buộc)
-        local lang = getLanguage()
-        if Value then
-            if lang == "vi" then
-                Notify("Anti Noclip: BẬT")
-            else
-                Notify("Anti Noclip: ON")
-            end
-        else
-            if lang == "vi" then
-                Notify("Anti Noclip: TẮT")
-            else
-                Notify("Anti Noclip: OFF")
-            end
+            stopAntiBanSafe()
         end
     end
 })
 end
+
+
+
 
 
 
