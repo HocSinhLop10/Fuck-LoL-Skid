@@ -1799,9 +1799,6 @@ do
     local RunService = game:GetService("RunService")
     local localPlayer = Players.LocalPlayer
 
-    -- =====================================================
-    -- ========== KILLER LIST (Chỉ tạo vòng tròn cho) =====
-    -- =====================================================
     local Killers = {
         ["Slasher"] = true,
         ["1x1x1x1"] = true,
@@ -1817,9 +1814,6 @@ do
         return Killers[char.Name] == true
     end
 
-    -- =====================================================
-    -- ========== AUTO BLOCK V2 ===========================
-    -- =====================================================
     local animationIds = {
         ["83829782357897"]  = true, -- Slash, 1x1x1x1
         ["126830014841198"] = true, -- Slash, Jason
@@ -1860,13 +1854,14 @@ do
         ["83251433279852"]  = true,
     }
 
+    -- chỉ các id này mới teleport
     local delayedAnimations = {
-        ["74707328554358"]  = 0,  -- Slash, Jason, Skin: #DeadRabbitsJason
-        ["109667959938617"] = 0, -- Slash, Jason, Skin: PursuerJason
-        ["118298475669935"] = 0, -- Slash, Jason (nhiều skin)
-        ["120112897026015"] = 0, -- Slash, Jason, Skin: WhitePumpkinJason
-        ["125403313786645"] = 0, -- Slash, Jason, Skin: Subject0Jason
-        ["126830014841198"] = 0, -- Slash, Jason
+         ["74707328554358"]  = true,  -- Slash, Jason, Skin: #DeadRabbitsJason
+        ["109667959938617"] = true, -- Slash, Jason, Skin: PursuerJason
+        ["118298475669935"] = true, -- Slash, Jason (nhiều skin)
+        ["120112897026015"] = true, -- Slash, Jason, Skin: WhitePumpkinJason
+        ["125403313786645"] = true, -- Slash, Jason, Skin: Subject0Jason
+        ["126830014841198"] = true, -- Slash, Jason
     }
 
     local toggleOn = false
@@ -1876,7 +1871,6 @@ do
     local blockRemote
     local blockButton, connections = nil, {}
 
-    -- =================== Block Functions ===================
     local function findBlockRemote()
         if blockRemote then return blockRemote end
         if not blockButton then return nil end
@@ -1931,6 +1925,33 @@ do
         end
     end
 
+    -- cooldown cho teleport
+    local lastTeleport = 0
+
+    local function teleportDodge(killerChar)
+        local now = tick()
+        if now - lastTeleport < 5 then return end -- delay 5s
+        lastTeleport = now
+
+        local myChar = localPlayer.Character
+        local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
+        local killerRoot = killerChar and killerChar:FindFirstChild("HumanoidRootPart")
+        if not (myRoot and killerRoot) then return end
+
+        local oldCFrame = myRoot.CFrame
+        local forward = killerRoot.CFrame.LookVector
+
+        -- teleport ra trước mặt Killer
+        myRoot.CFrame = killerRoot.CFrame + forward * 7.5
+
+        -- quay lại sau 0.1s
+        task.delay(0.1, function()
+            if myRoot then
+                myRoot.CFrame = oldCFrame
+            end
+        end)
+    end
+
     local function getBoolFlag(name, default)
         local flag = localPlayer:FindFirstChild(name)
         if not flag then
@@ -1977,9 +1998,6 @@ do
         strictFlag.Value = state
     end)
 
-    -- =====================================================
-    -- ========== RANGE CHECK INPUT ========================
-    -- =====================================================
     Tabs.Main:AddInput("RangeCheckInput", {
         Title = "Range Check",
         Default = tostring(detectionRange),
@@ -2011,7 +2029,6 @@ do
         recentBlocks[p.UserId] = recentBlocks[p.UserId] or {}
         local last = recentBlocks[p.UserId][animId] or 0
         local now = tick()
-
         if track.TimePosition <= 0 then
             if now - last >= COOLDOWN_ZERO then
                 recentBlocks[p.UserId][animId] = now
@@ -2033,7 +2050,6 @@ do
         local animIdStr = track.Animation.AnimationId
         local id = animIdStr and string.match(animIdStr, "%d+")
         if not id or not animationIds[id] then return end
-
         if strictRangeOn then
             local myChar = localPlayer.Character
             local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
@@ -2042,10 +2058,11 @@ do
             local dist = (root.Position - myRoot.Position).Magnitude
             if dist > detectionRange then return end
         end
-
         if shouldBlockNow(player, id, track) then
-            local delayTime = delayedAnimations[id] or 0
-            task.delay(delayTime, function() fastBlock() end)
+            fastBlock()
+            if isKiller(player) and delayedAnimations[id] then
+                teleportDodge(char)
+            end
         end
     end
 
@@ -2075,9 +2092,6 @@ do
     Players.PlayerAdded:Connect(onPlayerAdded)
     Players.PlayerRemoving:Connect(cleanupPlayerConns)
 
-    -- =====================================================
-    -- ========== CIRCLE INDICATOR CHỈ CHO KILLERS =========
-    -- =====================================================
     local circles = {}
 
     local function createCircleFor(player, hrp)
@@ -2104,17 +2118,14 @@ do
             end
             return
         end
-
         local myChar = localPlayer.Character
         local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
         if not myRoot then return end
-
         for _, player in ipairs(Players:GetPlayers()) do
             if player ~= localPlayer then
                 local char = player.Character
                 local hrp = char and char:FindFirstChild("HumanoidRootPart")
                 local hum = char and char:FindFirstChildOfClass("Humanoid")
-
                 if hrp and hum and hum.Health > 0 and isKiller(player) then
                     if not circles[player] then createCircleFor(player, hrp) end
                     local circle = circles[player]
