@@ -2950,7 +2950,7 @@ end
     Tabs.Player:AddSection("↳ Animation")
 
 --// Fake Killers Anim System
-
+do
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
@@ -3154,7 +3154,7 @@ Tabs.Player:AddToggle("FakeKillersToggle", {
         end
     end
 })
-
+emd
 
 
     Tabs.Player:AddSection("↳ Hitbox")
