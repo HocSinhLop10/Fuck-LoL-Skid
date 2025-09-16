@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Premium] | Forsaken",
-    SubTitle = "Version 4.3.1",
+    SubTitle = "Version 4.3.2",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -2000,6 +2000,9 @@ do
         ["114356208094580"] = true, -- VoidRush2, Noli
         ["106538427162796"] = true, -- Stab, All Noli
         ["126896426760253"] = true, -- VoidRush, Noli
+        ["131430497821198"] = true, -- MassInfection, 1x1x1x1
+        ["100592913030351"] = true, -- MassInfection, 1x1x1x1 (Fleskhjerta/AceOfSpades/Lancer)
+        ["70447634862911"]  = true, -- MassInfection, Skin: Hacklord1x1x1x1
         ["97167027849946"]  = true,
         ["99135633258223"]  = true,
         ["98456918873918"]  = true,
