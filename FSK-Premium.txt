@@ -3154,7 +3154,7 @@ Tabs.Player:AddToggle("FakeKillersToggle", {
         end
     end
 })
-emd
+end
 
 
     Tabs.Player:AddSection("↳ Hitbox")
