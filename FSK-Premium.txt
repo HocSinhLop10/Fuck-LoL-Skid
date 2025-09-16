@@ -21,7 +21,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
-    Title = "Hutao Hub [Free] | Forsaken",
+    Title = "Hutao Hub [Premium] | Forsaken",
     SubTitle = "Version 4.3.1",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),

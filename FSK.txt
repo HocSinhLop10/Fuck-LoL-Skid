@@ -1036,9 +1036,9 @@ Tabs.Main:AddParagraph({
     Tabs.Main:AddSection("↳ Shedletsky")
 
 
+
 do
     local Players = game:GetService("Players")
-    local ReplicatedStorage = game:GetService("ReplicatedStorage")
     local RunService = game:GetService("RunService")
     local lp = Players.LocalPlayer
 
@@ -1046,36 +1046,82 @@ do
     local enabled = false
     local cooldown = false
     local lastTarget = nil
-    local maxDistance = 5 -- Khoảng cách mặc định
-    local remote = ReplicatedStorage:WaitForChild("Modules"):WaitForChild("Network"):WaitForChild("RemoteEvent")
+    local maxDistance = 5
+
     local killerNames = { "Slasher", "c00lkidd", "JohnDoe", "1x1x1x1", "Noli" }
     local killersFolder = workspace:WaitForChild("Players"):WaitForChild("Killers")
+
+    -- Slash button + remote
+    local slashButton, slashRemote, slashConnections = nil, nil, {}
+
+    local function findSlashRemote()
+        if slashRemote then return slashRemote end
+        if not slashButton then return nil end
+        for _, conn in ipairs(getconnections(slashButton.MouseButton1Click)) do
+            local f = conn.Function
+            if f and islclosure(f) then
+                for _, v in pairs(getupvalues(f)) do
+                    if typeof(v) == "Instance" and v:IsA("RemoteEvent") then
+                        slashRemote = v
+                        warn("[AutoSlash] Found Slash Remote:", v:GetFullName())
+                        return slashRemote
+                    end
+                end
+            end
+        end
+        return nil
+    end
+
+    local function initSlashButton()
+        local gui = lp:FindFirstChild("PlayerGui")
+        if not gui then return end
+        local mainUI = gui:FindFirstChild("MainUI")
+        local container = mainUI and mainUI:FindFirstChild("AbilityContainer")
+        slashButton = container and container:FindFirstChild("Slash")
+        if slashButton and slashButton:IsA("ImageButton") then
+            slashConnections = getconnections(slashButton.MouseButton1Click)
+            findSlashRemote()
+        end
+    end
+
+    initSlashButton()
+    lp.CharacterAdded:Connect(function()
+        task.wait(0.5)
+        initSlashButton()
+    end)
+
+    local function useSlash()
+        if slashRemote then
+            pcall(function()
+                slashRemote:FireServer(true)
+                task.delay(0.05, function()
+                    slashRemote:FireServer(false)
+                end)
+            end)
+        elseif slashButton then
+            for _, conn in ipairs(slashConnections) do
+                pcall(function() conn:Fire() end)
+            end
+            pcall(function() slashButton:Activate() end)
+        end
+    end
 
     -- Toggle
     local SlashToggle = Tabs.Main:AddToggle("SlashToggle", {
         Title = "Auto Slash",
         Default = false
     })
+    SlashToggle:OnChanged(function(Value) enabled = Value end)
 
-    SlashToggle:OnChanged(function(Value)
-        enabled = Value
-    end)
-
-    -- Slider cho khoảng cách
+    -- Slider
     local DistanceSlider = Tabs.Main:AddSlider("DistanceSlider", {
         Title = "Distance",
-        Min = 1,
-        Max = 50,
-        Default = 5,
-        Rounding = 1,
-        ValueName = "studs"
+        Min = 1, Max = 50, Default = 5,
+        Rounding = 1, ValueName = "studs"
     })
+    DistanceSlider:OnChanged(function(Value) maxDistance = Value end)
 
-    DistanceSlider:OnChanged(function(Value)
-        maxDistance = Value
-    end)
-
-    -- Helper (kiểm tra đứng sau lưng thay vì trước mặt)
+    -- Helper
     local function isBehindTarget(hrp, targetHRP)
         local direction = targetHRP.CFrame.LookVector
         local toPlayer = (hrp.Position - targetHRP.Position)
@@ -1105,7 +1151,7 @@ do
                     local backPos = kHRP.Position - (kHRP.CFrame.LookVector * 2)
                     hrp.CFrame = CFrame.new(backPos, kHRP.Position)
 
-                    -- Giữ vị trí và spam skill trong 0.7s
+                    -- Giữ vị trí + spam Slash 1 giây
                     local start = tick()
                     local connection
                     connection = RunService.Heartbeat:Connect(function()
@@ -1113,7 +1159,7 @@ do
                             if connection then connection:Disconnect() end
                             return
                         end
-                        if tick() - start >= 1 then         
+                        if tick() - start >= 1 then
                             if connection then connection:Disconnect() end
                             task.delay(2, function()
                                 cooldown = false
@@ -1122,12 +1168,11 @@ do
                             return
                         end
 
-                        -- Luôn giữ ở sau lưng
                         local back = kHRP.Position - (kHRP.CFrame.LookVector * 2)
                         hrp.CFrame = CFrame.new(back, kHRP.Position)
 
-                        -- Kích hoạt skill Slash liên tục
-                        remote:FireServer("UseActorAbility", "Slash")
+                        -- Gọi skill Slash qua UI Remote
+                        useSlash()
                     end)
 
                     break
@@ -1141,9 +1186,11 @@ end
 
 
 
+
+
+
 do
     local Players = game:GetService("Players")
-    local ReplicatedStorage = game:GetService("ReplicatedStorage")
     local RunService = game:GetService("RunService")
     local lp = Players.LocalPlayer
 
@@ -1151,9 +1198,65 @@ do
     local healEnabled = false
     local healHPThreshold = 50
     local healDistance = 50
-    local remote = ReplicatedStorage:WaitForChild("Modules"):WaitForChild("Network"):WaitForChild("RemoteEvent")
 
-    -- UI
+    -- Heal button + remote
+    local healButton, healRemote, healConnections = nil, nil, {}
+
+    -- tìm RemoteEvent từ button Heal
+    local function findHealRemote()
+        if healRemote then return healRemote end
+        if not healButton then return nil end
+        for _, conn in ipairs(getconnections(healButton.MouseButton1Click)) do
+            local f = conn.Function
+            if f and islclosure(f) then
+                local upvals = getupvalues(f)
+                for _, v in pairs(upvals) do
+                    if typeof(v) == "Instance" and v:IsA("RemoteEvent") then
+                        healRemote = v
+                        warn("[AutoHeal] Found Heal Remote:", v:GetFullName())
+                        return healRemote
+                    end
+                end
+            end
+        end
+        return nil
+    end
+
+    local function initHealButton()
+        local gui = lp:FindFirstChild("PlayerGui")
+        if not gui then return end
+        local mainUI = gui:FindFirstChild("MainUI")
+        local container = mainUI and mainUI:FindFirstChild("AbilityContainer")
+        healButton = container and container:FindFirstChild("FriedChicken")
+        if healButton and healButton:IsA("ImageButton") then
+            healConnections = getconnections(healButton.MouseButton1Click)
+            findHealRemote()
+        end
+    end
+
+    initHealButton()
+    lp.CharacterAdded:Connect(function()
+        task.wait(0.5)
+        initHealButton()
+    end)
+
+    local function useHeal()
+        if healRemote then
+            pcall(function()
+                healRemote:FireServer(true)
+                task.delay(0.05, function()
+                    healRemote:FireServer(false)
+                end)
+            end)
+        elseif healButton then
+            for _, conn in ipairs(healConnections) do
+                pcall(function() conn:Fire() end)
+            end
+            pcall(function() healButton:Activate() end)
+        end
+    end
+
+    -- UI ------------------------------------------------
     local HealToggle = Tabs.Main:AddToggle("HealToggle", {
         Title = "Auto Heal",
         Default = false
@@ -1175,14 +1278,12 @@ do
     HealDistanceSlider:OnChanged(function(v) healDistance = v end)
 
     -- Helpers -------------------------------------------------------------
-
     local function getPlayersFolders()
         local pf = workspace:FindFirstChild("Players")
         if not pf then return nil, nil, nil end
         return pf, pf:FindFirstChild("Killers"), pf:FindFirstChild("Survivors")
     end
 
-    -- model này có phải của LocalPlayer không?
     local function belongsToMe(m)
         if not (m and m:IsA("Model")) then return false end
         if m:GetAttribute("Username") == lp.Name then return true end
@@ -1192,15 +1293,12 @@ do
         if Owner and Owner.Value == lp then return true end
         local uidAttr = m:GetAttribute("UserId")
         if uidAttr and tonumber(uidAttr) == lp.UserId then return true end
-        -- đôi khi model đặt đúng tên player
         if m.Name == lp.Name then return true end
         return false
     end
 
-    -- tìm model Shedletsky của CHÍNH BẠN ở mọi nơi
     local function getMyShedletsky()
         local pf, killersFolder, survivorsFolder = getPlayersFolders()
-
         local candidates = {}
 
         local function scan(container)
@@ -1214,11 +1312,10 @@ do
 
         scan(killersFolder)
         scan(survivorsFolder)
-        scan(workspace) -- fallback nếu game đặt ở root/nhánh khác
+        scan(workspace)
 
         if #candidates == 0 then return nil, nil, nil end
 
-        -- nếu có nhiều, chọn cái gần lp.Character nhất (ổn định hơn)
         local basePos
         if lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") then
             basePos = lp.Character.HumanoidRootPart.Position
@@ -1245,7 +1342,7 @@ do
         if not (killersFolder and fromHRP) then return math.huge end
         local nearest = math.huge
         for _, k in ipairs(killersFolder:GetChildren()) do
-            if k ~= myModel then -- tránh đo tới chính mình nếu mình cũng ở Killers
+            if k ~= myModel then
                 local khrp = k:FindFirstChild("HumanoidRootPart")
                 if khrp then
                     local d = (fromHRP.Position - khrp.Position).Magnitude
@@ -1260,19 +1357,14 @@ do
     RunService.Heartbeat:Connect(function()
         if not healEnabled then return end
 
-        -- CHỈ chạy khi bạn là Shedletsky
         local myModel, myHumanoid, myHRP = getMyShedletsky()
         if not (myModel and myHumanoid and myHRP) then return end
         if myHumanoid.Health <= 0 then return end
 
-        -- khoảng cách từ Shedletsky (bạn) → Killers
         local nearestDist = getNearestKillerDist(myHRP, myModel)
 
-        -- Heal khi HP thấp và ĐỦ XA killers (>=)
         if myHumanoid.Health <= healHPThreshold and nearestDist >= healDistance then
-            pcall(function()
-                remote:FireServer("UseActorAbility", "FriedChicken")
-            end)
+            useHeal()
         end
     end)
 end
@@ -1579,9 +1671,9 @@ end
 
     Tabs.Main:AddSection("↳ Two Time")
 
+
 do
     local Players = game:GetService("Players")
-    local ReplicatedStorage = game:GetService("ReplicatedStorage")
     local RunService = game:GetService("RunService")
     local lp = Players.LocalPlayer
 
@@ -1589,22 +1681,76 @@ do
     local enabled = false
     local cooldown = false
     local lastTarget = nil
-    local maxDistance = 5 -- Khoảng cách mặc định
-    local remote = ReplicatedStorage:WaitForChild("Modules"):WaitForChild("Network"):WaitForChild("RemoteEvent")
+    local maxDistance = 5
     local killerNames = { "Slasher", "c00lkidd", "JohnDoe", "1x1x1x1", "Noli" }
     local killersFolder = workspace:WaitForChild("Players"):WaitForChild("Killers")
+
+    -- UI skill button + remote
+    local daggerButton, daggerRemote, daggerConnections = nil, nil, {}
+
+    local function findDaggerRemote()
+        if daggerRemote then return daggerRemote end
+        if not daggerButton then return nil end
+        for _, conn in ipairs(getconnections(daggerButton.MouseButton1Click)) do
+            local f = conn.Function
+            if f and islclosure(f) then
+                local upvals = getupvalues(f)
+                for _, v in pairs(upvals) do
+                    if typeof(v) == "Instance" and v:IsA("RemoteEvent") then
+                        daggerRemote = v
+                        warn("[Backstab] Found Dagger Remote:", v:GetFullName())
+                        return daggerRemote
+                    end
+                end
+            end
+        end
+        return nil
+    end
+
+    local function initDaggerButton()
+        local gui = lp:FindFirstChild("PlayerGui")
+        if not gui then return end
+        local mainUI = gui:FindFirstChild("MainUI")
+        local container = mainUI and mainUI:FindFirstChild("AbilityContainer")
+        daggerButton = container and container:FindFirstChild("Dagger")
+        if daggerButton and daggerButton:IsA("ImageButton") then
+            daggerConnections = getconnections(daggerButton.MouseButton1Click)
+            findDaggerRemote()
+        end
+    end
+
+    initDaggerButton()
+    lp.CharacterAdded:Connect(function()
+        task.wait(0.5)
+        initDaggerButton()
+    end)
+
+    local function useDagger()
+        if daggerRemote then
+            pcall(function()
+                daggerRemote:FireServer(true)
+                task.delay(0.05, function()
+                    daggerRemote:FireServer(false)
+                end)
+            end)
+        elseif daggerButton then
+            for _, conn in ipairs(daggerConnections) do
+                pcall(function() conn:Fire() end)
+            end
+            pcall(function() daggerButton:Activate() end)
+        end
+    end
 
     -- Toggle
     local BackstabToggle = Tabs.Main:AddToggle("BackstabToggle", {
         Title = "Auto Backstab",
         Default = false
     })
-
     BackstabToggle:OnChanged(function(Value)
         enabled = Value
     end)
 
-    -- Slider cho khoảng cách
+    -- Slider
     local DistanceSlider = Tabs.Main:AddSlider("DistanceSlider", {
         Title = "Distance",
         Min = 1,
@@ -1613,7 +1759,6 @@ do
         Rounding = 1,
         ValueName = "studs"
     })
-
     DistanceSlider:OnChanged(function(Value)
         maxDistance = Value
     end)
@@ -1669,8 +1814,8 @@ do
                         local behind = kHRP.Position - (kHRP.CFrame.LookVector * 2)
                         hrp.CFrame = CFrame.new(behind, behind + kHRP.CFrame.LookVector)
 
-                        -- Kích hoạt kỹ năng liên tục
-                        remote:FireServer("UseActorAbility", "Dagger")
+                        -- Gọi skill qua button/remote giống block
+                        useDagger()
                     end)
 
                     break
