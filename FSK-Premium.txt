@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Premium] | Forsaken",
-    SubTitle = "Version 4.3.2",
+    SubTitle = "Version 4.3.3",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -2466,6 +2466,194 @@ do
     Tabs.Main:AddToggle("EnableCustomAnim", { Title = "Enable Custom Animation", Default = false })
         :OnChanged(function(val) customPunchEnabled = val end)
 end
+
+
+
+
+    Tabs.Main:AddSection("↳ 1x1x1x1")
+
+
+
+-- 🧩 GUI Toggle + Dropdown
+local toggleOn = false
+local toggleFlag = Instance.new("BoolValue")
+toggleFlag.Name = "1x1x1x1AutoAim_ToggleFlag"
+toggleFlag.Value = false
+
+local aimMode = "One Player" -- default
+
+Tabs.Main:AddDropdown("AimModeDropdown", {
+    Title = "Aim Mode",
+    Values = {"One Player", "Multi Players", "Teleport"},
+    Default = "One Player",
+}):OnChanged(function(value)
+    aimMode = value
+end)
+
+Tabs.Main:AddToggle("AimSkill1x1x1x1", {
+    Title = "MassInfection Aimbot",
+    Default = toggleOn,
+}):OnChanged(function(state)
+    toggleOn = state
+    toggleFlag.Value = state
+end)
+
+-- ⚔️ Setup
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local localPlayer = Players.LocalPlayer
+
+local dangerousAnimations = {
+    ["131430497821198"] = true,
+    ["100592913030351"] = true,
+    ["70447634862911"]  = true
+}
+
+local killerModels = {["1x1x1x1"] = true}
+local survivorModels = {
+    ["Noob"] = true, ["Guest1337"] = true, ["Elliot"] = true,
+    ["Shedletsky"] = true, ["TwoTime"] = true, ["007n7"] = true,
+    ["Chance"] = true, ["Builderman"] = true, ["Taph"] = true, ["Dusekkar"] = true
+}
+
+-- state
+local autoRotateDisabledByScript = false
+local currentTarget, isLockedOn, wasPlayingAnimation = nil, false, false
+
+-- utils
+local function isKiller()
+    local char = localPlayer.Character
+    return char and killerModels[char.Name] or false
+end
+
+local function getMyHumanoid()
+    local char = localPlayer.Character
+    return char and char:FindFirstChildWhichIsA("Humanoid")
+end
+
+local function restoreAutoRotate()
+    local hum = getMyHumanoid()
+    if hum and autoRotateDisabledByScript then
+        hum.AutoRotate = true
+        autoRotateDisabledByScript = false
+    end
+end
+
+local function isPlayingDangerousAnimation()
+    local humanoid = getMyHumanoid()
+    if not humanoid then return false end
+    local animator = humanoid:FindFirstChildOfClass("Animator")
+    if not animator then return false end
+
+    for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
+        local animId = tostring(track.Animation.AnimationId):match("%d+")
+        if animId and dangerousAnimations[animId] then
+            return true
+        end
+    end
+    return false
+end
+
+local function getClosestSurvivor()
+    local myHumanoid = getMyHumanoid()
+    if not myHumanoid then return nil end
+    local myRoot = myHumanoid.Parent and myHumanoid.Parent:FindFirstChild("HumanoidRootPart")
+    if not myRoot then return nil end
+
+    local closest, closestDist = nil, math.huge
+    for _, obj in pairs(workspace:GetDescendants()) do
+        if obj:IsA("Model") and survivorModels[obj.Name] then
+            local hrp = obj:FindFirstChild("HumanoidRootPart")
+            local hum = obj:FindFirstChildWhichIsA("Humanoid")
+            if hrp and hum and hum.Health > 0 then
+                local dist = (hrp.Position - myRoot.Position).Magnitude
+                if dist < closestDist then
+                    closest = obj
+                    closestDist = dist
+                end
+            end
+        end
+    end
+    return closest
+end
+
+-- reset khi respawn
+localPlayer.CharacterAdded:Connect(function()
+    task.delay(0.1, function()
+        autoRotateDisabledByScript = false
+    end)
+end)
+
+-- 🔁 Main loop
+RunService.RenderStepped:Connect(function(dt)
+    if not toggleFlag.Value then
+        restoreAutoRotate()
+        currentTarget, isLockedOn, wasPlayingAnimation = nil, false, false
+        return
+    end
+
+    if not isKiller() then
+        restoreAutoRotate()
+        currentTarget, isLockedOn, wasPlayingAnimation = nil, false, false
+        return
+    end
+
+    local myHumanoid = getMyHumanoid()
+    if not myHumanoid then return end
+    local myRoot = myHumanoid.Parent and myHumanoid.Parent:FindFirstChild("HumanoidRootPart")
+    if not myRoot then return end
+
+    local isPlaying = isPlayingDangerousAnimation()
+
+    -- Lock target (chỉ lấy 1 lần khi bắt đầu animation)
+    if isPlaying and not isLockedOn then
+        currentTarget = getClosestSurvivor()
+        if currentTarget then isLockedOn = true end
+    end
+
+    -- Validate current target
+    if isLockedOn and currentTarget then
+        local tHum, tHrp = currentTarget:FindFirstChildWhichIsA("Humanoid"), currentTarget:FindFirstChild("HumanoidRootPart")
+        if (not tHum) or (tHum and tHum.Health <= 0) or (not tHrp) then
+            currentTarget, isLockedOn = nil, false
+        end
+    end
+
+    -- End animation -> reset
+    if (not isPlaying) and wasPlayingAnimation then
+        currentTarget, isLockedOn = nil, false
+        restoreAutoRotate()
+    end
+    wasPlayingAnimation = isPlaying
+
+    -- Aim/Teleport logic
+    if isPlaying and isLockedOn and currentTarget and currentTarget:FindFirstChild("HumanoidRootPart") then
+        local targetPos = currentTarget.HumanoidRootPart.Position
+        if not autoRotateDisabledByScript then
+            myHumanoid.AutoRotate = false
+            autoRotateDisabledByScript = true
+        end
+
+        local lookAt = Vector3.new(targetPos.X, myRoot.Position.Y, targetPos.Z)
+
+        if aimMode == "One Player" then
+            myRoot.CFrame = myRoot.CFrame:Lerp(CFrame.lookAt(myRoot.Position, lookAt), 0.99)
+
+        elseif aimMode == "Multi Players" then
+            local newTarget = getClosestSurvivor()
+            if newTarget then currentTarget = newTarget end
+            myRoot.CFrame = myRoot.CFrame:Lerp(CFrame.lookAt(myRoot.Position, lookAt), 0.99)
+
+        elseif aimMode == "Teleport" then
+            -- teleport ra sau lưng target trong suốt animation
+            local targetLookVector = currentTarget.HumanoidRootPart.CFrame.LookVector
+            local behindPos = targetPos - targetLookVector * 3 + Vector3.new(0, 0, 0) -- lùi 3 stud, nhấc lên 0 stud
+            myRoot.CFrame = CFrame.new(behindPos, targetPos)
+        end
+    end
+end)
+
+
 
     Tabs.Main:AddSection("↳ Noli")
 
