@@ -2472,8 +2472,7 @@ end
 
     Tabs.Main:AddSection("↳ 1x1x1x1")
 
-
-
+do
 -- 🧩 GUI Toggle + Dropdown
 local toggleOn = false
 local toggleFlag = Instance.new("BoolValue")
@@ -2481,6 +2480,7 @@ toggleFlag.Name = "1x1x1x1AutoAim_ToggleFlag"
 toggleFlag.Value = false
 
 local aimMode = "One Player" -- default
+local predictMovement = false -- toggle mới
 
 Tabs.Main:AddDropdown("AimModeDropdown", {
     Title = "Aim Mode",
@@ -2496,6 +2496,13 @@ Tabs.Main:AddToggle("AimSkill1x1x1x1", {
 }):OnChanged(function(state)
     toggleOn = state
     toggleFlag.Value = state
+end)
+
+Tabs.Main:AddToggle("PredictMovementToggle", {
+    Title = "Predict Movement",
+    Default = predictMovement,
+}):OnChanged(function(state)
+    predictMovement = state
 end)
 
 -- ⚔️ Setup
@@ -2628,10 +2635,19 @@ RunService.RenderStepped:Connect(function(dt)
 
     -- Aim/Teleport logic
     if isPlaying and isLockedOn and currentTarget and currentTarget:FindFirstChild("HumanoidRootPart") then
-        local targetPos = currentTarget.HumanoidRootPart.Position
+        local hrp = currentTarget.HumanoidRootPart
+        local targetPos = hrp.Position
         if not autoRotateDisabledByScript then
             myHumanoid.AutoRotate = false
             autoRotateDisabledByScript = true
+        end
+
+        -- 🧮 Predict movement nếu bật toggle
+        if predictMovement then
+            local vel = hrp.Velocity
+            if vel.Magnitude > 2 then -- chỉ khi đang di chuyển
+                targetPos = targetPos + hrp.CFrame.LookVector * 3
+            end
         end
 
         local lookAt = Vector3.new(targetPos.X, myRoot.Position.Y, targetPos.Z)
@@ -2646,12 +2662,13 @@ RunService.RenderStepped:Connect(function(dt)
 
         elseif aimMode == "Teleport" then
             -- teleport ra sau lưng target trong suốt animation
-            local targetLookVector = currentTarget.HumanoidRootPart.CFrame.LookVector
-            local behindPos = targetPos - targetLookVector * 3 + Vector3.new(0, 0, 0) -- lùi 3 stud, nhấc lên 0 stud
+            local targetLookVector = hrp.CFrame.LookVector
+            local behindPos = hrp.Position - targetLookVector * 3 + Vector3.new(0, 0, 0)
             myRoot.CFrame = CFrame.new(behindPos, targetPos)
         end
     end
 end)
+end
 
 
 
