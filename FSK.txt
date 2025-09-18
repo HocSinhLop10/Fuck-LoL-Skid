@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Free] | Forsaken",
-    SubTitle = "Version 4.3.2",
+    SubTitle = "Version 4.4.0",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -362,8 +362,10 @@ end)
 
     Tabs.Farm:AddSection("↳ Generator")
 
+do
 local solveGeneratorCooldown = false
 local AutoFinishGen = false
+local genDelay = 1.5 -- mặc định 1.5s
 
 -- Hàm tìm generator gần nhất
 local function getClosestGenerator()
@@ -411,7 +413,7 @@ Tabs.Farm:AddButton({
         if gen and gen:FindFirstChild("Remotes") and gen.Remotes:FindFirstChild("RE") then
             gen.Remotes.RE:FireServer()
             solveGeneratorCooldown = true
-            task.delay(1.5, function()
+            task.delay(genDelay, function()
                 solveGeneratorCooldown = false
             end)
         end
@@ -428,7 +430,6 @@ Tabs.Farm:AddToggle("AutoFinishGen", {
     if state then
         if solveGeneratorCooldown then
             print("⚠️ Please wait cooldown before enabling Auto Finish!") 
-            -- tắt toggle qua Fluent.Options
             Fluent.Options.AutoFinishGen:SetValue(false)
             return
         end
@@ -440,7 +441,7 @@ Tabs.Farm:AddToggle("AutoFinishGen", {
                     gen.Remotes.RE:FireServer()
                 end
                 solveGeneratorCooldown = true
-                task.wait(1.5)
+                task.wait(genDelay)
                 solveGeneratorCooldown = false
             end
         end)
@@ -448,6 +449,26 @@ Tabs.Farm:AddToggle("AutoFinishGen", {
         solveGeneratorCooldown = false
     end
 end)
+
+
+-- Ô nhập delay
+Tabs.Farm:AddInput("GenDelayInput", {
+    Title = "Enter Delay",
+    Default = "1.5",
+    Placeholder = "Write Here (1.5-10)",
+    Numeric = true,
+    Callback = function(value)
+        local num = tonumber(value)
+        if num then
+            -- Clamp giá trị từ 1.5 đến 10
+            genDelay = math.clamp(num, 1.5, 10)
+            print("⏱ Delay set to:", genDelay)
+        else
+            print("⚠️ Nhập số hợp lệ!")
+        end
+    end
+})
+end
 
 
 do
@@ -1036,7 +1057,6 @@ Tabs.Main:AddParagraph({
     Tabs.Main:AddSection("↳ Shedletsky")
 
 
-
 do
     local Players = game:GetService("Players")
     local RunService = game:GetService("RunService")
@@ -1181,11 +1201,6 @@ do
         end
     end)
 end
-
-
-
-
-
 
 
 
@@ -1370,7 +1385,10 @@ do
 end
 
 
+
     Tabs.Main:AddSection("↳ Chance")
+
+
 
 -- ==================================================
 -- 📌 Hợp nhất: Aimbot + Auto Coinflip (siêu nhanh, auto điều chỉnh độ lệch)
@@ -1671,7 +1689,6 @@ end
 
     Tabs.Main:AddSection("↳ Two Time")
 
-
 do
     local Players = game:GetService("Players")
     local RunService = game:GetService("RunService")
@@ -1939,6 +1956,7 @@ end
     Tabs.Main:AddSection("↳ Guest1337")
 
 
+
 do
     local Players = game:GetService("Players")
     local RunService = game:GetService("RunService")
@@ -1961,7 +1979,7 @@ do
 
     local animationIds = {
         ["83829782357897"]  = true, -- Slash, 1x1x1x1
-        ["126830014841198"] = true, -- Slash, Jason
+--        ["126830014841198"] = true, -- Slash, Jason
         ["126355327951215"] = true, -- Behead, Jason
         ["121086746534252"] = true, -- GashingWoundStart, Jason
         ["105458270463374"] = true, -- Slash, JohnDoe
@@ -1972,16 +1990,16 @@ do
         ["121293883585738"] = true, -- Slash, 1x1x1x1
         ["92173139187970"]  = true, -- Slash, Skin: Hacklord1x1x1x1
         ["106847695270773"] = true, -- GashingWoundStart, Jason, Skin: Subject0Jason
-        ["125403313786645"] = true, -- Slash, Jason, Skin: Subject0Jason
+--        ["125403313786645"] = true, -- Slash, Jason, Skin: Subject0Jason
         ["81639435858902"]  = true, -- Behead, Jason, Skin: WhitePumpkinJason
         ["137314737492715"] = true, -- GashingWoundStart, Jason, Skin: WhitePumpkinJason
-        ["120112897026015"] = true, -- Slash, Jason, Skin: WhitePumpkinJason
+--        ["120112897026015"] = true, -- Slash, Jason, Skin: WhitePumpkinJason
         ["82113744478546"]  = true, -- Behead, Jason (nhiều skin)
-        ["118298475669935"] = true, -- Slash, Jason (nhiều skin)
+--        ["118298475669935"] = true, -- Slash, Jason (nhiều skin)
         ["126681776859538"] = true, -- Behead, Jason, Skin: PursuerJason
         ["129976080405072"] = true, -- GashingWoundStart, Jason, Skin: PursuerJason
-        ["109667959938617"] = true, -- Slash, Jason, Skin: PursuerJason
-        ["74707328554358"]  = true, -- Slash, Jason, Skin: #DeadRabbitsJason
+--        ["109667959938617"] = true, -- Slash, Jason, Skin: PursuerJason
+--        ["74707328554358"]  = true, -- Slash, Jason, Skin: #DeadRabbitsJason
         ["133336594357903"] = true, -- Behead, Jason, Skin: #DeadRabbitsJason
         ["86204001129974"]  = true, -- GashingWoundStart, Jason, Skin: #DeadRabbitsJason
         ["70371667919898"]  = true, -- Attack, c00lkidd, Skin: MafiosoC00l
@@ -2004,12 +2022,12 @@ do
 
     -- chỉ các id này mới teleport
     local delayedAnimations = {
-         ["74707328554358"]  = true,  -- Slash, Jason, Skin: #DeadRabbitsJason
-        ["109667959938617"] = true, -- Slash, Jason, Skin: PursuerJason
-        ["118298475669935"] = true, -- Slash, Jason (nhiều skin)
-        ["120112897026015"] = true, -- Slash, Jason, Skin: WhitePumpkinJason
-        ["125403313786645"] = true, -- Slash, Jason, Skin: Subject0Jason
-        ["126830014841198"] = true, -- Slash, Jason
+--        ["74707328554358"]  = true,  -- Slash, Jason, Skin: #DeadRabbitsJason
+--        ["109667959938617"] = true, -- Slash, Jason, Skin: PursuerJason
+--        ["118298475669935"] = true, -- Slash, Jason (nhiều skin)
+--        ["120112897026015"] = true, -- Slash, Jason, Skin: WhitePumpkinJason
+--        ["125403313786645"] = true, -- Slash, Jason, Skin: Subject0Jason
+--        ["126830014841198"] = true, -- Slash, Jason
     }
 
     local toggleOn = false
@@ -2131,7 +2149,7 @@ do
     detectionRange = rangeFlag.Value
 
     Tabs.Main:AddToggle("AutoBlockV2", {
-        Title = "Auto Block V2",
+        Title = "Auto Block V3",
         Default = toggleOn,
     }):OnChanged(function(state)
         toggleOn = state
@@ -2139,7 +2157,7 @@ do
     end)
 
     Tabs.Main:AddToggle("StrictRangeCheck", {
-        Title = "Auto Check V2",
+        Title = "Auto Check V3",
         Default = strictRangeOn,
     }):OnChanged(function(state)
         strictRangeOn = state
@@ -2459,6 +2477,211 @@ do
     Tabs.Main:AddToggle("EnableCustomAnim", { Title = "Enable Custom Animation", Default = false })
         :OnChanged(function(val) customPunchEnabled = val end)
 end
+
+
+
+
+    Tabs.Main:AddSection("↳ 1x1x1x1")
+
+do
+-- 🧩 GUI Toggle + Dropdown
+local toggleOn = false
+local toggleFlag = Instance.new("BoolValue")
+toggleFlag.Name = "1x1x1x1AutoAim_ToggleFlag"
+toggleFlag.Value = false
+
+local aimMode = "One Player" -- default
+local predictMovement = false -- toggle mới
+
+Tabs.Main:AddDropdown("AimModeDropdown", {
+    Title = "Aim Mode",
+    Values = {"One Player", "Multi Players", "Teleport"},
+    Default = "One Player",
+}):OnChanged(function(value)
+    aimMode = value
+end)
+
+Tabs.Main:AddToggle("AimSkill1x1x1x1", {
+    Title = "MassInfection Aimbot",
+    Default = toggleOn,
+}):OnChanged(function(state)
+    toggleOn = state
+    toggleFlag.Value = state
+end)
+
+Tabs.Main:AddToggle("PredictMovementToggle", {
+    Title = "Predict Movement",
+    Default = predictMovement,
+}):OnChanged(function(state)
+    predictMovement = state
+end)
+
+-- ⚔️ Setup
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local localPlayer = Players.LocalPlayer
+
+local dangerousAnimations = {
+    ["131430497821198"] = true,
+    ["100592913030351"] = true,
+    ["70447634862911"]  = true
+}
+
+local killerModels = {["1x1x1x1"] = true}
+local survivorModels = {
+    ["Noob"] = true, ["Guest1337"] = true, ["Elliot"] = true,
+    ["Shedletsky"] = true, ["TwoTime"] = true, ["007n7"] = true,
+    ["Chance"] = true, ["Builderman"] = true, ["Taph"] = true, ["Dusekkar"] = true
+}
+
+-- state
+local autoRotateDisabledByScript = false
+local currentTarget, isLockedOn, wasPlayingAnimation = nil, false, false
+
+-- utils
+local function isKiller()
+    local char = localPlayer.Character
+    return char and killerModels[char.Name] or false
+end
+
+local function getMyHumanoid()
+    local char = localPlayer.Character
+    return char and char:FindFirstChildWhichIsA("Humanoid")
+end
+
+local function restoreAutoRotate()
+    local hum = getMyHumanoid()
+    if hum and autoRotateDisabledByScript then
+        hum.AutoRotate = true
+        autoRotateDisabledByScript = false
+    end
+end
+
+local function isPlayingDangerousAnimation()
+    local humanoid = getMyHumanoid()
+    if not humanoid then return false end
+    local animator = humanoid:FindFirstChildOfClass("Animator")
+    if not animator then return false end
+
+    for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
+        local animId = tostring(track.Animation.AnimationId):match("%d+")
+        if animId and dangerousAnimations[animId] then
+            return true
+        end
+    end
+    return false
+end
+
+local function getClosestSurvivor()
+    local myHumanoid = getMyHumanoid()
+    if not myHumanoid then return nil end
+    local myRoot = myHumanoid.Parent and myHumanoid.Parent:FindFirstChild("HumanoidRootPart")
+    if not myRoot then return nil end
+
+    local closest, closestDist = nil, math.huge
+    for _, obj in pairs(workspace:GetDescendants()) do
+        if obj:IsA("Model") and survivorModels[obj.Name] then
+            local hrp = obj:FindFirstChild("HumanoidRootPart")
+            local hum = obj:FindFirstChildWhichIsA("Humanoid")
+            if hrp and hum and hum.Health > 0 then
+                local dist = (hrp.Position - myRoot.Position).Magnitude
+                if dist < closestDist then
+                    closest = obj
+                    closestDist = dist
+                end
+            end
+        end
+    end
+    return closest
+end
+
+-- reset khi respawn
+localPlayer.CharacterAdded:Connect(function()
+    task.delay(0.1, function()
+        autoRotateDisabledByScript = false
+    end)
+end)
+
+-- 🔁 Main loop
+RunService.RenderStepped:Connect(function(dt)
+    if not toggleFlag.Value then
+        restoreAutoRotate()
+        currentTarget, isLockedOn, wasPlayingAnimation = nil, false, false
+        return
+    end
+
+    if not isKiller() then
+        restoreAutoRotate()
+        currentTarget, isLockedOn, wasPlayingAnimation = nil, false, false
+        return
+    end
+
+    local myHumanoid = getMyHumanoid()
+    if not myHumanoid then return end
+    local myRoot = myHumanoid.Parent and myHumanoid.Parent:FindFirstChild("HumanoidRootPart")
+    if not myRoot then return end
+
+    local isPlaying = isPlayingDangerousAnimation()
+
+    -- Lock target (chỉ lấy 1 lần khi bắt đầu animation)
+    if isPlaying and not isLockedOn then
+        currentTarget = getClosestSurvivor()
+        if currentTarget then isLockedOn = true end
+    end
+
+    -- Validate current target
+    if isLockedOn and currentTarget then
+        local tHum, tHrp = currentTarget:FindFirstChildWhichIsA("Humanoid"), currentTarget:FindFirstChild("HumanoidRootPart")
+        if (not tHum) or (tHum and tHum.Health <= 0) or (not tHrp) then
+            currentTarget, isLockedOn = nil, false
+        end
+    end
+
+    -- End animation -> reset
+    if (not isPlaying) and wasPlayingAnimation then
+        currentTarget, isLockedOn = nil, false
+        restoreAutoRotate()
+    end
+    wasPlayingAnimation = isPlaying
+
+    -- Aim/Teleport logic
+    if isPlaying and isLockedOn and currentTarget and currentTarget:FindFirstChild("HumanoidRootPart") then
+        local hrp = currentTarget.HumanoidRootPart
+        local targetPos = hrp.Position
+        if not autoRotateDisabledByScript then
+            myHumanoid.AutoRotate = false
+            autoRotateDisabledByScript = true
+        end
+
+        -- 🧮 Predict movement nếu bật toggle
+        if predictMovement then
+            local vel = hrp.Velocity
+            if vel.Magnitude > 2 then -- chỉ khi đang di chuyển
+                targetPos = targetPos + hrp.CFrame.LookVector * 3
+            end
+        end
+
+        local lookAt = Vector3.new(targetPos.X, myRoot.Position.Y, targetPos.Z)
+
+        if aimMode == "One Player" then
+            myRoot.CFrame = myRoot.CFrame:Lerp(CFrame.lookAt(myRoot.Position, lookAt), 0.99)
+
+        elseif aimMode == "Multi Players" then
+            local newTarget = getClosestSurvivor()
+            if newTarget then currentTarget = newTarget end
+            myRoot.CFrame = myRoot.CFrame:Lerp(CFrame.lookAt(myRoot.Position, lookAt), 0.99)
+
+        elseif aimMode == "Teleport" then
+            -- teleport ra sau lưng target trong suốt animation
+            local targetLookVector = hrp.CFrame.LookVector
+            local behindPos = hrp.Position - targetLookVector * 3 + Vector3.new(0, 0, 0)
+            myRoot.CFrame = CFrame.new(behindPos, targetPos)
+        end
+    end
+end)
+end
+
+
 
     Tabs.Main:AddSection("↳ Noli")
 
@@ -4670,7 +4893,8 @@ local Players = game:GetService("Players")
 local LP = Players.LocalPlayer
 local PlayerGui = LP:WaitForChild("PlayerGui")
 
-local ActiveRemoveEffects = false
+-- Flag bật/tắt
+local ActiveRemoveAll = false
 
 -- Danh sách tên hiệu ứng thường gặp
 local effectNames = {
@@ -4689,8 +4913,8 @@ local effectClasses = {
     "ColorCorrectionEffect"
 }
 
--- Hàm xoá hiệu ứng
-local function removeEffects()
+-- 🌟 Hàm xoá tất cả (effects + popups)
+local function removeAll()
     -- Xoá hiệu ứng trong Lighting
     for _, obj in pairs(Lighting:GetDescendants()) do
         if table.find(effectNames, obj.Name) or table.find(effectClasses, obj.ClassName) then
@@ -4710,18 +4934,28 @@ local function removeEffects()
             end
         end
     end
+
+    -- Xoá popup 1x1x1x1
+    local temp = PlayerGui:FindFirstChild("TemporaryUI")
+    if temp then
+        local popup = temp:FindFirstChild("1x1x1x1Popup")
+        if popup then
+            popup:Destroy()
+            warn("[Remover] 1x1x1x1Popup removed")
+        end
+    end
 end
 
--- Toggle Fluent
-Tabs.Misc:AddToggle("RemoveScreenEffects", {
-    Title = "Remove Effects",
+-- Toggle Fluent - chỉ 1 cái
+Tabs.Misc:AddToggle("RemoveAllBadStuff", {
+    Title = "Remove Effects V2",
     Default = true,
     Callback = function(state)
-        ActiveRemoveEffects = state
+        ActiveRemoveAll = state
         if state then
             task.spawn(function()
-                while ActiveRemoveEffects do
-                    removeEffects()
+                while ActiveRemoveAll do
+                    removeAll()
                     task.wait(0.5)
                 end
             end)
@@ -4729,6 +4963,270 @@ Tabs.Misc:AddToggle("RemoveScreenEffects", {
     end
 })
 
+
+
+
+
+    Tabs.Misc:AddSection("↳ Cammera")
+
+do
+local Players = game:GetService("Players")
+local LP = Players.LocalPlayer
+
+-- 🌟 Toggle Infinite Zoom
+Tabs.Misc:AddToggle("InfiniteZoom", {
+    Title = "Infinite Zoom",
+    Default = false,
+    Callback = function(state)
+        if state then
+            LP.CameraMaxZoomDistance = math.huge
+            LP.CameraMinZoomDistance = 0
+            warn("[Camera] Infinite zoom enabled")
+        else
+            LP.CameraMaxZoomDistance = 128 -- giá trị mặc định Roblox
+            LP.CameraMinZoomDistance = 0.5 -- giá trị mặc định Roblox
+            warn("[Camera] Zoom reset to default")
+        end
+    end
+})
+end
+
+
+
+
+do
+-- Biến trạng thái toggle FreeCam
+local freeCamEnabled = false
+
+-- Gui Toggle Fluent UI giống mẫu bạn đưa
+local FreeCamToggle = Tabs.Misc:AddToggle("FreeCamToggle", {
+    Title = "Unlock Free Cam",
+    Default = false
+})
+
+-- Slider chỉnh tốc độ
+local SpeedSlider = Tabs.Misc:AddSlider("FreeCamSpeed", {
+    Title = "Select Speed",
+    Default = 16,
+    Min = 1,
+    Max = 300,
+    Rounding = 1
+})
+
+-- Dịch vụ
+local cam = workspace.CurrentCamera
+local UIS = game:GetService("UserInputService")
+local RS = game:GetService("RunService")
+local Players = game:GetService("Players")
+
+local onMobile = not UIS.KeyboardEnabled
+local keysDown = {}
+local rotating = false
+local touchPos = nil
+
+if not game:IsLoaded() then game.Loaded:Wait() end
+
+cam.CameraType = Enum.CameraType.Scriptable
+
+-- Giá trị mặc định ban đầu
+local speed = 16 / 10
+local sens = 0.3
+
+if onMobile then
+    sens *= 2
+end
+
+-- Khi thay đổi slider → cập nhật tốc độ
+SpeedSlider:OnChanged(function(value)
+    speed = value / 10
+end)
+
+local player = Players.LocalPlayer
+local char, humanoid
+
+-- Hàm cập nhật nhân vật và humanoid mới sau khi chết hoặc hồi sinh
+local function getChar()
+    char = player.Character or player.CharacterAdded:Wait()
+    humanoid = char:FindFirstChildWhichIsA("Humanoid")
+end
+
+getChar()
+
+-- Khóa hoặc mở khóa nhân vật
+local function setCharacterLocked(lock)
+    if humanoid then
+        if lock then
+            humanoid.WalkSpeed = 0
+            humanoid.JumpPower = 0
+            humanoid.AutoRotate = false
+        else
+            humanoid.WalkSpeed = 16
+            humanoid.JumpPower = 50
+            humanoid.AutoRotate = true
+        end
+    end
+end
+
+player.CharacterAdded:Connect(function()
+    getChar()
+    if freeCamEnabled then
+        cam.CameraType = Enum.CameraType.Scriptable
+    else
+        cam.CameraType = Enum.CameraType.Custom
+        setCharacterLocked(false)
+    end
+end)
+
+-- Di chuyển và xoay camera
+local function renderStepped()
+    if not freeCamEnabled then
+        cam.CameraType = Enum.CameraType.Custom
+        UIS.MouseBehavior = Enum.MouseBehavior.Default
+        return
+    end
+
+    if rotating then
+        local delta = UIS:GetMouseDelta()
+        local cf = cam.CFrame
+        local yAngle = cf:ToEulerAngles(Enum.RotationOrder.YZX)
+        local newAmount = math.deg(yAngle) + delta.Y
+        if newAmount > 65 or newAmount < -65 then
+            if not (yAngle < 0 and delta.Y < 0) and not (yAngle > 0 and delta.Y > 0) then
+                delta = Vector2.new(delta.X, 0)
+            end
+        end
+        cf *= CFrame.Angles(-math.rad(delta.Y), 0, 0)
+        cf = CFrame.Angles(0, -math.rad(delta.X), 0) * (cf - cf.Position) + cf.Position
+        cf = CFrame.lookAt(cf.Position, cf.Position + cf.LookVector)
+        if delta ~= Vector2.new(0, 0) then
+            cam.CFrame = cam.CFrame:Lerp(cf, sens)
+        end
+        UIS.MouseBehavior = Enum.MouseBehavior.LockCurrentPosition
+    else
+        UIS.MouseBehavior = Enum.MouseBehavior.Default
+    end
+
+    if keysDown["Enum.KeyCode.W"] then
+        cam.CFrame *= CFrame.new(0, 0, -speed)
+    end
+    if keysDown["Enum.KeyCode.A"] then
+        cam.CFrame *= CFrame.new(-speed, 0, 0)
+    end
+    if keysDown["Enum.KeyCode.S"] then
+        cam.CFrame *= CFrame.new(0, 0, speed)
+    end
+    if keysDown["Enum.KeyCode.D"] then
+        cam.CFrame *= CFrame.new(speed, 0, 0)
+    end
+end
+
+RS.RenderStepped:Connect(renderStepped)
+
+-- Cưỡng chế đứng im mỗi frame
+RS.Heartbeat:Connect(function()
+    if freeCamEnabled then
+        if not humanoid or humanoid.Parent == nil then
+            getChar()
+        end
+        if humanoid then
+            humanoid.WalkSpeed = 0
+            humanoid.JumpPower = 0
+            humanoid.AutoRotate = false
+        end
+    end
+end)
+
+-- Input keys
+local validKeys = {
+    "Enum.KeyCode.W",
+    "Enum.KeyCode.A",
+    "Enum.KeyCode.S",
+    "Enum.KeyCode.D"
+}
+
+UIS.InputBegan:Connect(function(Input)
+    for _, key in pairs(validKeys) do
+        if key == tostring(Input.KeyCode) then
+            if freeCamEnabled then
+                keysDown[key] = true
+            end
+        end
+    end
+    if Input.UserInputType == Enum.UserInputType.MouseButton2 or (Input.UserInputType == Enum.UserInputType.Touch and UIS:GetMouseLocation().X > (cam.ViewportSize.X / 2)) then
+        if freeCamEnabled then
+            rotating = true
+        end
+    end
+    if Input.UserInputType == Enum.UserInputType.Touch then
+        if Input.Position.X < cam.ViewportSize.X / 2 then
+            touchPos = Input.Position
+        end
+    end
+end)
+
+UIS.InputEnded:Connect(function(Input)
+    for key, _ in pairs(keysDown) do
+        if key == tostring(Input.KeyCode) then
+            keysDown[key] = false
+        end
+    end
+    if Input.UserInputType == Enum.UserInputType.MouseButton2 or (Input.UserInputType == Enum.UserInputType.Touch and UIS:GetMouseLocation().X > (cam.ViewportSize.X / 2)) then
+        rotating = false
+    end
+    if Input.UserInputType == Enum.UserInputType.Touch and touchPos then
+        if Input.Position.X < cam.ViewportSize.X / 2 then
+            touchPos = nil
+            keysDown["Enum.KeyCode.W"] = false
+            keysDown["Enum.KeyCode.A"] = false
+            keysDown["Enum.KeyCode.S"] = false
+            keysDown["Enum.KeyCode.D"] = false
+        end
+    end
+end)
+
+UIS.TouchMoved:Connect(function(input)
+    if touchPos and freeCamEnabled then
+        if input.Position.X < cam.ViewportSize.X / 2 then
+            if input.Position.Y < touchPos.Y then
+                keysDown["Enum.KeyCode.W"] = true
+                keysDown["Enum.KeyCode.S"] = false
+            else
+                keysDown["Enum.KeyCode.W"] = false
+                keysDown["Enum.KeyCode.S"] = true
+            end
+            if input.Position.X < (touchPos.X - 15) then
+                keysDown["Enum.KeyCode.A"] = true
+                keysDown["Enum.KeyCode.D"] = false
+            elseif input.Position.X > (touchPos.X + 15) then
+                keysDown["Enum.KeyCode.A"] = false
+                keysDown["Enum.KeyCode.D"] = true
+            else
+                keysDown["Enum.KeyCode.A"] = false
+                keysDown["Enum.KeyCode.D"] = false
+            end
+        end
+    end
+end)
+
+-- Toggle bật tắt FreeCam
+FreeCamToggle:OnChanged(function(value)
+    freeCamEnabled = value
+
+    getChar()
+
+    if freeCamEnabled then
+        cam.CameraType = Enum.CameraType.Scriptable
+    else
+        cam.CameraType = Enum.CameraType.Custom
+        setCharacterLocked(false)
+
+        -- Reset input
+        keysDown = {}
+        rotating = false
+        UIS.MouseBehavior = Enum.MouseBehavior.Default
+    end
+end)
+end
 
     Tabs.Misc:AddSection("↳ Bypass")
 
@@ -4945,7 +5443,6 @@ end
 
 
 
-
 do
 -- === SafeGenTeleport (Anti: ALL Moving Models/Parts/Effects) ===
 local Players = game:GetService("Players")
@@ -4953,6 +5450,7 @@ local LP = Players.LocalPlayer
 
 local SafeGenRunning = false
 local SafeGenThread
+local DetectRadius = 20 -- mặc định 20, có thể chỉnh bằng ô input
 
 -- Danh sách account thật dùng V2
 local AllowedPlayers = {
@@ -4981,42 +5479,30 @@ local Survivors = {
     Builderman = true, Taph = true, Dusekkar = true
 }
 
--- Whitelist: tên object/model/part KHÔNG bị tính là nguy hiểm (tùy bạn sửa)
-local SafeObjects = {
-    Pet = true,
-    Decoration = true,
-    Terrain = true,
-    Map = true
-}
+-- Whitelist
+local SafeObjects = {Pet=true, Decoration=true, Terrain=true, Map=true}
 
 -- Cấu hình detect
-local MOVE_THRESHOLD = 0.5     -- thay đổi lớn hơn MOVE_THRESHOLD (stud) giữa 2 tick => moving
-local VEL_THRESHOLD  = 1       -- AssemblyLinearVelocity magnitude > VEL_THRESHOLD => moving
-local DETECT_RADIUS  = 70      -- bán kính (stud) để coi là "gần bạn"
-local SCAN_DELAY     = 0.12    -- thời gian giữa 2 lần scan (giảm nếu muốn nhạy hơn; tăng nếu lag)
+local MOVE_THRESHOLD = 0.5
+local VEL_THRESHOLD  = 1
+local SCAN_DELAY     = 0.12
 
--- bảng lưu vị trí lần trước để so sánh
 local lastPositions = {}
 
--- helper: tìm ancestor Character và Player (nếu có)
 local function findOwningCharacter(inst)
     local cur = inst
     while cur and cur ~= workspace and cur.Parent do
         if cur:IsA("Model") then
             local p = Players:GetPlayerFromCharacter(cur)
-            if p then
-                return cur, p
-            end
+            if p then return cur, p end
         end
         cur = cur.Parent
     end
     return nil, nil
 end
 
--- helper: check xem part có force/constraint types gắn ở nó (gợi ý là đang bị điều khiển)
 local function hasForceOnPart(part)
     if not part then return false end
-    -- các lớp thường dùng để điều khiển vận động
     if part:FindFirstChildOfClass("BodyVelocity")
     or part:FindFirstChildOfClass("BodyPosition")
     or part:FindFirstChildOfClass("BodyForce")
@@ -5030,57 +5516,35 @@ local function hasForceOnPart(part)
     return false
 end
 
--- kiểm tra 1 BasePart có "di chuyển" hay không (so với lastPositions / velocity / force)
 local function isPartMoving(part)
     if not part or not part:IsA("BasePart") then return false end
     local ok, asmVel = pcall(function() return part.AssemblyLinearVelocity end)
-    local velMag = 0
-    if ok and asmVel then
-        velMag = asmVel.Magnitude or 0
-    else
-        -- fallback: try part.Velocity
+    local velMag = (ok and asmVel) and asmVel.Magnitude or 0
+    if velMag == 0 then
         local ok2, v2 = pcall(function() return part.Velocity end)
         if ok2 and v2 then velMag = v2.Magnitude end
     end
-
     local last = lastPositions[part]
     local pos = part.Position
     local moved = false
-
     if last then
-        local dist = (pos - last).Magnitude
-        if dist >= MOVE_THRESHOLD then
-            moved = true
-        end
+        if (pos - last).Magnitude >= MOVE_THRESHOLD then moved = true end
     else
-        -- nếu mới xuất hiện, coi là moving nếu có velocity hoặc force
-        if velMag >= VEL_THRESHOLD or hasForceOnPart(part) then
-            moved = true
-        end
+        if velMag >= VEL_THRESHOLD or hasForceOnPart(part) then moved = true end
     end
-
-    -- cập nhật lastPositions
     lastPositions[part] = pos
-    -- nếu có velocity lớn hoặc force thì chắc chắn moving
-    if velMag >= VEL_THRESHOLD or hasForceOnPart(part) then
-        moved = true
-    end
-
+    if velMag >= VEL_THRESHOLD or hasForceOnPart(part) then moved = true end
     return moved
 end
 
--- dọn bảng lastPositions (loại entry không còn trong workspace)
 local function pruneLastPositions()
-    for inst, _ in pairs(lastPositions) do
-        if not inst or not inst.Parent then
-            lastPositions[inst] = nil
-        end
+    for inst,_ in pairs(lastPositions) do
+        if not inst or not inst.Parent then lastPositions[inst] = nil end
     end
 end
 
--- Hàm chính: kiểm tra có vật "di chuyển" nguy hiểm gần position trong radius không
+-- 🔎 Phát hiện nguy hiểm gần
 local function isDangerNear(position, radius)
-    -- 1) Kiểm tra trực tiếp folder Killers (nếu Killer model đứng gần)
     local killersFolder = workspace:FindFirstChild("Players") and workspace.Players:FindFirstChild("Killers")
     if killersFolder then
         for _, killer in ipairs(killersFolder:GetChildren()) do
@@ -5088,94 +5552,83 @@ local function isDangerNear(position, radius)
             if hrp then
                 local dist = (hrp.Position - position).Magnitude
                 if (DangerousKillers[killer.Name] or DangerousClones[killer.Name]) and dist <= radius then
-                    return true
+                    return true, hrp.Position
                 end
             end
         end
     end
-
-    -- 2) Quét tất cả BasePart trong workspace (nhận diện projectiles, traps, effects gắn trên part, model parts...)
     for _, inst in ipairs(workspace:GetDescendants()) do
-        if inst:IsA("BasePart") then
-            -- skip nếu tên thuộc whitelist
-            if SafeObjects[inst.Name] then
-                -- tiếp tục
-            else
-                local dist = (inst.Position - position).Magnitude
-                if dist <= radius then
-                    -- nếu part đang "di chuyển" -> nghiêm trọng
-                    if isPartMoving(inst) then
-                        -- kiểm tra owner (nằm trong 1 character của player thật không)
-                        local charModel, playerOwner = findOwningCharacter(inst)
-                        if playerOwner then
-                            -- nếu thuộc player thật: bỏ qua trừ khi tên character là killer/clone
-                            local charName = charModel and charModel.Name or ""
-                            if DangerousKillers[charName] or DangerousClones[charName] then
-                                return true
-                            else
-                                -- player thật điều khiển => ignore
-                            end
-                        else
-                            -- không phải player thật => NPC / skill / projectile / trap → nguy hiểm
-                            return true
-                        end
+        if inst:IsA("BasePart") and not SafeObjects[inst.Name] then
+            local dist = (inst.Position - position).Magnitude
+            if dist <= radius and isPartMoving(inst) then
+                local charModel, playerOwner = findOwningCharacter(inst)
+                if playerOwner then
+                    local charName = charModel and charModel.Name or ""
+                    if DangerousKillers[charName] or DangerousClones[charName] then
+                        return true, inst.Position
                     end
+                else
+                    return true, inst.Position
                 end
             end
         end
     end
-
-    -- prune các entry cũ
     pruneLastPositions()
-    return false
+    return false, nil
 end
 
--- Teleport tới generator an toàn (giữ nguyên logic của bạn)
-local function teleportToSafeGenerator()
-    local character = LP.Character
-    if not character or not character:FindFirstChild("HumanoidRootPart") then return end
-    local myPos = character.HumanoidRootPart.Position
-    local bestGen, bestDistance = nil, 0
-
-    local mapFolder = workspace:FindFirstChild("Map")
-        and workspace.Map:FindFirstChild("Ingame")
-        and workspace.Map.Ingame:FindFirstChild("Map")
-    if not mapFolder then return end
-
-    for _, gen in ipairs(mapFolder:GetChildren()) do
-        if gen.Name == "Generator" and gen:FindFirstChild("Progress") then
-            local success, pivot = pcall(function() return gen:GetPivot() end)
-            if not success or not pivot then continue end
-            local genPos = pivot.Position
-            local dist = (myPos - genPos).Magnitude
-
-            -- chọn generator xa & không có Danger gần
-            if dist > bestDistance and not isDangerNear(genPos, 40) then
-                bestDistance = dist
-                bestGen = gen
-            end
-        end
-    end
-
-    if bestGen then
-        local offset = CFrame.new(0, 5, -3)
-        local goalCFrame = bestGen:GetPivot() * offset
-        if character and character.PrimaryPart then
-            character:PivotTo(goalCFrame)
+-- 📌 Tìm vị trí an toàn cách xa danger 7 stud
+local function getSafePosFromDanger(myPos, dangerPos, safeDist)
+    local dir = (myPos - dangerPos).Unit
+    local target = myPos + dir * safeDist
+    local rayParams = RaycastParams.new()
+    rayParams.FilterDescendantsInstances = {LP.Character}
+    rayParams.FilterType = Enum.RaycastFilterType.Blacklist
+    local rayResult = workspace:Raycast(myPos + Vector3.new(0,3,0), dir*safeDist, rayParams)
+    if rayResult then
+        local perp1 = Vector3.new(-dir.Z,0,dir.X).Unit
+        local perp2 = -perp1
+        if not workspace:Raycast(myPos+Vector3.new(0,3,0), perp1*safeDist, rayParams) then
+            return myPos + perp1*safeDist
+        elseif not workspace:Raycast(myPos+Vector3.new(0,3,0), perp2*safeDist, rayParams) then
+            return myPos + perp2*safeDist
         else
-            -- fallback
-            local hrp = character and character:FindFirstChild("HumanoidRootPart")
-            if hrp then hrp.CFrame = goalCFrame end
+            return myPos + Vector3.new(0,0,safeDist)
         end
-        print("✅ Teleported safely to generator:", bestGen.Name)
-    else
-        print("⚠️ Không tìm thấy generator an toàn!")
+    end
+    return target
+end
+
+-- 🚀 Lùi ra xa 7 stud khỏi nguy hiểm (giữ hướng nhìn, bước nhỏ siêu nhanh)
+local function teleportAwayFromDanger()
+    local character = LP.Character
+    local hrp = character and character:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+
+    local myPos = hrp.Position
+    local isNear, dangerPos = isDangerNear(myPos, DetectRadius)
+    if isNear and dangerPos then
+        local safePos = getSafePosFromDanger(myPos, dangerPos, 7)
+
+        local dir = (safePos - myPos).Unit
+        local totalDist = (safePos - myPos).Magnitude
+        local stepSize = 1.2
+        local stepDelay = 0.01
+        local steps = math.ceil(totalDist / stepSize)
+
+        for i = 1, steps do
+            local stepPos = myPos + dir * (i * stepSize)
+            hrp.CFrame = CFrame.new(stepPos, stepPos + hrp.CFrame.LookVector)
+            task.wait(stepDelay)
+        end
+
+        print("⚠️ Né nguy hiểm bằng nhiều bước nhỏ (giữ hướng nhìn)!")
     end
 end
 
--- === Toggle GUI ===
+-- === GUI Control ===
 Tabs.Misc:AddToggle("SafeGenTeleport", {
-    Title = "Anti Killers V6",
+    Title = "Anti Killers V7",
     Default = false
 }):OnChanged(function(state)
     SafeGenRunning = state
@@ -5184,23 +5637,19 @@ Tabs.Misc:AddToggle("SafeGenTeleport", {
             local delayTime = SCAN_DELAY
             if AllowedPlayers[LP.Name] then
                 print("🚀 V2 Mode enabled for:", LP.Name)
-                delayTime = 0.01
+                delayTime = 0.000000000001
             else
                 print("🐢 V1 Mode enabled for:", LP.Name)
             end
-
             while SafeGenRunning do
                 local character = LP.Character
                 local hrp = character and character:FindFirstChild("HumanoidRootPart")
                 if hrp then
                     local charName = character.Name
-
                     if DangerousKillers[charName] or DangerousClones[charName] then
-                        -- Nếu bạn là killer/clone → không teleport
+                        -- bạn là killer → không né
                     elseif Survivors[charName] or charName == LP.Name then
-                        if isDangerNear(hrp.Position, DETECT_RADIUS) then
-                            teleportToSafeGenerator()
-                        end
+                        teleportAwayFromDanger()
                     end
                 end
                 task.wait(delayTime)
@@ -5212,6 +5661,21 @@ Tabs.Misc:AddToggle("SafeGenTeleport", {
         print("[SafeGenTeleport] Đã tắt.")
     end
 end)
+
+-- 📝 Input box chỉnh khoảng cách DetectRadius (1 - 100, mặc định 20)
+Tabs.Misc:AddInput("DetectRadiusInput", {
+    Title = "Detect Radius",
+    Default = "20",
+    Placeholder = "1 - 100"
+}):OnChanged(function(value)
+    local num = tonumber(value)
+    if num then
+        num = math.clamp(num, 1, 100)
+        DetectRadius = num
+        print("🔧 DetectRadius set to:", DetectRadius)
+    end
+end)
+
 end
 
 
