@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Premium] | Forsaken",
-    SubTitle = "Version 4.3.6",
+    SubTitle = "Version 4.3.7",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -4904,7 +4904,8 @@ local Players = game:GetService("Players")
 local LP = Players.LocalPlayer
 local PlayerGui = LP:WaitForChild("PlayerGui")
 
-local ActiveRemoveEffects = false
+-- Flag bật/tắt
+local ActiveRemoveAll = false
 
 -- Danh sách tên hiệu ứng thường gặp
 local effectNames = {
@@ -4923,8 +4924,8 @@ local effectClasses = {
     "ColorCorrectionEffect"
 }
 
--- Hàm xoá hiệu ứng
-local function removeEffects()
+-- 🌟 Hàm xoá tất cả (effects + popups)
+local function removeAll()
     -- Xoá hiệu ứng trong Lighting
     for _, obj in pairs(Lighting:GetDescendants()) do
         if table.find(effectNames, obj.Name) or table.find(effectClasses, obj.ClassName) then
@@ -4944,18 +4945,28 @@ local function removeEffects()
             end
         end
     end
+
+    -- Xoá popup 1x1x1x1
+    local temp = PlayerGui:FindFirstChild("TemporaryUI")
+    if temp then
+        local popup = temp:FindFirstChild("1x1x1x1Popup")
+        if popup then
+            popup:Destroy()
+            warn("[Remover] 1x1x1x1Popup removed")
+        end
+    end
 end
 
--- Toggle Fluent
-Tabs.Misc:AddToggle("RemoveScreenEffects", {
-    Title = "Remove Effects",
+-- Toggle Fluent - chỉ 1 cái
+Tabs.Misc:AddToggle("RemoveAllBadStuff", {
+    Title = "Remove Effects V2",
     Default = true,
     Callback = function(state)
-        ActiveRemoveEffects = state
+        ActiveRemoveAll = state
         if state then
             task.spawn(function()
-                while ActiveRemoveEffects do
-                    removeEffects()
+                while ActiveRemoveAll do
+                    removeAll()
                     task.wait(0.5)
                 end
             end)
