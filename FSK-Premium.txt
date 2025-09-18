@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Premium] | Forsaken",
-    SubTitle = "Version 4.3.5",
+    SubTitle = "Version 4.3.6",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -1967,6 +1967,7 @@ end
     Tabs.Main:AddSection("↳ Guest1337")
 
 
+
 do
     local Players = game:GetService("Players")
     local RunService = game:GetService("RunService")
@@ -1989,7 +1990,7 @@ do
 
     local animationIds = {
         ["83829782357897"]  = true, -- Slash, 1x1x1x1
-        ["126830014841198"] = true, -- Slash, Jason
+--        ["126830014841198"] = true, -- Slash, Jason
         ["126355327951215"] = true, -- Behead, Jason
         ["121086746534252"] = true, -- GashingWoundStart, Jason
         ["105458270463374"] = true, -- Slash, JohnDoe
@@ -2000,16 +2001,16 @@ do
         ["121293883585738"] = true, -- Slash, 1x1x1x1
         ["92173139187970"]  = true, -- Slash, Skin: Hacklord1x1x1x1
         ["106847695270773"] = true, -- GashingWoundStart, Jason, Skin: Subject0Jason
-        ["125403313786645"] = true, -- Slash, Jason, Skin: Subject0Jason
+--        ["125403313786645"] = true, -- Slash, Jason, Skin: Subject0Jason
         ["81639435858902"]  = true, -- Behead, Jason, Skin: WhitePumpkinJason
         ["137314737492715"] = true, -- GashingWoundStart, Jason, Skin: WhitePumpkinJason
-        ["120112897026015"] = true, -- Slash, Jason, Skin: WhitePumpkinJason
+--        ["120112897026015"] = true, -- Slash, Jason, Skin: WhitePumpkinJason
         ["82113744478546"]  = true, -- Behead, Jason (nhiều skin)
-        ["118298475669935"] = true, -- Slash, Jason (nhiều skin)
+--        ["118298475669935"] = true, -- Slash, Jason (nhiều skin)
         ["126681776859538"] = true, -- Behead, Jason, Skin: PursuerJason
         ["129976080405072"] = true, -- GashingWoundStart, Jason, Skin: PursuerJason
-        ["109667959938617"] = true, -- Slash, Jason, Skin: PursuerJason
-        ["74707328554358"]  = true, -- Slash, Jason, Skin: #DeadRabbitsJason
+--        ["109667959938617"] = true, -- Slash, Jason, Skin: PursuerJason
+--        ["74707328554358"]  = true, -- Slash, Jason, Skin: #DeadRabbitsJason
         ["133336594357903"] = true, -- Behead, Jason, Skin: #DeadRabbitsJason
         ["86204001129974"]  = true, -- GashingWoundStart, Jason, Skin: #DeadRabbitsJason
         ["70371667919898"]  = true, -- Attack, c00lkidd, Skin: MafiosoC00l
@@ -2032,12 +2033,12 @@ do
 
     -- chỉ các id này mới teleport
     local delayedAnimations = {
-         ["74707328554358"]  = true,  -- Slash, Jason, Skin: #DeadRabbitsJason
-        ["109667959938617"] = true, -- Slash, Jason, Skin: PursuerJason
-        ["118298475669935"] = true, -- Slash, Jason (nhiều skin)
-        ["120112897026015"] = true, -- Slash, Jason, Skin: WhitePumpkinJason
-        ["125403313786645"] = true, -- Slash, Jason, Skin: Subject0Jason
-        ["126830014841198"] = true, -- Slash, Jason
+--        ["74707328554358"]  = true,  -- Slash, Jason, Skin: #DeadRabbitsJason
+--        ["109667959938617"] = true, -- Slash, Jason, Skin: PursuerJason
+--        ["118298475669935"] = true, -- Slash, Jason (nhiều skin)
+--        ["120112897026015"] = true, -- Slash, Jason, Skin: WhitePumpkinJason
+--        ["125403313786645"] = true, -- Slash, Jason, Skin: Subject0Jason
+--        ["126830014841198"] = true, -- Slash, Jason
     }
 
     local toggleOn = false
@@ -2159,7 +2160,7 @@ do
     detectionRange = rangeFlag.Value
 
     Tabs.Main:AddToggle("AutoBlockV2", {
-        Title = "Auto Block V2",
+        Title = "Auto Block V3",
         Default = toggleOn,
     }):OnChanged(function(state)
         toggleOn = state
@@ -2167,7 +2168,7 @@ do
     end)
 
     Tabs.Main:AddToggle("StrictRangeCheck", {
-        Title = "Auto Check V2",
+        Title = "Auto Check V3",
         Default = strictRangeOn,
     }):OnChanged(function(state)
         strictRangeOn = state
