@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Premium] | Forsaken",
-    SubTitle = "Version 4.3.3",
+    SubTitle = "Version 4.3.5",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -362,8 +362,10 @@ end)
 
     Tabs.Farm:AddSection("↳ Generator")
 
+do
 local solveGeneratorCooldown = false
 local AutoFinishGen = false
+local genDelay = 1.5 -- mặc định 1.5s
 
 -- Hàm tìm generator gần nhất
 local function getClosestGenerator()
@@ -411,7 +413,7 @@ Tabs.Farm:AddButton({
         if gen and gen:FindFirstChild("Remotes") and gen.Remotes:FindFirstChild("RE") then
             gen.Remotes.RE:FireServer()
             solveGeneratorCooldown = true
-            task.delay(1.5, function()
+            task.delay(genDelay, function()
                 solveGeneratorCooldown = false
             end)
         end
@@ -428,7 +430,6 @@ Tabs.Farm:AddToggle("AutoFinishGen", {
     if state then
         if solveGeneratorCooldown then
             print("⚠️ Please wait cooldown before enabling Auto Finish!") 
-            -- tắt toggle qua Fluent.Options
             Fluent.Options.AutoFinishGen:SetValue(false)
             return
         end
@@ -440,7 +441,7 @@ Tabs.Farm:AddToggle("AutoFinishGen", {
                     gen.Remotes.RE:FireServer()
                 end
                 solveGeneratorCooldown = true
-                task.wait(1.5)
+                task.wait(genDelay)
                 solveGeneratorCooldown = false
             end
         end)
@@ -448,6 +449,26 @@ Tabs.Farm:AddToggle("AutoFinishGen", {
         solveGeneratorCooldown = false
     end
 end)
+
+
+-- Ô nhập delay
+Tabs.Farm:AddInput("GenDelayInput", {
+    Title = "Enter Delay",
+    Default = "1.5",
+    Placeholder = "Write Here (1.5-10)",
+    Numeric = true,
+    Callback = function(value)
+        local num = tonumber(value)
+        if num then
+            -- Clamp giá trị từ 1.5 đến 10
+            genDelay = math.clamp(num, 1.5, 10)
+            print("⏱ Delay set to:", genDelay)
+        else
+            print("⚠️ Nhập số hợp lệ!")
+        end
+    end
+})
+end
 
 
 do
