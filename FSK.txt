@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Free] | Forsaken",
-    SubTitle = "Version 4.4.0",
+    SubTitle = "Version 4.4.1",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -3011,6 +3011,39 @@ end
 
 
 
+
+do
+local Players = game:GetService("Players")
+local LP = Players.LocalPlayer
+
+local humanoid
+
+-- Hàm cập nhật Humanoid
+local function refreshCharacter()
+    local char = LP.Character or LP.CharacterAdded:Wait()
+    humanoid = char:FindFirstChildOfClass("Humanoid")
+end
+
+refreshCharacter()
+LP.CharacterAdded:Connect(refreshCharacter)
+
+-- 🟢 Toggle Unlock Jump Button
+Tabs.Player:AddToggle("UnlockJump", {
+    Title = "Unlock Jump Button",
+    Default = true
+}):OnChanged(function(state)
+    if humanoid then
+        if state then
+            humanoid.JumpPower = 50 -- hiện nút nhảy
+        else
+            humanoid.JumpPower = 0 -- ẩn nút nhảy
+        end
+    end
+end)
+end
+
+
+
     Tabs.Player:AddSection("↳ Troller")
 
 
@@ -4995,238 +5028,164 @@ end
 
 
 do
--- Biến trạng thái toggle FreeCam
-local freeCamEnabled = false
+-- Biến Freecam
+local freecam = false
+local speed = 50
+local rotX, rotY = 0, 0
+local camPos
+local lookTouch = nil
+local lastPos
 
--- Gui Toggle Fluent UI giống mẫu bạn đưa
-local FreeCamToggle = Tabs.Misc:AddToggle("FreeCamToggle", {
+local Players = game:GetService("Players")
+local uis = game:GetService("UserInputService")
+local rs = game:GetService("RunService")
+local plr = Players.LocalPlayer
+local cam = workspace.CurrentCamera
+local char = plr.Character or plr.CharacterAdded:Wait()
+local humanoid = char:WaitForChild("Humanoid")
+local hrp = char:WaitForChild("HumanoidRootPart")
+
+-- Toggle Freecam
+local function toggleFreecam(state)
+	freecam = state
+	if freecam then
+		cam.CameraType = Enum.CameraType.Scriptable
+		hrp.Anchored = true
+		camPos = cam.CFrame.Position
+		rotX, rotY = 0, 0
+	else
+		cam.CameraType = Enum.CameraType.Custom
+		hrp.Anchored = false
+	end
+end
+
+-- Cập nhật camera
+local function updateCamera(move, delta, dt)
+	local lookSpeed = 0.006
+	local smoothness = 0.25
+	if delta.Magnitude > 0 then
+		local targetX = math.clamp(rotX - delta.Y*lookSpeed, -math.rad(89), math.rad(89))
+		local targetY = rotY - delta.X*lookSpeed
+		rotX = rotX + (targetX-rotX)*smoothness
+		rotY = rotY + (targetY-rotY)*smoothness
+	end
+	camPos += move * speed * dt
+	local rot = CFrame.Angles(0,rotY,0) * CFrame.Angles(rotX,0,0)
+	cam.CFrame = CFrame.new(camPos) * rot
+end
+
+-- Input variables
+local targetRotX, targetRotY = 0,0
+local smoothness = 0.25
+local moveKeys = {W=false,A=false,S=false,D=false,Space=false,LeftShift=false}
+local mouseDown = false
+
+-- Mobile touch input
+uis.InputBegan:Connect(function(input, gp)
+	if gp or not freecam then return end
+	if input.UserInputType == Enum.UserInputType.Touch then
+		local pos = input.Position
+		local screenSize = cam.ViewportSize
+		if pos.X < screenSize.X*0.35 and pos.Y > screenSize.Y*0.6 then return end
+		lookTouch = input
+		lastPos = pos
+	end
+end)
+
+uis.InputChanged:Connect(function(input)
+	if freecam then
+		if input == lookTouch then
+			local delta = input.Position - lastPos
+			lastPos = input.Position
+			targetRotX = math.clamp(targetRotX - delta.Y*0.006, -math.rad(89), math.rad(89))
+			targetRotY = targetRotY - delta.X*0.006
+		elseif mouseDown and input.UserInputType == Enum.UserInputType.MouseMovement then
+			targetRotX = math.clamp(targetRotX - input.Delta.Y*0.006, -math.rad(89), math.rad(89))
+			targetRotY = targetRotY - input.Delta.X*0.006
+		end
+	end
+end)
+
+uis.InputEnded:Connect(function(input)
+	if input == lookTouch then
+		lookTouch = nil
+	elseif input.UserInputType == Enum.UserInputType.MouseButton2 then
+		mouseDown = false
+	end
+end)
+
+-- PC input
+uis.InputBegan:Connect(function(input, gp)
+	if gp or not freecam then return end
+	if input.UserInputType == Enum.UserInputType.MouseButton2 then
+		mouseDown = true
+	elseif input.UserInputType == Enum.UserInputType.Keyboard then
+		local key = input.KeyCode.Name
+		if moveKeys[key] ~= nil then
+			moveKeys[key] = true
+		end
+	end
+end)
+
+uis.InputEnded:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.Keyboard then
+		local key = input.KeyCode.Name
+		if moveKeys[key] ~= nil then
+			moveKeys[key] = false
+		end
+	end
+end)
+
+local function getPCMoveVector()
+	local dir = Vector3.new(0,0,0)
+	if moveKeys.W then dir += cam.CFrame.LookVector end
+	if moveKeys.S then dir -= cam.CFrame.LookVector end
+	if moveKeys.A then dir -= cam.CFrame.RightVector end
+	if moveKeys.D then dir += cam.CFrame.RightVector end
+	if moveKeys.Space then dir += Vector3.new(0,1,0) end
+	if moveKeys.LeftShift then dir -= Vector3.new(0,1,0) end
+	if dir.Magnitude > 0 then dir = dir.Unit end
+	return dir
+end
+
+-- RenderStepped update
+rs.RenderStepped:Connect(function(dt)
+	if freecam then
+		rotX = rotX + (targetRotX-rotX)*smoothness
+		rotY = rotY + (targetRotY-rotY)*smoothness
+
+		local moveDir = Vector3.new(0,0,0)
+		if uis.TouchEnabled then
+			moveDir = humanoid.MoveDirection
+		else
+			moveDir = getPCMoveVector()
+		end
+		updateCamera(moveDir, Vector2.new(), dt)
+	end
+end)
+
+-- === GUI Toggle & Slider ===
+local toggleFreeCamUI = Tabs.Misc:AddToggle("UnlockFreeCam", {
     Title = "Unlock Free Cam",
     Default = false
 })
 
--- Slider chỉnh tốc độ
-local SpeedSlider = Tabs.Misc:AddSlider("FreeCamSpeed", {
-    Title = "Select Speed",
-    Default = 16,
-    Min = 1,
-    Max = 300,
-    Rounding = 1
-})
-
--- Dịch vụ
-local cam = workspace.CurrentCamera
-local UIS = game:GetService("UserInputService")
-local RS = game:GetService("RunService")
-local Players = game:GetService("Players")
-
-local onMobile = not UIS.KeyboardEnabled
-local keysDown = {}
-local rotating = false
-local touchPos = nil
-
-if not game:IsLoaded() then game.Loaded:Wait() end
-
-cam.CameraType = Enum.CameraType.Scriptable
-
--- Giá trị mặc định ban đầu
-local speed = 16 / 10
-local sens = 0.3
-
-if onMobile then
-    sens *= 2
-end
-
--- Khi thay đổi slider → cập nhật tốc độ
-SpeedSlider:OnChanged(function(value)
-    speed = value / 10
+toggleFreeCamUI:OnChanged(function(state)
+	toggleFreecam(state)
 end)
 
-local player = Players.LocalPlayer
-local char, humanoid
-
--- Hàm cập nhật nhân vật và humanoid mới sau khi chết hoặc hồi sinh
-local function getChar()
-    char = player.Character or player.CharacterAdded:Wait()
-    humanoid = char:FindFirstChildWhichIsA("Humanoid")
-end
-
-getChar()
-
--- Khóa hoặc mở khóa nhân vật
-local function setCharacterLocked(lock)
-    if humanoid then
-        if lock then
-            humanoid.WalkSpeed = 0
-            humanoid.JumpPower = 0
-            humanoid.AutoRotate = false
-        else
-            humanoid.WalkSpeed = 16
-            humanoid.JumpPower = 50
-            humanoid.AutoRotate = true
-        end
-    end
-end
-
-player.CharacterAdded:Connect(function()
-    getChar()
-    if freeCamEnabled then
-        cam.CameraType = Enum.CameraType.Scriptable
-    else
-        cam.CameraType = Enum.CameraType.Custom
-        setCharacterLocked(false)
-    end
-end)
-
--- Di chuyển và xoay camera
-local function renderStepped()
-    if not freeCamEnabled then
-        cam.CameraType = Enum.CameraType.Custom
-        UIS.MouseBehavior = Enum.MouseBehavior.Default
-        return
-    end
-
-    if rotating then
-        local delta = UIS:GetMouseDelta()
-        local cf = cam.CFrame
-        local yAngle = cf:ToEulerAngles(Enum.RotationOrder.YZX)
-        local newAmount = math.deg(yAngle) + delta.Y
-        if newAmount > 65 or newAmount < -65 then
-            if not (yAngle < 0 and delta.Y < 0) and not (yAngle > 0 and delta.Y > 0) then
-                delta = Vector2.new(delta.X, 0)
-            end
-        end
-        cf *= CFrame.Angles(-math.rad(delta.Y), 0, 0)
-        cf = CFrame.Angles(0, -math.rad(delta.X), 0) * (cf - cf.Position) + cf.Position
-        cf = CFrame.lookAt(cf.Position, cf.Position + cf.LookVector)
-        if delta ~= Vector2.new(0, 0) then
-            cam.CFrame = cam.CFrame:Lerp(cf, sens)
-        end
-        UIS.MouseBehavior = Enum.MouseBehavior.LockCurrentPosition
-    else
-        UIS.MouseBehavior = Enum.MouseBehavior.Default
-    end
-
-    if keysDown["Enum.KeyCode.W"] then
-        cam.CFrame *= CFrame.new(0, 0, -speed)
-    end
-    if keysDown["Enum.KeyCode.A"] then
-        cam.CFrame *= CFrame.new(-speed, 0, 0)
-    end
-    if keysDown["Enum.KeyCode.S"] then
-        cam.CFrame *= CFrame.new(0, 0, speed)
-    end
-    if keysDown["Enum.KeyCode.D"] then
-        cam.CFrame *= CFrame.new(speed, 0, 0)
-    end
-end
-
-RS.RenderStepped:Connect(renderStepped)
-
--- Cưỡng chế đứng im mỗi frame
-RS.Heartbeat:Connect(function()
-    if freeCamEnabled then
-        if not humanoid or humanoid.Parent == nil then
-            getChar()
-        end
-        if humanoid then
-            humanoid.WalkSpeed = 0
-            humanoid.JumpPower = 0
-            humanoid.AutoRotate = false
-        end
-    end
-end)
-
--- Input keys
-local validKeys = {
-    "Enum.KeyCode.W",
-    "Enum.KeyCode.A",
-    "Enum.KeyCode.S",
-    "Enum.KeyCode.D"
-}
-
-UIS.InputBegan:Connect(function(Input)
-    for _, key in pairs(validKeys) do
-        if key == tostring(Input.KeyCode) then
-            if freeCamEnabled then
-                keysDown[key] = true
-            end
-        end
-    end
-    if Input.UserInputType == Enum.UserInputType.MouseButton2 or (Input.UserInputType == Enum.UserInputType.Touch and UIS:GetMouseLocation().X > (cam.ViewportSize.X / 2)) then
-        if freeCamEnabled then
-            rotating = true
-        end
-    end
-    if Input.UserInputType == Enum.UserInputType.Touch then
-        if Input.Position.X < cam.ViewportSize.X / 2 then
-            touchPos = Input.Position
-        end
-    end
-end)
-
-UIS.InputEnded:Connect(function(Input)
-    for key, _ in pairs(keysDown) do
-        if key == tostring(Input.KeyCode) then
-            keysDown[key] = false
-        end
-    end
-    if Input.UserInputType == Enum.UserInputType.MouseButton2 or (Input.UserInputType == Enum.UserInputType.Touch and UIS:GetMouseLocation().X > (cam.ViewportSize.X / 2)) then
-        rotating = false
-    end
-    if Input.UserInputType == Enum.UserInputType.Touch and touchPos then
-        if Input.Position.X < cam.ViewportSize.X / 2 then
-            touchPos = nil
-            keysDown["Enum.KeyCode.W"] = false
-            keysDown["Enum.KeyCode.A"] = false
-            keysDown["Enum.KeyCode.S"] = false
-            keysDown["Enum.KeyCode.D"] = false
-        end
-    end
-end)
-
-UIS.TouchMoved:Connect(function(input)
-    if touchPos and freeCamEnabled then
-        if input.Position.X < cam.ViewportSize.X / 2 then
-            if input.Position.Y < touchPos.Y then
-                keysDown["Enum.KeyCode.W"] = true
-                keysDown["Enum.KeyCode.S"] = false
-            else
-                keysDown["Enum.KeyCode.W"] = false
-                keysDown["Enum.KeyCode.S"] = true
-            end
-            if input.Position.X < (touchPos.X - 15) then
-                keysDown["Enum.KeyCode.A"] = true
-                keysDown["Enum.KeyCode.D"] = false
-            elseif input.Position.X > (touchPos.X + 15) then
-                keysDown["Enum.KeyCode.A"] = false
-                keysDown["Enum.KeyCode.D"] = true
-            else
-                keysDown["Enum.KeyCode.A"] = false
-                keysDown["Enum.KeyCode.D"] = false
-            end
-        end
-    end
-end)
-
--- Toggle bật tắt FreeCam
-FreeCamToggle:OnChanged(function(value)
-    freeCamEnabled = value
-
-    getChar()
-
-    if freeCamEnabled then
-        cam.CameraType = Enum.CameraType.Scriptable
-    else
-        cam.CameraType = Enum.CameraType.Custom
-        setCharacterLocked(false)
-
-        -- Reset input
-        keysDown = {}
-        rotating = false
-        UIS.MouseBehavior = Enum.MouseBehavior.Default
-    end
+Tabs.Misc:AddSlider("FreeCamSpeed", {
+    Title = "Camera Speed",
+    Default = speed,
+    Min = 5,
+    Max = 100,
+    Rounding = 0
+}):OnChanged(function(val)
+	speed = val
 end)
 end
+
+
 
     Tabs.Misc:AddSection("↳ Bypass")
 
