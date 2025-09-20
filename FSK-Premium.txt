@@ -5298,17 +5298,25 @@ local char = plr.Character or plr.CharacterAdded:Wait()
 local humanoid = char:WaitForChild("Humanoid")
 local hrp = char:WaitForChild("HumanoidRootPart")
 
--- Toggle Freecam
+-- Toggle Freecam (đã chỉnh reset khi bật lại)
 local function toggleFreecam(state)
 	freecam = state
 	if freecam then
+		-- Reset lại nhân vật mới mỗi lần bật
+		char = plr.Character or plr.CharacterAdded:Wait()
+		humanoid = char:WaitForChild("Humanoid")
+		hrp = char:WaitForChild("HumanoidRootPart")
+
 		cam.CameraType = Enum.CameraType.Scriptable
 		hrp.Anchored = true
 		camPos = cam.CFrame.Position
 		rotX, rotY = 0, 0
+		targetRotX, targetRotY = 0, 0
 	else
+		if hrp then
+			hrp.Anchored = false
+		end
 		cam.CameraType = Enum.CameraType.Custom
-		hrp.Anchored = false
 	end
 end
 
