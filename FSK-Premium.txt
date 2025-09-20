@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Premium] | Forsaken",
-    SubTitle = "Version 4.4.2",
+    SubTitle = "Version 4.4.3",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -1570,7 +1570,7 @@ local function faceInstant(toPos)
     local fromPos = HRP.Position
     local lookAt = Vector3.new(toPos.X, fromPos.Y, toPos.Z)
     local targetCF = CFrame.new(fromPos, lookAt)
-    HRP.CFrame = HRP.CFrame:Lerp(targetCF, 0.9)
+    HRP.CFrame = HRP.CFrame:Lerp(targetCF, 0.99)
 end
 
 -- 📌 Helpers Coinflip
