@@ -4047,7 +4047,8 @@ local AttackAnimations = {
     'rbxassetid://106538427162796',
     'rbxassetid://109667959938617',
     'rbxassetid://126681776859538',
-    'rbxassetid://129976080405072'
+    'rbxassetid://129976080405072',
+    'rbxassetid://110400453990786'
 }
 
 -- danh sách model killers và survivors (theo yêu cầu của bạn)
