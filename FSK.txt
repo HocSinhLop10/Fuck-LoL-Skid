@@ -2018,6 +2018,8 @@ do
         ["99135633258223"]  = true,
         ["98456918873918"]  = true,
         ["83251433279852"]  = true,
+        ["126681776859538"] = true,
+        ["129976080405072"] = true,
     }
 
     -- chỉ các id này mới teleport
@@ -3623,7 +3625,7 @@ do
                 Run  = "rbxassetid://93054787145505",
             },
             ["Pursuer"] = {
-                Idle = "rbxassetid://116050994905421",
+                Idle = "rbxassetid://94895464960972",
                 Walk = "rbxassetid://100206079439305",
                 Run  = "rbxassetid://138660433982140",
             }
@@ -5277,7 +5279,7 @@ local effectClasses = {
     "ColorCorrectionEffect"
 }
 
--- ?? Hàm xoá tất cả (effects + popups)
+-- 🌟 Hàm xoá tất cả (effects + popups)
 local function removeAll()
     -- Xoá hiệu ứng trong Lighting
     for _, obj in pairs(Lighting:GetDescendants()) do
@@ -6731,4 +6733,4 @@ Button.InputChanged:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
         OnDrag(input)
     end
-end))
+end) 
