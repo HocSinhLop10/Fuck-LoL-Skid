@@ -3625,7 +3625,7 @@ do
             ["Pursuer"] = {
                 Idle = "rbxassetid://116050994905421",
                 Walk = "rbxassetid://100206079439305",
-                Run  = "rbxassetid://93054787145505",
+                Run  = "rbxassetid://138660433982140",
             }
         },
         ["Coolkidd"] = {
