@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Free] | Forsaken",
-    SubTitle = "Version 4.4.2",
+    SubTitle = "Version 4.4.3",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -3290,6 +3290,259 @@ end
 
 do
     local Players = game:GetService("Players")
+    local RunService = game:GetService("RunService")
+    local Workspace = game:GetService("Workspace")
+    local plr = Players.LocalPlayer
+
+    local clones = {}
+    local cloneRunning = false
+    local cloneCount = 10 -- mặc định 10
+
+    -- Animation IDs
+    local ID_IDLE = 131082534135875
+    local ID_WALK_SLOW = 108018357044094
+    local ID_WALK_FAST = 136252471123500
+
+    -- Xóa script con trong clone
+    local function removeScriptsFromModel(model)
+        for _, v in ipairs(model:GetDescendants()) do
+            if v:IsA("LocalScript") or v:IsA("Script") then
+                v:Destroy()
+            end
+        end
+    end
+
+    -- Hiệu ứng khói khi spawn (fade out)
+    local function spawnSmoke(position)
+        local p = Instance.new("Part")
+        p.Anchored = true
+        p.CanCollide = false
+        p.Transparency = 1
+        p.Size = Vector3.new(1,1,1)
+        p.CFrame = CFrame.new(position)
+        p.Parent = workspace
+
+        local smoke = Instance.new("ParticleEmitter")
+        smoke.Texture = "rbxassetid://258128463"
+        smoke.Lifetime = NumberRange.new(2,3)
+        smoke.Rate = 100
+        smoke.Speed = NumberRange.new(5,15)
+        smoke.Rotation = NumberRange.new(0,360)
+        smoke.RotSpeed = NumberRange.new(-90,90)
+        smoke.Size = NumberSequence.new({
+            NumberSequenceKeypoint.new(0,5),
+            NumberSequenceKeypoint.new(1,0)
+        })
+        smoke.Transparency = NumberSequence.new({
+            NumberSequenceKeypoint.new(0,0),
+            NumberSequenceKeypoint.new(0.5,0.5),
+            NumberSequenceKeypoint.new(1,1)
+        })
+        smoke.Parent = p
+
+        task.delay(1.5, function()
+            if smoke then smoke.Enabled = false end
+        end)
+        game.Debris:AddItem(p, 5)
+    end
+
+    local function clearClones()
+        for _, d in ipairs(clones) do
+            pcall(function()
+                if d.IdleTrack then d.IdleTrack:Stop() end
+                if d.SlowTrack then d.SlowTrack:Stop() end
+                if d.FastTrack then d.FastTrack:Stop() end
+            end)
+            if d.Model and d.Model.Parent then
+                d.Model:Destroy()
+            end
+        end
+        clones = {}
+    end
+
+    local function createClone(spawnPosition)
+        if not plr.Character then return end
+        local baseChar = plr.Character
+        local cloneModel = baseChar:Clone()
+        removeScriptsFromModel(cloneModel)
+        cloneModel.Parent = workspace
+        cloneModel.Name = plr.Name .. "_Clone"
+
+        local hum = cloneModel:FindFirstChildOfClass("Humanoid")
+        local hrp = cloneModel:FindFirstChild("HumanoidRootPart")
+        if not hum or not hrp then
+            cloneModel:Destroy()
+            return
+        end
+
+        if spawnPosition then
+            hrp.CFrame = CFrame.new(spawnPosition)
+        end
+
+        hum.WalkSpeed = 8 -- mặc định đi chậm
+
+        local animator = hum:FindFirstChildOfClass("Animator")
+        if not animator then
+            animator = Instance.new("Animator")
+            animator.Parent = hum
+        end
+
+        -- preload anims
+        local animIdle = Instance.new("Animation")
+        animIdle.AnimationId = "rbxassetid://" .. ID_IDLE
+        local idleTrack = animator:LoadAnimation(animIdle)
+        idleTrack.Looped = true
+
+        local animSlow = Instance.new("Animation")
+        animSlow.AnimationId = "rbxassetid://" .. ID_WALK_SLOW
+        local slowTrack = animator:LoadAnimation(animSlow)
+        slowTrack.Looped = true
+
+        local animFast = Instance.new("Animation")
+        animFast.AnimationId = "rbxassetid://" .. ID_WALK_FAST
+        local fastTrack = animator:LoadAnimation(animFast)
+        fastTrack.Looped = true
+
+        idleTrack:Play()
+
+        hum.Died:Connect(function()
+            pcall(function()
+                idleTrack:Stop()
+                slowTrack:Stop()
+                fastTrack:Stop()
+            end)
+        end)
+
+        -- hiệu ứng khói spawn
+        spawnSmoke(hrp.Position)
+
+        -- boost logic
+        task.spawn(function()
+            while cloneRunning and hum.Parent do
+                local waitTime = math.random(15,30)
+                task.wait(waitTime)
+                -- bật boost
+                hum.WalkSpeed = 20
+                if slowTrack.IsPlaying then slowTrack:Stop() end
+                if not fastTrack.IsPlaying then fastTrack:Play() end
+
+                local boostDuration = math.random(15,20)
+                task.wait(boostDuration)
+
+                -- tắt boost
+                hum.WalkSpeed = 8
+                if fastTrack.IsPlaying then fastTrack:Stop() end
+                if not slowTrack.IsPlaying then slowTrack:Play() end
+            end
+        end)
+
+        local data = {
+            Model = cloneModel,
+            Humanoid = hum,
+            HRP = hrp,
+            IdleTrack = idleTrack,
+            SlowTrack = slowTrack,
+            FastTrack = fastTrack,
+            Moving = false,
+            Boosting = false,
+            TargetPos = nil,
+            LastMove = tick()
+        }
+        table.insert(clones, data)
+        return data
+    end
+
+    -- Di chuyển ngẫu nhiên (phạm vi 1000m) + tránh kẹt + anim Idle/Walk
+    RunService.Heartbeat:Connect(function()
+        if not cloneRunning then return end
+        for _, d in ipairs(clones) do
+            local hum, hrp = d.Humanoid, d.HRP
+            if hum and hrp and hum.Parent then
+                -- nếu chưa có target hoặc kẹt quá lâu -> chọn target mới
+                if not d.TargetPos or (tick() - (d.LastMove or 0)) > 5 then
+                    local newTarget
+                    for i = 1, 5 do -- thử tối đa 5 lần
+                        local offset = Vector3.new(math.random(-1000, 1000), 0, math.random(-1000, 1000))
+                        local candidate = hrp.Position + offset
+                        -- raycast kiểm tra tránh tường
+                        local dir = (candidate - hrp.Position).Unit * 50
+                        local ray = Ray.new(hrp.Position, dir)
+                        local hit = Workspace:FindPartOnRay(ray, d.Model)
+                        if not hit then
+                            newTarget = candidate
+                            break
+                        end
+                    end
+                    if newTarget then
+                        hum:MoveTo(newTarget)
+                        d.TargetPos = newTarget
+                        d.LastMove = tick()
+                    end
+                end
+
+                -- đổi anim theo vận tốc
+                local velocity = hrp.Velocity.Magnitude
+                if velocity > 1 then
+                    if not d.Moving then
+                        d.Moving = true
+                        d.IdleTrack:Stop()
+                        if hum.WalkSpeed > 10 then
+                            d.FastTrack:Play()
+                        else
+                            d.SlowTrack:Play()
+                        end
+                    end
+                else
+                    if d.Moving then
+                        d.Moving = false
+                        d.FastTrack:Stop()
+                        d.SlowTrack:Stop()
+                        d.IdleTrack:Play()
+                    end
+                end
+            end
+        end
+    end)
+
+    -- Input + Toggle Fluent UI
+    Tabs.Player:AddInput("CloneCountInput", {
+        Title = "量選択する",
+        Default = "10",
+        Placeholder = "Clone (1-100)",
+        Callback = function(Value)
+            local num = tonumber(Value)
+            if num and num > 0 then
+                cloneCount = math.clamp(num, 1, 100) -- giới hạn tối đa 100 clone
+            end
+        end
+    })
+
+    Tabs.Player:AddToggle("ShadowCloneJutsu", {
+        Title = "クローン",
+        Default = false,
+        Callback = function(Value)
+            cloneRunning = Value
+            if cloneRunning then
+                clearClones()
+                local basePos = plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") and plr.Character.HumanoidRootPart.Position or Vector3.new()
+                for i = 1, cloneCount do
+                    local angle = (i - 1) * (2 * math.pi / cloneCount)
+                    local spawnPos = basePos + Vector3.new(math.cos(angle) * 5, 0, math.sin(angle) * 5)
+                    createClone(spawnPos)
+                end
+            else
+                clearClones()
+            end
+        end
+    })
+end
+
+
+
+
+
+do
+    local Players = game:GetService("Players")
     local player = Players.LocalPlayer
 
     -- Animation object
@@ -3344,7 +3597,6 @@ end
 
     Tabs.Player:AddSection("↳ Animation")
 
-
 --// Fake Killers Anim System (hardened)
 do
     local Players = game:GetService("Players")
@@ -3368,6 +3620,11 @@ do
             ["Default"] = {
                 Idle = "rbxassetid://116050994905421",
                 Walk = "rbxassetid://93622022596108",
+                Run  = "rbxassetid://93054787145505",
+            },
+            ["Pursuer"] = {
+                Idle = "rbxassetid://116050994905421",
+                Walk = "rbxassetid://100206079439305",
                 Run  = "rbxassetid://93054787145505",
             }
         },
@@ -3785,7 +4042,10 @@ local AttackAnimations = {
     'rbxassetid://139835501033932',
     'rbxassetid://139835501033932',
     'rbxassetid://139835501033932',
-    'rbxassetid://106538427162796'
+    'rbxassetid://106538427162796',
+    'rbxassetid://109667959938617',
+    'rbxassetid://126681776859538',
+    'rbxassetid://129976080405072'
 }
 
 -- danh sách model killers và survivors (theo yêu cầu của bạn)
@@ -4061,7 +4321,7 @@ end)
 local RunService = game:GetService("RunService")
 local Camera = workspace.CurrentCamera
 
--- 📌 Danh sách model Clone
+-- ?? Danh sách model Clone
 local allowedModelsClone = {
     ["1x1x1x1Zombie"] = true,
     ["PizzaDeliveryRig"] = true,
@@ -5094,7 +5354,6 @@ Tabs.Misc:AddToggle("InfiniteZoom", {
     end
 })
 end
-
 
 
 

@@ -3621,6 +3621,11 @@ do
                 Idle = "rbxassetid://116050994905421",
                 Walk = "rbxassetid://93622022596108",
                 Run  = "rbxassetid://93054787145505",
+            },
+            ["Pursuer"] = {
+                Idle = "rbxassetid://116050994905421",
+                Walk = "rbxassetid://100206079439305",
+                Run  = "rbxassetid://93054787145505",
             }
         },
         ["Coolkidd"] = {
@@ -4037,7 +4042,10 @@ local AttackAnimations = {
     'rbxassetid://139835501033932',
     'rbxassetid://139835501033932',
     'rbxassetid://139835501033932',
-    'rbxassetid://106538427162796'
+    'rbxassetid://106538427162796',
+    'rbxassetid://109667959938617',
+    'rbxassetid://126681776859538',
+    'rbxassetid://129976080405072'
 }
 
 -- danh sách model killers và survivors (theo yêu cầu của bạn)
