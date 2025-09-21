@@ -3597,212 +3597,287 @@ end
 
     Tabs.Player:AddSection("↳ Animation")
 
---// Fake Killers Anim System
-do
+-- LocalScript (đặt trong StarterPlayerScripts)
+-- Mục đích: quét Animation instances, hiển thị id, copy (nếu setclipboard được hỗ trợ),
+-- và cho phép nhập id để play animation lên character local.
+
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local StarterGui = game:GetService("StarterGui")
 
 local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
 
--- thử require sprint module (nếu game có)
-local sprintModule
-pcall(function()
-    sprintModule = require(ReplicatedStorage:WaitForChild("Systems").Character.Game.Sprinting)
+-- Create ScreenGui
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "AnimationFinderGUI"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = playerGui
+
+-- Main frame (nhỏ hơn, ở giữa màn hình, có thể kéo)
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 300, 0, 260)
+frame.Position = UDim2.new(0.5, -150, 0.5, -130)
+frame.BackgroundTransparency = 0.15
+frame.BackgroundColor3 = Color3.fromRGB(20,20,20)
+frame.BorderSizePixel = 0
+frame.Active = true
+frame.Draggable = true
+frame.Parent = screenGui
+
+local uiCorner = Instance.new("UICorner", frame)
+uiCorner.CornerRadius = UDim.new(0, 8)
+
+-- Title
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, -12, 0, 28)
+title.Position = UDim2.new(0, 6, 0, 4)
+title.BackgroundTransparency = 1
+title.Text = "Animation Finder & Activator"
+title.TextSize = 16
+title.TextColor3 = Color3.fromRGB(235,235,235)
+title.Font = Enum.Font.GothamBold
+title.TextXAlignment = Enum.TextXAlignment.Left
+title.Parent = frame
+
+-- Refresh button
+local refreshBtn = Instance.new("TextButton")
+refreshBtn.Size = UDim2.new(0, 70, 0, 24)
+refreshBtn.Position = UDim2.new(1, -76, 0, 4)
+refreshBtn.BackgroundColor3 = Color3.fromRGB(50,50,50)
+refreshBtn.TextColor3 = Color3.fromRGB(230,230,230)
+refreshBtn.Font = Enum.Font.Gotham
+refreshBtn.TextSize = 13
+refreshBtn.Text = "Refresh"
+refreshBtn.Parent = frame
+Instance.new("UICorner", refreshBtn)
+
+-- Scrolling frame to list animations
+local scroll = Instance.new("ScrollingFrame")
+scroll.Size = UDim2.new(1, -12, 0, 140)
+scroll.Position = UDim2.new(0, 6, 0, 34)
+scroll.BackgroundTransparency = 0.12
+scroll.BackgroundColor3 = Color3.fromRGB(30,30,30)
+scroll.BorderSizePixel = 0
+scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+scroll.Parent = frame
+Instance.new("UICorner", scroll)
+
+local uiList = Instance.new("UIListLayout", scroll)
+uiList.SortOrder = Enum.SortOrder.LayoutOrder
+uiList.Padding = UDim.new(0,4)
+
+-- Input to play an id manually
+local idBox = Instance.new("TextBox")
+idBox.Size = UDim2.new(1, -110, 0, 28)
+idBox.Position = UDim2.new(0, 6, 1, -56)
+idBox.PlaceholderText = "Enter animation id"
+idBox.Font = Enum.Font.Gotham
+idBox.TextSize = 14
+idBox.Text = ""
+idBox.ClearTextOnFocus = false
+idBox.TextColor3 = Color3.fromRGB(230,230,230)
+idBox.BackgroundTransparency = 0.12
+idBox.Parent = frame
+Instance.new("UICorner", idBox)
+
+local playBtn = Instance.new("TextButton")
+playBtn.Size = UDim2.new(0, 90, 0, 28)
+playBtn.Position = UDim2.new(1, -96, 1, -56)
+playBtn.BackgroundColor3 = Color3.fromRGB(60,120,200)
+playBtn.Text = "Play"
+playBtn.TextColor3 = Color3.fromRGB(255,255,255)
+playBtn.Font = Enum.Font.GothamBold
+playBtn.TextSize = 14
+playBtn.Parent = frame
+Instance.new("UICorner", playBtn)
+
+-- Status label
+local status = Instance.new("TextLabel")
+status.Size = UDim2.new(1, -12, 0, 20)
+status.Position = UDim2.new(0, 6, 1, -24)
+status.BackgroundTransparency = 1
+status.Text = ""
+status.Font = Enum.Font.Gotham
+status.TextSize = 13
+status.TextColor3 = Color3.fromRGB(200,200,200)
+status.TextXAlignment = Enum.TextXAlignment.Left
+status.Parent = frame
+
+-- Utility: try set clipboard (may not be allowed in live client)
+local function trySetClipboard(text)
+	local ok = pcall(function()
+		if setclipboard then
+			setclipboard(text)
+			return true
+		elseif syn and syn.set_clipboard then
+			syn.set_clipboard(text)
+			return true
+		end
+	end)
+	return ok
+end
+
+-- Play animation by id on player's character (local)
+function playAnimationById(idText)
+	if not idText or idText == "" then
+		status.Text = "No id provided."
+		task.delay(2, function() status.Text = "" end)
+		return
+	end
+
+	local numeric = idText:match("%d+")
+	if not numeric then
+		status.Text = "Không tìm thấy số id."
+		task.delay(2, function() status.Text = "" end)
+		return
+	end
+
+	local char = player.Character or player.CharacterAdded:Wait()
+	local humanoid = char:FindFirstChildOfClass("Humanoid")
+	if not humanoid then
+		status.Text = "Không tìm thấy Humanoid."
+		task.delay(2, function() status.Text = "" end)
+		return
+	end
+
+	local animator = humanoid:FindFirstChildOfClass("Animator")
+	if not animator then
+		animator = Instance.new("Animator")
+		animator.Parent = humanoid
+	end
+
+	local anim = Instance.new("Animation")
+	anim.AnimationId = "rbxassetid://"..numeric
+
+	local ok, track = pcall(function()
+		return animator:LoadAnimation(anim)
+	end)
+	if not ok or not track then
+		status.Text = "Không thể load animation."
+		anim:Destroy()
+		task.delay(2, function() status.Text = "" end)
+		return
+	end
+
+	track.Priority = Enum.AnimationPriority.Action
+	track:Play()
+	status.Text = "Playing animation: "..numeric
+	task.delay(15, function()
+		pcall(function() track:Stop() end)
+		anim:Destroy()
+		status.Text = ""
+	end)
+end
+
+playBtn.MouseButton1Click:Connect(function()
+	playAnimationById(idBox.Text)
 end)
 
--- state
-local enabled = false
-local selectedKiller = "Shasher" -- mặc định
-local character, humanoid, animator
-local idleAnim, walkAnim, runAnim
-local idleTrack, walkTrack, runTrack
-local _isSprinting = false
+-- Create one row entry for an animation id
+local function makeRow(animId)
+	local row = Instance.new("Frame")
+	row.Size = UDim2.new(1, -12, 0, 32)
+	row.BackgroundTransparency = 1
+	row.Parent = scroll
 
--- conn
-local runningConn, heartbeatConn, characterRemovingConn, inputBeganConn, inputEndedConn
-local heartbeatAccumulator = 0
-local HEARTBEAT_CHECK_INTERVAL = 0.12
+	local nameLabel = Instance.new("TextLabel")
+	nameLabel.Size = UDim2.new(1, -160, 1, 0)
+	nameLabel.Position = UDim2.new(0, 6, 0, 0)
+	nameLabel.BackgroundTransparency = 1
+	nameLabel.Text = animId
+	nameLabel.Font = Enum.Font.Gotham
+	nameLabel.TextSize = 14
+	nameLabel.TextColor3 = Color3.fromRGB(230,230,230)
+	nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+	nameLabel.Parent = row
 
--- anim sets
-local animSets = {
-    ["Shasher"] = {
-        Idle = "rbxassetid://116050994905421",
-        Walk = "rbxassetid://93622022596108",
-        Run  = "rbxassetid://93054787145505",
-    },
-    ["Coolkidd"] = {
-        Idle = "rbxassetid://18885903667",
-        Walk = "rbxassetid://18885906143",
-        Run  = "rbxassetid://96571077893813",
-    },
-    ["John Doe"] = {
-        Idle = "rbxassetid://105880087711722",
-        Walk = "rbxassetid://81193817424328",
-        Run  = "rbxassetid://132653655520682",
-    },
-    ["Noli"] = {
-        Idle = "rbxassetid://93841120533318",
-        Walk = "rbxassetid://109700476007435",
-        Run  = "rbxassetid://117451341682452",
-    },
-    ["1x1x1x1"] = {
-        Idle = "rbxassetid://138754221537146",
-        Walk = "rbxassetid://131235528875091",
-        Run  = "rbxassetid://106485518413331",
-    }
-}
+	local copyBtn = Instance.new("TextButton")
+	copyBtn.Size = UDim2.new(0, 60, 0, 24)
+	copyBtn.Position = UDim2.new(1, -66, 0.5, -12)
+	copyBtn.AnchorPoint = Vector2.new(1,0.5)
+	copyBtn.BackgroundColor3 = Color3.fromRGB(70,70,70)
+	copyBtn.Text = "Copy"
+	copyBtn.Font = Enum.Font.Gotham
+	copyBtn.TextSize = 13
+	copyBtn.TextColor3 = Color3.fromRGB(240,240,240)
+	copyBtn.Parent = row
+	Instance.new("UICorner", copyBtn)
 
--- utility
-local function stopAndClearTracks()
-    for _, track in ipairs({idleTrack, walkTrack, runTrack}) do
-        if track then pcall(function() track:Stop() end) end
-    end
-    idleTrack, walkTrack, runTrack = nil, nil, nil
+	local useBtn = Instance.new("TextButton")
+	useBtn.Size = UDim2.new(0, 60, 0, 24)
+	useBtn.Position = UDim2.new(1, -130, 0.5, -12)
+	useBtn.BackgroundColor3 = Color3.fromRGB(80,150,80)
+	useBtn.Text = "Use"
+	useBtn.Font = Enum.Font.GothamBold
+	useBtn.TextSize = 13
+	useBtn.TextColor3 = Color3.fromRGB(255,255,255)
+	useBtn.Parent = row
+	Instance.new("UICorner", useBtn)
+
+	copyBtn.MouseButton1Click:Connect(function()
+		if not trySetClipboard(animId) then
+			idBox.Text = animId
+			status.Text = "Copy không khả dụng, id đã được điền."
+		else
+			status.Text = "Đã copy: "..animId
+		end
+		task.delay(2, function() status.Text = "" end)
+	end)
+
+	useBtn.MouseButton1Click:Connect(function()
+		idBox.Text = animId
+		playAnimationById(animId)
+	end)
 end
 
-local function disconnectListeners()
-    for _, c in ipairs({runningConn, heartbeatConn, characterRemovingConn, inputBeganConn, inputEndedConn}) do
-        if c then c:Disconnect() end
-    end
-    runningConn, heartbeatConn, characterRemovingConn, inputBeganConn, inputEndedConn = nil, nil, nil, nil, nil
+-- scan function
+local function scanAnimations()
+	for _, child in pairs(scroll:GetChildren()) do
+		if not child:IsA("UIListLayout") then
+			child:Destroy()
+		end
+	end
+
+	local found = {}
+	for _, v in pairs(game:GetDescendants()) do
+		if v:IsA("Animation") and v.AnimationId ~= "" then
+			local id = v.AnimationId:gsub("rbxassetid://","")
+			if not found[id] then
+				found[id] = true
+				makeRow(id)
+			end
+		end
+	end
+
+	if not next(found) then
+		local lbl = Instance.new("TextLabel")
+		lbl.Size = UDim2.new(1, -12, 0, 30)
+		lbl.BackgroundTransparency = 1
+		lbl.Text = "Không tìm thấy Animation."
+		lbl.Font = Enum.Font.Gotham
+		lbl.TextSize = 14
+		lbl.TextColor3 = Color3.fromRGB(200,200,200)
+		lbl.Parent = scroll
+	end
 end
 
-local function cleanupCurrentCharacter()
-    stopAndClearTracks()
-    disconnectListeners()
-    animator, humanoid, character = nil, nil, nil
-end
+-- init
+scanAnimations()
 
--- load anim objects theo killer
-local function loadAnimObjects(killer)
-    local set = animSets[killer]
-    if not set then return end
+refreshBtn.MouseButton1Click:Connect(function()
+	status.Text = "Refreshing..."
+	scanAnimations()
+	task.delay(1.2, function() status.Text = "" end)
+end)
 
-    idleAnim, walkAnim, runAnim = Instance.new("Animation"), Instance.new("Animation"), Instance.new("Animation")
-    idleAnim.Name, walkAnim.Name, runAnim.Name = "IdleAnim", "WalkAnim", "RunAnim"
-    idleAnim.AnimationId, walkAnim.AnimationId, runAnim.AnimationId = set.Idle, set.Walk, set.Run
-end
-
--- play
-local function playAnim(animObj, trackType)
-    if not animator then return end
-
-    -- stop other
-    if trackType ~= "Idle" and idleTrack then pcall(function() idleTrack:Stop() end) idleTrack=nil end
-    if trackType ~= "Walk" and walkTrack then pcall(function() walkTrack:Stop() end) walkTrack=nil end
-    if trackType ~= "Run" and runTrack then pcall(function() runTrack:Stop() end) runTrack=nil end
-
-    local track
-    if trackType=="Idle" and not idleTrack then idleTrack = animator:LoadAnimation(idleAnim) track=idleTrack
-    elseif trackType=="Walk" and not walkTrack then walkTrack = animator:LoadAnimation(walkAnim) track=walkTrack
-    elseif trackType=="Run" and not runTrack then runTrack = animator:LoadAnimation(runAnim) track=runTrack
-    else track = (trackType=="Idle" and idleTrack) or (trackType=="Walk" and walkTrack) or runTrack end
-
-    if track and not track.IsPlaying then pcall(function() track:Play() end) end
-end
-
-local function playIdle() playAnim(idleAnim,"Idle") end
-local function playWalk() playAnim(walkAnim,"Walk") end
-local function playRun() playAnim(runAnim,"Run") end
-
--- update state
-local function updateMovementState()
-    if not enabled or not character then return end
-
-    local moving=false
-    if humanoid and humanoid.MoveDirection then
-        moving = humanoid.MoveDirection.Magnitude>0
-        if not moving then
-            local root = character:FindFirstChild("HumanoidRootPart") or character.PrimaryPart
-            if root and root.Velocity.Magnitude>1 then moving=true end
-        end
-    end
-
-    if moving then
-        local sprintingNow = sprintModule and sprintModule.IsSprinting or _isSprinting
-        if sprintingNow then playRun() else playWalk() end
-    else
-        playIdle()
-    end
-end
-
--- listeners
-local function setupMovementListeners()
-    disconnectListeners()
-    inputBeganConn = UserInputService.InputBegan:Connect(function(input,gp) if gp then return end if input.KeyCode==Enum.KeyCode.LeftShift then _isSprinting=true end end)
-    inputEndedConn = UserInputService.InputEnded:Connect(function(input,gp) if gp then return end if input.KeyCode==Enum.KeyCode.LeftShift then _isSprinting=false end end)
-
-    if humanoid and humanoid.Running then
-        runningConn = humanoid.Running:Connect(function(speed) if not enabled then return end if speed>0 then updateMovementState() else playIdle() end end)
-    else
-        heartbeatAccumulator=0
-        heartbeatConn = RunService.Heartbeat:Connect(function(dt)
-            if not enabled or not character then return end
-            heartbeatAccumulator+=dt
-            if heartbeatAccumulator>=HEARTBEAT_CHECK_INTERVAL then heartbeatAccumulator=0 updateMovementState() end
-        end)
-    end
-end
-
--- bind character
-local function onCharacterBound(char)
-    cleanupCurrentCharacter()
-    character=char
-    humanoid=char:FindFirstChildOfClass("Humanoid") or char:FindFirstChildOfClass("AnimationController")
-
-    if humanoid then
-        animator = humanoid:FindFirstChildOfClass("Animator") or Instance.new("Animator", humanoid)
-    end
-
-    characterRemovingConn = char.AncestryChanged:Connect(function(_,parent) if not parent then cleanupCurrentCharacter() end end)
-
-    if enabled then
-        loadAnimObjects(selectedKiller)
-        setupMovementListeners()
-        updateMovementState()
-    end
-end
-
--- characterAdded
-player.CharacterAdded:Connect(onCharacterBound)
-if player.Character then onCharacterBound(player.Character) end
-
--- UI
-
-Tabs.Player:AddDropdown("ChooseKillersDropdown", {
-    Title = "Choose Killers",
-    Values = {"Shasher","Coolkidd","John Doe","Noli","1x1x1x1"},
-    Default = "Shasher",
-    Multi = false,
-    Callback = function(value)
-        selectedKiller = value
-        if enabled and player.Character then
-            loadAnimObjects(selectedKiller)
-            stopAndClearTracks()
-            updateMovementState()
-        end
-    end
-})
-
-Tabs.Player:AddToggle("FakeKillersToggle", {
-    Title = "Fake Killers",
-    Default = false,
-    Callback = function(state)
-        enabled = state
-        if enabled then
-            if player.Character then
-                loadAnimObjects(selectedKiller)
-                onCharacterBound(player.Character)
-            end
-        else
-            stopAndClearTracks()
-            disconnectListeners()
-        end
-    end
-})
-end
+task.spawn(function()
+	while true do
+		task.wait(20)
+		pcall(scanAnimations)
+	end
+end)
 
     Tabs.Player:AddSection("↳ Hitbox")
 
@@ -4243,7 +4318,7 @@ end)
 local RunService = game:GetService("RunService")
 local Camera = workspace.CurrentCamera
 
--- 📌 Danh sách model Clone
+-- ?? Danh sách model Clone
 local allowedModelsClone = {
     ["1x1x1x1Zombie"] = true,
     ["PizzaDeliveryRig"] = true,

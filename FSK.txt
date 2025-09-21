@@ -3344,211 +3344,282 @@ end
 
     Tabs.Player:AddSection("↳ Animation")
 
---// Fake Killers Anim System
+
+--// Fake Killers Anim System (hardened)
 do
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
+    local Players = game:GetService("Players")
+    local RunService = game:GetService("RunService")
+    local UserInputService = game:GetService("UserInputService")
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local player = Players.LocalPlayer
+    local player = Players.LocalPlayer
 
--- thử require sprint module (nếu game có)
-local sprintModule
-pcall(function()
-    sprintModule = require(ReplicatedStorage:WaitForChild("Systems").Character.Game.Sprinting)
-end)
+    -- thử require sprint module (nếu có)
+    local sprintModule
+    pcall(function()
+        sprintModule = require(ReplicatedStorage:WaitForChild("Systems").Character.Game.Sprinting)
+    end)
 
--- state
-local enabled = false
-local selectedKiller = "Shasher" -- mặc định
-local character, humanoid, animator
-local idleAnim, walkAnim, runAnim
-local idleTrack, walkTrack, runTrack
-local _isSprinting = false
-
--- conn
-local runningConn, heartbeatConn, characterRemovingConn, inputBeganConn, inputEndedConn
-local heartbeatAccumulator = 0
-local HEARTBEAT_CHECK_INTERVAL = 0.12
-
--- anim sets
-local animSets = {
-    ["Shasher"] = {
-        Idle = "rbxassetid://116050994905421",
-        Walk = "rbxassetid://93622022596108",
-        Run  = "rbxassetid://93054787145505",
-    },
-    ["Coolkidd"] = {
-        Idle = "rbxassetid://18885903667",
-        Walk = "rbxassetid://18885906143",
-        Run  = "rbxassetid://96571077893813",
-    },
-    ["John Doe"] = {
-        Idle = "rbxassetid://105880087711722",
-        Walk = "rbxassetid://81193817424328",
-        Run  = "rbxassetid://132653655520682",
-    },
-    ["Noli"] = {
-        Idle = "rbxassetid://93841120533318",
-        Walk = "rbxassetid://109700476007435",
-        Run  = "rbxassetid://117451341682452",
-    },
-    ["1x1x1x1"] = {
-        Idle = "rbxassetid://138754221537146",
-        Walk = "rbxassetid://131235528875091",
-        Run  = "rbxassetid://106485518413331",
+    -- ==============================
+    -- 🟢 DỮ LIỆU KILLERS + SKINS (chỉ sửa ở đây)
+    -- ==============================
+    local KillersData = {
+        ["Shasher"] = {
+            ["Default"] = {
+                Idle = "rbxassetid://116050994905421",
+                Walk = "rbxassetid://93622022596108",
+                Run  = "rbxassetid://93054787145505",
+            }
+        },
+        ["Coolkidd"] = {
+            ["Default"] = {
+                Idle = "rbxassetid://18885903667",
+                Walk = "rbxassetid://18885906143",
+                Run  = "rbxassetid://96571077893813",
+            }
+        },
+        ["John Doe"] = {
+            ["Default"] = {
+                Idle = "rbxassetid://105880087711722",
+                Walk = "rbxassetid://81193817424328",
+                Run  = "rbxassetid://132653655520682",
+            },
+            ["Shadow"] = {
+                Idle = "rbxassetid://00000000001",
+                Walk = "rbxassetid://00000000002",
+                Run  = "rbxassetid://00000000003",
+            }
+        },
+        ["Noli"] = {
+            ["Default"] = {
+                Idle = "rbxassetid://93841120533318",
+                Walk = "rbxassetid://109700476007435",
+                Run  = "rbxassetid://117451341682452",
+            }
+        },
+        ["1x1x1x1"] = {
+            ["Default"] = {
+                Idle = "rbxassetid://138754221537146",
+                Walk = "rbxassetid://131235528875091",
+                Run  = "rbxassetid://106485518413331",
+            },
+            ["Hacklord"] = {
+                Idle = "rbxassetid://82241652784826",
+                Walk = "rbxassetid://119242164490314",
+                Run  = "rbxassetid://92430101129682",
+            }
+        }
     }
-}
+    -- ==============================
 
--- utility
-local function stopAndClearTracks()
-    for _, track in ipairs({idleTrack, walkTrack, runTrack}) do
-        if track then pcall(function() track:Stop() end) end
+    -- state
+    local enabled = false
+    local selectedKiller = "Shasher"
+    local selectedSkin = "Default"
+    local character, humanoid, animator
+    local idleAnim, walkAnim, runAnim
+    local idleTrack, walkTrack, runTrack
+    local _isSprinting = false
+
+    -- conn
+    local runningConn, heartbeatConn, characterRemovingConn, inputBeganConn, inputEndedConn = nil, nil, nil, nil, nil
+    local heartbeatAccumulator = 0
+    local HEARTBEAT_CHECK_INTERVAL = 0.12
+
+    -- utility
+    local function stopAndClearTracks()
+        for _, track in ipairs({idleTrack, walkTrack, runTrack}) do
+            if track then pcall(function() track:Stop() end) end
+        end
+        idleTrack, walkTrack, runTrack = nil, nil, nil
     end
-    idleTrack, walkTrack, runTrack = nil, nil, nil
-end
 
-local function disconnectListeners()
-    for _, c in ipairs({runningConn, heartbeatConn, characterRemovingConn, inputBeganConn, inputEndedConn}) do
-        if c then c:Disconnect() end
+    local function disconnectListeners()
+        for _, c in ipairs({runningConn, heartbeatConn, characterRemovingConn, inputBeganConn, inputEndedConn}) do
+            if c then pcall(function() c:Disconnect() end) end
+        end
+        runningConn, heartbeatConn, characterRemovingConn, inputBeganConn, inputEndedConn = nil, nil, nil, nil, nil
     end
-    runningConn, heartbeatConn, characterRemovingConn, inputBeganConn, inputEndedConn = nil, nil, nil, nil, nil
-end
 
-local function cleanupCurrentCharacter()
-    stopAndClearTracks()
-    disconnectListeners()
-    animator, humanoid, character = nil, nil, nil
-end
+    local function cleanupCurrentCharacter()
+        stopAndClearTracks()
+        disconnectListeners()
+        animator, humanoid, character = nil, nil, nil
+    end
 
--- load anim objects theo killer
-local function loadAnimObjects(killer)
-    local set = animSets[killer]
-    if not set then return end
+    -- load anim objects theo killer + skin
+    local function loadAnimObjects(killer, skin)
+        local killerTable = KillersData[killer]
+        if not killerTable then
+            warn("loadAnimObjects: killer không tồn tại:", tostring(killer))
+            return
+        end
+        local set = killerTable[skin or "Default"] or killerTable["Default"]
+        if not set then return end
 
-    idleAnim, walkAnim, runAnim = Instance.new("Animation"), Instance.new("Animation"), Instance.new("Animation")
-    idleAnim.Name, walkAnim.Name, runAnim.Name = "IdleAnim", "WalkAnim", "RunAnim"
-    idleAnim.AnimationId, walkAnim.AnimationId, runAnim.AnimationId = set.Idle, set.Walk, set.Run
-end
+        idleAnim, walkAnim, runAnim = Instance.new("Animation"), Instance.new("Animation"), Instance.new("Animation")
+        idleAnim.Name, walkAnim.Name, runAnim.Name = "IdleAnim", "WalkAnim", "RunAnim"
+        idleAnim.AnimationId, walkAnim.AnimationId, runAnim.AnimationId = set.Idle, set.Walk, set.Run
+    end
 
--- play
-local function playAnim(animObj, trackType)
-    if not animator then return end
+    -- play anim
+    local function playAnim(animObj, trackType)
+        if not animator then return end
 
-    -- stop other
-    if trackType ~= "Idle" and idleTrack then pcall(function() idleTrack:Stop() end) idleTrack=nil end
-    if trackType ~= "Walk" and walkTrack then pcall(function() walkTrack:Stop() end) walkTrack=nil end
-    if trackType ~= "Run" and runTrack then pcall(function() runTrack:Stop() end) runTrack=nil end
+        if trackType ~= "Idle" and idleTrack then pcall(function() idleTrack:Stop() end) idleTrack=nil end
+        if trackType ~= "Walk" and walkTrack then pcall(function() walkTrack:Stop() end) walkTrack=nil end
+        if trackType ~= "Run" and runTrack then pcall(function() runTrack:Stop() end) runTrack=nil end
 
-    local track
-    if trackType=="Idle" and not idleTrack then idleTrack = animator:LoadAnimation(idleAnim) track=idleTrack
-    elseif trackType=="Walk" and not walkTrack then walkTrack = animator:LoadAnimation(walkAnim) track=walkTrack
-    elseif trackType=="Run" and not runTrack then runTrack = animator:LoadAnimation(runAnim) track=runTrack
-    else track = (trackType=="Idle" and idleTrack) or (trackType=="Walk" and walkTrack) or runTrack end
+        local track
+        if trackType=="Idle" and not idleTrack then idleTrack = animator:LoadAnimation(idleAnim) track=idleTrack
+        elseif trackType=="Walk" and not walkTrack then walkTrack = animator:LoadAnimation(walkAnim) track=walkTrack
+        elseif trackType=="Run" and not runTrack then runTrack = animator:LoadAnimation(runAnim) track=runTrack
+        else track = (trackType=="Idle" and idleTrack) or (trackType=="Walk" and walkTrack) or runTrack end
 
-    if track and not track.IsPlaying then pcall(function() track:Play() end) end
-end
+        if track and not track.IsPlaying then pcall(function() track:Play() end) end
+    end
 
-local function playIdle() playAnim(idleAnim,"Idle") end
-local function playWalk() playAnim(walkAnim,"Walk") end
-local function playRun() playAnim(runAnim,"Run") end
+    local function playIdle() playAnim(idleAnim,"Idle") end
+    local function playWalk() playAnim(walkAnim,"Walk") end
+    local function playRun() playAnim(runAnim,"Run") end
 
--- update state
-local function updateMovementState()
-    if not enabled or not character then return end
-
-    local moving=false
-    if humanoid and humanoid.MoveDirection then
-        moving = humanoid.MoveDirection.Magnitude>0
-        if not moving then
-            local root = character:FindFirstChild("HumanoidRootPart") or character.PrimaryPart
-            if root and root.Velocity.Magnitude>1 then moving=true end
+    -- update state
+    local function updateMovementState()
+        if not enabled or not character then return end
+        local moving=false
+        if humanoid and humanoid.MoveDirection then
+            moving = humanoid.MoveDirection.Magnitude>0
+            if not moving then
+                local root = character:FindFirstChild("HumanoidRootPart") or character.PrimaryPart
+                if root and root.Velocity.Magnitude>1 then moving=true end
+            end
+        end
+        if moving then
+            local sprintingNow = (sprintModule and sprintModule.IsSprinting) or _isSprinting
+            if sprintingNow then playRun() else playWalk() end
+        else
+            playIdle()
         end
     end
 
-    if moving then
-        local sprintingNow = sprintModule and sprintModule.IsSprinting or _isSprinting
-        if sprintingNow then playRun() else playWalk() end
-    else
-        playIdle()
-    end
-end
+    -- listeners
+    local function setupMovementListeners()
+        disconnectListeners()
+        inputBeganConn = UserInputService.InputBegan:Connect(function(input,gp) if gp then return end if input.KeyCode==Enum.KeyCode.LeftShift then _isSprinting=true end end)
+        inputEndedConn = UserInputService.InputEnded:Connect(function(input,gp) if gp then return end if input.KeyCode==Enum.KeyCode.LeftShift then _isSprinting=false end end)
 
--- listeners
-local function setupMovementListeners()
-    disconnectListeners()
-    inputBeganConn = UserInputService.InputBegan:Connect(function(input,gp) if gp then return end if input.KeyCode==Enum.KeyCode.LeftShift then _isSprinting=true end end)
-    inputEndedConn = UserInputService.InputEnded:Connect(function(input,gp) if gp then return end if input.KeyCode==Enum.KeyCode.LeftShift then _isSprinting=false end end)
-
-    if humanoid and humanoid.Running then
-        runningConn = humanoid.Running:Connect(function(speed) if not enabled then return end if speed>0 then updateMovementState() else playIdle() end end)
-    else
-        heartbeatAccumulator=0
-        heartbeatConn = RunService.Heartbeat:Connect(function(dt)
-            if not enabled or not character then return end
-            heartbeatAccumulator+=dt
-            if heartbeatAccumulator>=HEARTBEAT_CHECK_INTERVAL then heartbeatAccumulator=0 updateMovementState() end
-        end)
-    end
-end
-
--- bind character
-local function onCharacterBound(char)
-    cleanupCurrentCharacter()
-    character=char
-    humanoid=char:FindFirstChildOfClass("Humanoid") or char:FindFirstChildOfClass("AnimationController")
-
-    if humanoid then
-        animator = humanoid:FindFirstChildOfClass("Animator") or Instance.new("Animator", humanoid)
+        if humanoid and humanoid.Running then
+            runningConn = humanoid.Running:Connect(function(speed) if not enabled then return end if speed>0 then updateMovementState() else playIdle() end end)
+        else
+            heartbeatAccumulator=0
+            heartbeatConn = RunService.Heartbeat:Connect(function(dt)
+                if not enabled or not character then return end
+                heartbeatAccumulator+=dt
+                if heartbeatAccumulator>=HEARTBEAT_CHECK_INTERVAL then
+                    heartbeatAccumulator=0
+                    updateMovementState()
+                end
+            end)
+        end
     end
 
-    characterRemovingConn = char.AncestryChanged:Connect(function(_,parent) if not parent then cleanupCurrentCharacter() end end)
-
-    if enabled then
-        loadAnimObjects(selectedKiller)
-        setupMovementListeners()
-        updateMovementState()
-    end
-end
-
--- characterAdded
-player.CharacterAdded:Connect(onCharacterBound)
-if player.Character then onCharacterBound(player.Character) end
-
--- UI
-
-Tabs.Player:AddDropdown("ChooseKillersDropdown", {
-    Title = "Choose Killers",
-    Values = {"Shasher","Coolkidd","John Doe","Noli","1x1x1x1"},
-    Default = "Shasher",
-    Multi = false,
-    Callback = function(value)
-        selectedKiller = value
-        if enabled and player.Character then
-            loadAnimObjects(selectedKiller)
-            stopAndClearTracks()
+    -- bind character
+    local function onCharacterBound(char)
+        cleanupCurrentCharacter()
+        character=char
+        humanoid=char:FindFirstChildOfClass("Humanoid") or char:FindFirstChildOfClass("AnimationController")
+        if humanoid then
+            animator = humanoid:FindFirstChildOfClass("Animator") or Instance.new("Animator", humanoid)
+        end
+        characterRemovingConn = char.AncestryChanged:Connect(function(_,parent) if not parent then cleanupCurrentCharacter() end end)
+        if enabled then
+            loadAnimObjects(selectedKiller, selectedSkin)
+            setupMovementListeners()
             updateMovementState()
         end
     end
-})
 
-Tabs.Player:AddToggle("FakeKillersToggle", {
-    Title = "Fake Killers",
-    Default = false,
-    Callback = function(state)
-        enabled = state
-        if enabled then
-            if player.Character then
-                loadAnimObjects(selectedKiller)
-                onCharacterBound(player.Character)
-            end
-        else
-            stopAndClearTracks()
-            disconnectListeners()
+    player.CharacterAdded:Connect(onCharacterBound)
+    if player.Character then onCharacterBound(player.Character) end
+
+    -- ===== UI =====
+    local killerNames = {}
+    for name,_ in pairs(KillersData) do table.insert(killerNames, name) end
+    table.sort(killerNames)
+
+    local SkinDropdown -- khai báo trước
+
+    -- dropdown chính (Killers)
+    local killerDropdown = Tabs.Player:AddDropdown("ChooseKillersDropdown", {
+        Title = "Choose Killers",
+        Values = killerNames,
+        Default = selectedKiller,
+        Multi = false,
+        Callback = function(value)
+            local ok, err = pcall(function()
+                selectedKiller = value
+                selectedSkin = "Default"
+
+                local skins = {}
+                local t = KillersData[selectedKiller] or {}
+                for sName,_ in pairs(t) do table.insert(skins, sName) end
+                if #skins == 0 then skins = {"Default"} end
+                table.sort(skins)
+
+                if SkinDropdown and type(SkinDropdown.SetValues)=="function" and type(SkinDropdown.SetValue)=="function" then
+                    SkinDropdown:SetValues(skins)
+                    pcall(function() SkinDropdown:SetValue(skins[1] or "Default") end)
+                end
+
+                if enabled and player.Character then
+                    loadAnimObjects(selectedKiller, selectedSkin)
+                    stopAndClearTracks()
+                    updateMovementState()
+                end
+            end)
+            if not ok then warn("ChooseKillersDropdown callback error:", err) end
         end
-    end
-})
+    })
+
+    -- dropdown Skin (nằm dưới Killer)
+    SkinDropdown = Tabs.Player:AddDropdown("ChooseSkinDropdown", {
+        Title = "Choose Skin",
+        Values = {"Default"},
+        Default = "Default",
+        Multi = false,
+        Callback = function(value)
+            local ok, err = pcall(function()
+                selectedSkin = value
+                if enabled and player.Character then
+                    loadAnimObjects(selectedKiller, selectedSkin)
+                    stopAndClearTracks()
+                    updateMovementState()
+                end
+            end)
+            if not ok then warn("SkinDropdown callback error:", err) end
+        end
+    })
+
+    -- toggle fake killers
+    Tabs.Player:AddToggle("FakeKillersToggle", {
+        Title = "Fake Killers",
+        Default = false,
+        Callback = function(state)
+            local ok, err = pcall(function()
+                enabled = state
+                if enabled then
+                    if player.Character then
+                        loadAnimObjects(selectedKiller, selectedSkin)
+                        onCharacterBound(player.Character)
+                    end
+                else
+                    stopAndClearTracks()
+                    disconnectListeners()
+                end
+            end)
+            if not ok then warn("FakeKillersToggle callback error:", err) end
+        end
+    })
 end
 
     Tabs.Player:AddSection("↳ Hitbox")
