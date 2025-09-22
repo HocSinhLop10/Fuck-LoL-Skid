@@ -2528,7 +2528,8 @@ local localPlayer = Players.LocalPlayer
 local dangerousAnimations = {
     ["131430497821198"] = true,
     ["100592913030351"] = true,
-    ["70447634862911"]  = true
+    ["70447634862911"]  = true,
+    ["83685305553364"] = true
 }
 
 local killerModels = {["1x1x1x1"] = true}
