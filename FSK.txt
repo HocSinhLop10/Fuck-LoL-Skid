@@ -2013,7 +2013,9 @@ do
         ["126896426760253"] = true, -- VoidRush, Noli
         ["131430497821198"] = true, -- MassInfection, 1x1x1x1
         ["100592913030351"] = true, -- MassInfection, 1x1x1x1 (Fleskhjerta/AceOfSpades/Lancer)
-        ["70447634862911"]  = true, -- MassInfection, Skin: Hacklord1x1x1x1
+        ["70447634862911"]  = true, -- MassInfection, Skin: Hacklord1x1x1x1 Old
+        ["83685305553364"]  = true, -- MassInfection, Skin: Hacklord1x1x1x1 New
+        ["126171487400618"]  = true, -- Slash, Skin: Hacklord1x1x1x1
         ["97167027849946"]  = true,
         ["99135633258223"]  = true,
         ["98456918873918"]  = true,
@@ -3599,7 +3601,6 @@ end
 
 
 
-
 do
 -- Fake Die Toggle (start at 50%, stop at 90%)
 Tabs.Player:AddToggle("FakeDieV2", {
@@ -3668,6 +3669,8 @@ end
 
 
 
+
+
     Tabs.Player:AddSection("↳ Animation")
 
 --// Fake Killers Anim System (hardened)
@@ -3733,10 +3736,15 @@ do
                 Walk = "rbxassetid://131235528875091",
                 Run  = "rbxassetid://106485518413331",
             },
-            ["Hacklord"] = {
+            ["Hacklord [Old]"] = {
                 Idle = "rbxassetid://82241652784826",
                 Walk = "rbxassetid://119242164490314",
                 Run  = "rbxassetid://92430101129682",
+            },
+            ["Hacklord [New]"] = {
+                Idle = "rbxassetid://106131211773069",
+                Walk = "rbxassetid://119112338263474",
+                Run  = "rbxassetid://85339002634979",
             }
         }
     }
@@ -4119,7 +4127,9 @@ local AttackAnimations = {
     'rbxassetid://109667959938617',
     'rbxassetid://126681776859538',
     'rbxassetid://129976080405072',
-    'rbxassetid://110400453990786'
+    'rbxassetid://110400453990786',
+    'rbxassetid://83685305553364',
+    'rbxassetid://126171487400618'
 }
 
 -- danh sách model killers và survivors (theo yêu cầu của bạn)
