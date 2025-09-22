@@ -3703,6 +3703,11 @@ do
                 Idle = "rbxassetid://94895464960972",
                 Walk = "rbxassetid://100206079439305",
                 Run  = "rbxassetid://138660433982140",
+            },
+            ["subject_0"] = {
+                Idle = "rbxassetid://14301056458",
+                Walk = "rbxassetid://122325883800612",
+                Run  = "rbxassetid://97248175252805",
             }
         },
         ["Coolkidd"] = {
