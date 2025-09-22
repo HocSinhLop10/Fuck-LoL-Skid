@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Free] | Forsaken",
-    SubTitle = "Version 4.4.3",
+    SubTitle = "Version 4.4.4",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -3595,6 +3595,77 @@ do
         end
     })
 end
+
+
+
+
+
+do
+-- Fake Die Toggle (start at 50%, stop at 90%)
+Tabs.Player:AddToggle("FakeDieV2", {
+    Title = "Fake Die V2",
+    Default = false
+}):OnChanged(function(state)
+    local Players = game:GetService("Players")
+    local RunService = game:GetService("RunService")
+
+    local plr = Players.LocalPlayer
+    local char = plr.Character or plr.CharacterAdded:Wait()
+    local hum = char:WaitForChild("Humanoid")
+
+    if not getgenv().FakeDieData then
+        getgenv().FakeDieData = {track=nil, conn=nil}
+    end
+
+    if state then
+        -- === BẬT Fake Die ===
+        local anim = Instance.new("Animation")
+        anim.AnimationId = "rbxassetid://118795597134269"
+
+        local track = hum:LoadAnimation(anim)
+        track:Play()
+
+        -- Nhảy thẳng đến 50%
+        if track.Length > 0 then
+            track.TimePosition = track.Length * 0.5
+        end
+
+        getgenv().FakeDieData.track = track
+
+        local stopped = false
+        local conn = RunService.Heartbeat:Connect(function()
+            if track.IsPlaying and not stopped and track.Length > 0 then
+                local percent = track.TimePosition / track.Length
+                if percent >= 0.9 then
+                    track:AdjustSpeed(0) -- pause ở 90%
+                    stopped = true
+                    print("FakeDie: Animation paused at 90%")
+                end
+            end
+        end)
+
+        getgenv().FakeDieData.conn = conn
+
+    else
+        -- === TẮT Fake Die ===
+        local data = getgenv().FakeDieData
+        if data.track then
+            data.track:Stop()
+            data.track = nil
+        end
+        if data.conn then
+            data.conn:Disconnect()
+            data.conn = nil
+        end
+
+        -- Khôi phục animation mặc định (idle)
+        pcall(function()
+            hum:PlayEmote("idle")
+        end)
+    end
+end)
+end
+
 
 
     Tabs.Player:AddSection("↳ Animation")
