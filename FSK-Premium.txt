@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Premium] | Forsaken",
-    SubTitle = "Version 4.4.5",
+    SubTitle = "Version 4.4.6",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -1051,6 +1051,188 @@ Tabs.Main:AddParagraph({
     Content = "1: Must adjust the slider to increase or decrease\n2: Must not be min or max because it will not work\n3: Then turn on the buttons to use those functions\n\n|| Like, Share And Subscribe For SLK gaming ||"
 })
 
+
+
+    Tabs.Main:AddSection("↳ Eliot")
+
+do
+-- 🧩 GUI Toggle + Input
+local toggleOn = false
+local toggleFlag = Instance.new("BoolValue")
+toggleFlag.Name = "EliotPizzaAim_ToggleFlag"
+toggleFlag.Value = false
+
+Tabs.Main:AddToggle("NemPizza", {
+    Title = "Pizza Aimbot",
+    Default = toggleOn,
+}):OnChanged(function(state)
+    toggleOn = state
+    toggleFlag.Value = state
+end)
+
+-- khoảng cách aim (studs)
+local maxDistance = 100
+Tabs.Main:AddInput("PizzaAimDistance", {
+    Title = "Aim Distance",
+    Default = tostring(maxDistance),
+    Placeholder = "Enter Number",
+}):OnChanged(function(value)
+    local num = tonumber(value)
+    if num then
+        maxDistance = num
+    end
+end)
+
+-- ⚔️ Setup
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local localPlayer = Players.LocalPlayer
+
+local dangerousAnimations = {
+    ["114155003741146"] = true
+}
+
+local EliotModels = {["Elliot"] = true}
+local survivorModels = {
+    ["Noob"] = true, ["Guest1337"] = true, ["Elliot"] = true,
+    ["Shedletsky"] = true, ["TwoTime"] = true, ["007n7"] = true,
+    ["Chance"] = true, ["Builderman"] = true, ["Taph"] = true, ["Dusekkar"] = true
+}
+
+-- state
+local autoRotateDisabledByScript = false
+local currentTarget, isLockedOn, wasPlayingAnimation = nil, false, false
+local aimOffset = 2 -- lệch phải 2 studs
+
+-- utils
+local function isEliot()
+    local char = localPlayer.Character
+    return char and EliotModels[char.Name] or false
+end
+
+local function getMyHumanoid()
+    local char = localPlayer.Character
+    return char and char:FindFirstChildWhichIsA("Humanoid")
+end
+
+local function restoreAutoRotate()
+    local hum = getMyHumanoid()
+    if hum and autoRotateDisabledByScript then
+        hum.AutoRotate = true
+        autoRotateDisabledByScript = false
+    end
+end
+
+local function isPlayingDangerousAnimation()
+    local humanoid = getMyHumanoid()
+    if not humanoid then return false end
+    local animator = humanoid:FindFirstChildOfClass("Animator")
+    if not animator then return false end
+
+    for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
+        local animId = tostring(track.Animation.AnimationId):match("%d+")
+        if animId and dangerousAnimations[animId] then
+            return true
+        end
+    end
+    return false
+end
+
+-- 🎯 tìm survivor yếu máu nhất (trong khoảng cách + HP < MaxHealth)
+local function getWeakestSurvivor()
+    local weakest, lowestHpPercent = nil, 1
+    local myRoot = localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not myRoot then return nil end
+
+    for _, obj in pairs(workspace:GetDescendants()) do
+        if obj:IsA("Model") and survivorModels[obj.Name] then
+            local hrp = obj:FindFirstChild("HumanoidRootPart")
+            local hum = obj:FindFirstChildWhichIsA("Humanoid")
+            if hrp and hum and hum.Health > 0 then
+                local dist = (hrp.Position - myRoot.Position).Magnitude
+                local hpPercent = hum.Health / hum.MaxHealth
+                if dist <= maxDistance and hpPercent < 1 and hpPercent < lowestHpPercent then
+                    weakest = obj
+                    lowestHpPercent = hpPercent
+                end
+            end
+        end
+    end
+    return weakest
+end
+
+-- reset khi respawn
+localPlayer.CharacterAdded:Connect(function()
+    task.delay(0.1, function()
+        autoRotateDisabledByScript = false
+    end)
+end)
+
+-- 🔁 Main loop
+RunService.RenderStepped:Connect(function(dt)
+    if not toggleFlag.Value then
+        restoreAutoRotate()
+        currentTarget, isLockedOn, wasPlayingAnimation = nil, false, false
+        return
+    end
+
+    if not isEliot() then
+        restoreAutoRotate()
+        currentTarget, isLockedOn, wasPlayingAnimation = nil, false, false
+        return
+    end
+
+    local myHumanoid = getMyHumanoid()
+    if not myHumanoid then return end
+    local myRoot = myHumanoid.Parent and myHumanoid.Parent:FindFirstChild("HumanoidRootPart")
+    if not myRoot then return end
+
+    local isPlaying = isPlayingDangerousAnimation()
+
+    -- Lock target (chỉ chọn khi bắt đầu animation)
+    if isPlaying and not isLockedOn then
+        currentTarget = getWeakestSurvivor()
+        if currentTarget then isLockedOn = true end
+    end
+
+    -- Validate target
+    if isLockedOn and currentTarget then
+        local tHum, tHrp = currentTarget:FindFirstChildWhichIsA("Humanoid"), currentTarget:FindFirstChild("HumanoidRootPart")
+        if (not tHum) or (tHum and tHum.Health <= 0) or (not tHrp) then
+            currentTarget, isLockedOn = nil, false
+        end
+    end
+
+    -- End animation -> reset
+    if (not isPlaying) and wasPlayingAnimation then
+        currentTarget, isLockedOn = nil, false
+        restoreAutoRotate()
+    end
+    wasPlayingAnimation = isPlaying
+
+    -- Aim logic
+    if isPlaying and isLockedOn and currentTarget and currentTarget:FindFirstChild("HumanoidRootPart") then
+        local hrp = currentTarget.HumanoidRootPart
+        local targetPos = hrp.Position
+        if not autoRotateDisabledByScript then
+            myHumanoid.AutoRotate = false
+            autoRotateDisabledByScript = true
+        end
+
+        -- Predict movement (mặc định bật)
+        local vel = hrp.Velocity
+        if vel.Magnitude > 2 then
+            targetPos = targetPos + hrp.CFrame.LookVector * 3
+        end
+
+        -- Aim lệch sang phải
+        local offset = myRoot.CFrame.RightVector * aimOffset
+        local lookAt = Vector3.new(targetPos.X, myRoot.Position.Y, targetPos.Z) + offset
+
+        myRoot.CFrame = myRoot.CFrame:Lerp(CFrame.lookAt(myRoot.Position, lookAt), 0.99)
+    end
+end)
+end
 
 
 
