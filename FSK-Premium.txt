@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Premium] | Forsaken",
-    SubTitle = "Version 4.4.4",
+    SubTitle = "Version 4.4.5",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -1689,20 +1689,69 @@ end
 
     Tabs.Main:AddSection("↳ Two Time")
 
+
+--// Auto Backstab Unified (AI Aimbot + Player Aimbot, Only works if model = "TwoTime")
 do
     local Players = game:GetService("Players")
     local RunService = game:GetService("RunService")
     local lp = Players.LocalPlayer
 
-    -- Vars
-    local enabled = false
-    local cooldown = false
-    local lastTarget = nil
-    local maxDistance = 5
+    -- ⚙️ Config
+    local Mode = "AI Aimbot"
+    local checkRadius = 18
+    local backstabDelay = 0.01
+
     local killerNames = { "Slasher", "c00lkidd", "JohnDoe", "1x1x1x1", "Noli" }
     local killersFolder = workspace:WaitForChild("Players"):WaitForChild("Killers")
 
-    -- UI skill button + remote
+    local ANIM_IDS = {
+        "115194624791339",
+        "86545133269813",
+        "89448354637442",
+    }
+    local KILLER_MODELS = {
+        ["Slasher"] = true, ["1x1x1x1"] = true, ["c00lkidd"] = true,
+        ["Noli"] = true, ["JohnDoe"] = true, ["Quest666"] = true,
+    }
+
+    -- 🔘 UI
+    Tabs.Farm:AddDropdown("BackstabMode", {
+        Title = "Backstab Mode",
+        Values = { "AI Aimbot", "Player Aimbot" },
+        Default = "AI Aimbot",
+    }):OnChanged(function(value)
+        Mode = value
+        print("🎯 Backstab Mode:", value)
+    end)
+
+    local enabled = false
+    Tabs.Farm:AddToggle("AutoBackstab", {
+        Title = "Auto Backstab V2",
+        Default = false
+    }):OnChanged(function(state)
+        enabled = state
+        print("🔪 Auto Backstab:", state and "ON" or "OFF")
+    end)
+
+    Tabs.Farm:AddInput("BackstabRadiusInput", {
+        Title = "Check Radius",
+        Default = tostring(checkRadius),
+        Placeholder = "Write Here (1 - 50)",
+        Numeric = true,
+        Callback = function(value)
+            local num = tonumber(value)
+            if num then
+                checkRadius = math.clamp(num, 1, 50)
+                print("📏 Check Radius set to:", checkRadius)
+            else
+                print("⚠️ Nhập số hợp lệ!")
+            end
+        end
+    })
+
+    -- =====================
+    -- 🗡️ Dagger Remote Finder
+    -- =====================
     local daggerButton, daggerRemote, daggerConnections = nil, nil, {}
 
     local function findDaggerRemote()
@@ -1758,87 +1807,135 @@ do
         end
     end
 
-    -- Toggle
-    local BackstabToggle = Tabs.Main:AddToggle("BackstabToggle", {
-        Title = "Auto Backstab",
-        Default = false
-    })
-    BackstabToggle:OnChanged(function(Value)
-        enabled = Value
-    end)
-
-    -- Slider
-    local DistanceSlider = Tabs.Main:AddSlider("DistanceSlider", {
-        Title = "Distance",
-        Min = 1,
-        Max = 50,
-        Default = 5,
-        Rounding = 1,
-        ValueName = "studs"
-    })
-    DistanceSlider:OnChanged(function(Value)
-        maxDistance = Value
-    end)
-
-    -- Helper
-    local function isBehindTarget(hrp, targetHRP)
-        local direction = -targetHRP.CFrame.LookVector
-        local toPlayer = (hrp.Position - targetHRP.Position)
-        local distance = toPlayer.Magnitude
-        local isBehind = toPlayer:Dot(direction) > 0.5
-        return distance <= maxDistance and isBehind
+    -- =====================
+    -- ⚒️ Helpers
+    -- =====================
+    local function getCharacter()
+        local ch = lp.Character
+        if ch and ch.Parent then
+            local hrp = ch:FindFirstChild("HumanoidRootPart")
+            local humanoid = ch:FindFirstChildOfClass("Humanoid")
+            return ch, humanoid, hrp
+        end
+        return nil, nil, nil
     end
 
-    -- Main loop
-    RunService.Heartbeat:Connect(function()
-        if not enabled or cooldown then return end
+    local function isPlayingTargetAnimation(humanoid)
+        if not humanoid then return false end
+        for _, t in ipairs(humanoid:GetPlayingAnimationTracks()) do
+            local animId = tostring(t.Animation.AnimationId or "")
+            for _, id in ipairs(ANIM_IDS) do
+                if animId:find(id, 1, true) then
+                    return true
+                end
+            end
+        end
+        return false
+    end
 
-        local char = lp.Character
-        if not (char and char:FindFirstChild("HumanoidRootPart")) then return end
-        local hrp = char.HumanoidRootPart
+    local function teleportBehind(targetHRP, myHRP)
+        local look = targetHRP.CFrame.LookVector
+        local destPos = targetHRP.Position - look * 2
+        myHRP.CFrame = CFrame.new(destPos, destPos + look)
+    end
 
+    local function isBehindTarget(targetHRP, myHRP)
+        local look = targetHRP.CFrame.LookVector
+        local dir = (myHRP.Position - targetHRP.Position).Unit
+        return look:Dot(dir) < -0.5
+    end
+
+    local function getNearbyKillers(position)
+        local killers = {}
+        for _, plr in ipairs(Players:GetPlayers()) do
+            if plr ~= lp and plr.Character then
+                local char = plr.Character
+                local hrp = char:FindFirstChild("HumanoidRootPart") or char.PrimaryPart
+                if hrp and KILLER_MODELS[char.Name] then
+                    local dist = (hrp.Position - position).Magnitude
+                    if dist <= checkRadius then
+                        table.insert(killers, {model = char, hrp = hrp, dist = dist})
+                    end
+                end
+            end
+        end
+        return killers
+    end
+
+    local function getNearbyAIKillers(hrp)
+        local killers = {}
         for _, name in ipairs(killerNames) do
             local killer = killersFolder:FindFirstChild(name)
             if killer and killer:FindFirstChild("HumanoidRootPart") then
                 local kHRP = killer.HumanoidRootPart
+                local dist = (kHRP.Position - hrp.Position).Magnitude
+                if dist <= checkRadius then
+                    table.insert(killers, {model = killer, hrp = kHRP, dist = dist})
+                end
+            end
+        end
+        return killers
+    end
 
-                if isBehindTarget(hrp, kHRP) and killer ~= lastTarget then
+    -- =====================
+    -- 🔄 Main Loop
+    -- =====================
+    local cooldown = false
+    local lastTarget = nil
+
+    RunService.Heartbeat:Connect(function()
+        if not enabled or cooldown then return end
+        local char, humanoid, myHRP = getCharacter()
+        if not (char and humanoid and myHRP) then return end
+
+        -- 🚨 Chỉ hoạt động nếu model là "TwoTime"
+        if char.Name ~= "TwoTime" then return end
+
+        if Mode == "Player Aimbot" then
+            if isPlayingTargetAnimation(humanoid) then
+                local killers = getNearbyKillers(myHRP.Position)
+                if #killers > 0 then
+                    table.sort(killers, function(a,b) return a.dist < b.dist end)
+                    teleportBehind(killers[1].hrp, myHRP)
+                end
+            end
+
+        elseif Mode == "AI Aimbot" then
+            local killers = getNearbyAIKillers(myHRP)
+            if #killers > 0 then
+                table.sort(killers, function(a,b) return a.dist < b.dist end)
+                local target = killers[1]
+                if target.model ~= lastTarget and isBehindTarget(target.hrp, myHRP) then
                     cooldown = true
-                    lastTarget = killer
+                    lastTarget = target.model
 
-                    -- Teleport ra sau lưng
-                    local behindPos = kHRP.Position - (kHRP.CFrame.LookVector * 2)
-                    hrp.CFrame = CFrame.new(behindPos, behindPos + kHRP.CFrame.LookVector)
-
-                    -- Giữ vị trí và spam skill trong 0.7s
                     local start = tick()
-                    local connection
-                    connection = RunService.Heartbeat:Connect(function()
-                        if not (char and char.Parent and kHRP and kHRP.Parent) then
-                            if connection then connection:Disconnect() end
+                    local conn
+                    conn = RunService.Heartbeat:Connect(function()
+                        if not (char and char.Parent and target.hrp and target.hrp.Parent) then
+                            if conn then conn:Disconnect() end
                             return
                         end
                         if tick() - start >= 0.7 then
-                            if connection then connection:Disconnect() end
-                            task.delay(2, function()
+                            if conn then conn:Disconnect() end
+                            task.delay(10, function()
                                 cooldown = false
                                 lastTarget = nil
                             end)
                             return
                         end
 
-                        -- Luôn giữ sau lưng
-                        local behind = kHRP.Position - (kHRP.CFrame.LookVector * 2)
-                        hrp.CFrame = CFrame.new(behind, behind + kHRP.CFrame.LookVector)
-
-                        -- Gọi skill qua button/remote giống block
+                        teleportBehind(target.hrp, myHRP)
                         useDagger()
                     end)
-
-                    break
                 end
             end
         end
+    end)
+
+    lp.CharacterAdded:Connect(function()
+        task.wait(1)
+        print("🔄 Character respawned/changed, Auto Backstab vẫn hoạt động (nếu model = 'TwoTime').")
     end)
 end
 
