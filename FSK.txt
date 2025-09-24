@@ -1715,7 +1715,7 @@ do
     }
 
     -- 🔘 UI
-    Tabs.Farm:AddDropdown("BackstabMode", {
+    Tabs.Main:AddDropdown("BackstabMode", {
         Title = "Backstab Mode",
         Values = { "AI Aimbot", "Player Aimbot" },
         Default = "AI Aimbot",
@@ -1725,7 +1725,7 @@ do
     end)
 
     local enabled = false
-    Tabs.Farm:AddToggle("AutoBackstab", {
+    Tabs.Main:AddToggle("AutoBackstab", {
         Title = "Auto Backstab V2",
         Default = false
     }):OnChanged(function(state)
@@ -1733,7 +1733,7 @@ do
         print("🔪 Auto Backstab:", state and "ON" or "OFF")
     end)
 
-    Tabs.Farm:AddInput("BackstabRadiusInput", {
+    Tabs.Main:AddInput("BackstabRadiusInput", {
         Title = "Check Radius",
         Default = tostring(checkRadius),
         Placeholder = "Write Here (1 - 50)",
