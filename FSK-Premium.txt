@@ -5900,88 +5900,90 @@ end
 
     Tabs.Misc:AddSection("↳ Server")
 
+
 -- 🌐 Server Hop Button
-Tabs.Misc:AddButton("ServerHop", {
+Tabs.Main:AddButton({
     Title = "Server Hop",
-    Description = "Đổi Sang Server Ít Người Chơi",
-}):OnClick(function()
-    local PlaceID = game.PlaceId
-    local AllIDs = {}
-    local foundAnything = ""
-    local actualHour = os.date("!*t").hour
+    Description = "Dùng Để Đổi Server Có Thể Vào Server Ít Player",
+    Callback = function()
+        local PlaceID = game.PlaceId
+        local AllIDs = {}
+        local foundAnything = ""
+        local actualHour = os.date("!*t").hour
 
-    -- Đọc file nếu có
-    local File = pcall(function()
-        AllIDs = game:GetService("HttpService"):JSONDecode(readfile("NotSameServers.json"))
-    end)
+        -- Đọc file nếu có
+        local File = pcall(function()
+            AllIDs = game:GetService("HttpService"):JSONDecode(readfile("NotSameServers.json"))
+        end)
 
-    if not File then
-        table.insert(AllIDs, actualHour)
-        writefile("NotSameServers.json", game:GetService("HttpService"):JSONEncode(AllIDs))
-    end
-
-    local function TPReturner()
-        local Site
-        if foundAnything == "" then
-            Site = game.HttpService:JSONDecode(game:HttpGet(
-                "https://games.roblox.com/v1/games/" .. PlaceID .. "/servers/Public?sortOrder=Asc&limit=100"
-            ))
-        else
-            Site = game.HttpService:JSONDecode(game:HttpGet(
-                "https://games.roblox.com/v1/games/" .. PlaceID .. "/servers/Public?sortOrder=Asc&limit=100&cursor=" .. foundAnything
-            ))
+        if not File then
+            table.insert(AllIDs, actualHour)
+            writefile("NotSameServers.json", game:GetService("HttpService"):JSONEncode(AllIDs))
         end
 
-        if Site.nextPageCursor and Site.nextPageCursor ~= "null" and Site.nextPageCursor ~= nil then
-            foundAnything = Site.nextPageCursor
-        end
+        local function TPReturner()
+            local Site
+            if foundAnything == "" then
+                Site = game.HttpService:JSONDecode(game:HttpGet(
+                    "https://games.roblox.com/v1/games/" .. PlaceID .. "/servers/Public?sortOrder=Asc&limit=100"
+                ))
+            else
+                Site = game.HttpService:JSONDecode(game:HttpGet(
+                    "https://games.roblox.com/v1/games/" .. PlaceID .. "/servers/Public?sortOrder=Asc&limit=100&cursor=" .. foundAnything
+                ))
+            end
 
-        local num = 0
-        for _, v in pairs(Site.data) do
-            local Possible, ID = true, tostring(v.id)
-            if tonumber(v.maxPlayers) > tonumber(v.playing) then
-                for _, Existing in pairs(AllIDs) do
-                    if num ~= 0 then
-                        if ID == tostring(Existing) then
-                            Possible = false
+            if Site.nextPageCursor and Site.nextPageCursor ~= "null" and Site.nextPageCursor ~= nil then
+                foundAnything = Site.nextPageCursor
+            end
+
+            local num = 0
+            for _, v in pairs(Site.data) do
+                local Possible, ID = true, tostring(v.id)
+                if tonumber(v.maxPlayers) > tonumber(v.playing) then
+                    for _, Existing in pairs(AllIDs) do
+                        if num ~= 0 then
+                            if ID == tostring(Existing) then
+                                Possible = false
+                            end
+                        else
+                            if tonumber(actualHour) ~= tonumber(Existing) then
+                                pcall(function()
+                                    delfile("NotSameServers.json")
+                                    AllIDs = {}
+                                    table.insert(AllIDs, actualHour)
+                                end)
+                            end
                         end
-                    else
-                        if tonumber(actualHour) ~= tonumber(Existing) then
-                            local delFile = pcall(function()
-                                delfile("NotSameServers.json")
-                                AllIDs = {}
-                                table.insert(AllIDs, actualHour)
-                            end)
-                        end
+                        num = num + 1
                     end
-                    num = num + 1
-                end
-                if Possible then
-                    table.insert(AllIDs, ID)
-                    pcall(function()
-                        writefile("NotSameServers.json", game:GetService("HttpService"):JSONEncode(AllIDs))
-                        game:GetService("TeleportService"):TeleportToPlaceInstance(PlaceID, ID, game.Players.LocalPlayer)
-                    end)
-                    task.wait(4)
+                    if Possible then
+                        table.insert(AllIDs, ID)
+                        pcall(function()
+                            writefile("NotSameServers.json", game:GetService("HttpService"):JSONEncode(AllIDs))
+                            game:GetService("TeleportService"):TeleportToPlaceInstance(PlaceID, ID, game.Players.LocalPlayer)
+                        end)
+                        task.wait(4)
+                    end
                 end
             end
         end
-    end
 
-    local function Teleport()
-        while task.wait() do
-            pcall(function()
-                TPReturner()
-                if foundAnything ~= "" then
+        local function Teleport()
+            while task.wait() do
+                pcall(function()
                     TPReturner()
-                end
-            end)
+                    if foundAnything ~= "" then
+                        TPReturner()
+                    end
+                end)
+            end
         end
-    end
 
-    -- Gọi để bắt đầu Server Hop
-    Teleport()
-end)
+        -- Gọi để bắt đầu Server Hop
+        Teleport()
+    end
+})
 
 
 
