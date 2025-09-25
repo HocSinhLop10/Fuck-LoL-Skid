@@ -5902,7 +5902,7 @@ end
 
 
 -- 🌐 Server Hop Button
-Tabs.Main:AddButton({
+Tabs.Misc:AddButton({
     Title = "Server Hop",
     Description = "Dùng Để Đổi Server Có Thể Vào Server Ít Player",
     Callback = function()
