@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Premium] | Forsaken",
-    SubTitle = "Version 4.4.8",
+    SubTitle = "Version 4.4.9",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -4052,6 +4052,7 @@ do
                 Idle = "rbxassetid://115268929362938",
                 Walk = "rbxassetid://123678890237669",
                 Run  = "rbxassetid://132086389849889",
+                Music = "rbxassetid://73595818073606" -- 🆕 nhạc đặc biệt
             }
         }
     }
@@ -4065,6 +4066,7 @@ do
     local idleAnim, walkAnim, runAnim
     local idleTrack, walkTrack, runTrack
     local _isSprinting = false
+    local musicSound -- 🆕 biến giữ Sound object
 
     -- conn
     local runningConn, heartbeatConn, characterRemovingConn, inputBeganConn, inputEndedConn = nil, nil, nil, nil, nil
@@ -4079,6 +4081,29 @@ do
         idleTrack, walkTrack, runTrack = nil, nil, nil
     end
 
+    local function stopMusic()
+        if musicSound then
+            pcall(function()
+                musicSound:Stop()
+                musicSound:Destroy()
+            end)
+            musicSound = nil
+        end
+    end
+
+    local function playMusicIfSukuna(set)
+        stopMusic()
+        if selectedKiller == "Sukuna" and set and set.Music then
+            local sound = Instance.new("Sound")
+            sound.SoundId = set.Music
+            sound.Looped = true
+            sound.Volume = 2
+            sound.Parent = workspace
+            sound:Play()
+            musicSound = sound
+        end
+    end
+
     local function disconnectListeners()
         for _, c in ipairs({runningConn, heartbeatConn, characterRemovingConn, inputBeganConn, inputEndedConn}) do
             if c then pcall(function() c:Disconnect() end) end
@@ -4088,6 +4113,7 @@ do
 
     local function cleanupCurrentCharacter()
         stopAndClearTracks()
+        stopMusic()
         disconnectListeners()
         animator, humanoid, character = nil, nil, nil
     end
@@ -4105,6 +4131,8 @@ do
         idleAnim, walkAnim, runAnim = Instance.new("Animation"), Instance.new("Animation"), Instance.new("Animation")
         idleAnim.Name, walkAnim.Name, runAnim.Name = "IdleAnim", "WalkAnim", "RunAnim"
         idleAnim.AnimationId, walkAnim.AnimationId, runAnim.AnimationId = set.Idle, set.Walk, set.Run
+
+        playMusicIfSukuna(set) -- 🆕 check phát nhạc nếu là Sukuna
     end
 
     -- play anim
@@ -4220,6 +4248,8 @@ do
                     loadAnimObjects(selectedKiller, selectedSkin)
                     stopAndClearTracks()
                     updateMovementState()
+                else
+                    stopMusic()
                 end
             end)
             if not ok then warn("ChooseKillersDropdown callback error:", err) end
@@ -4239,6 +4269,8 @@ do
                     loadAnimObjects(selectedKiller, selectedSkin)
                     stopAndClearTracks()
                     updateMovementState()
+                else
+                    stopMusic()
                 end
             end)
             if not ok then warn("SkinDropdown callback error:", err) end
@@ -4260,6 +4292,7 @@ do
                 else
                     stopAndClearTracks()
                     disconnectListeners()
+                    stopMusic()
                 end
             end)
             if not ok then warn("FakeKillersToggle callback error:", err) end
