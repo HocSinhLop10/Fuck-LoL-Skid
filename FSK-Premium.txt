@@ -4035,9 +4035,9 @@ do
         },
         ["Herobrine"] = {
             ["Default"] = {
-                Idle = "rbxassetid://14301056458",
-                Walk = "rbxassetid://14301047589",
-                Run  = "rbxassetid://14301047589",
+                Idle = "rbxassetid://107799240559806",
+                Walk = "rbxassetid://89380107485006",
+                Run  = "rbxassetid://134157363854022",
             }
         },
         ["Gubby"] = {
