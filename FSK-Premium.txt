@@ -4039,6 +4039,20 @@ do
                 Walk = "rbxassetid://14301047589",
                 Run  = "rbxassetid://14301047589",
             }
+        },
+        ["Gubby"] = {
+            ["Default"] = {
+                Idle = "rbxassetid://88333702239259",
+                Walk = "rbxassetid://115244584291581",
+                Run  = "rbxassetid://115244584291581",
+            }
+        },
+        ["Sukuna"] = {
+            ["Default"] = {
+                Idle = "rbxassetid://115268929362938",
+                Walk = "rbxassetid://123678890237669",
+                Run  = "rbxassetid://132086389849889",
+            }
         }
     }
     -- ==============================
