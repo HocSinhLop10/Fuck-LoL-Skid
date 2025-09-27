@@ -4047,6 +4047,20 @@ do
                 Run  = "rbxassetid://115244584291581",
             }
         },
+        ["Sancho"] = {
+            ["Default"] = {
+                Idle = "rbxassetid://115073581864188",
+                Walk = "rbxassetid://95213748170889",
+                Run  = "rbxassetid://75409814098993",
+            }
+        },
+        ["Erlking"] = {
+            ["Default"] = {
+                Idle = "rbxassetid://93727662665079",
+                Walk = "rbxassetid://97625643261790",
+                Run  = "rbxassetid://119357938208454",
+            }
+        },
         ["Sukuna"] = {
             ["Default"] = {
                 Idle = "rbxassetid://115268929362938",
