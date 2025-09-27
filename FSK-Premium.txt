@@ -7457,13 +7457,4 @@ Button.InputChanged:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
         OnDrag(input)
     end
-end) nputType.Touch then
-        StartDrag(input)
-    end
 end)
-
-Button.InputChanged:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-        OnDrag(input)
-    end
-end) 
