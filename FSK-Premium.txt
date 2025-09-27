@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Premium] | Forsaken",
-    SubTitle = "Version 4.5.0",
+    SubTitle = "Version 4.5.1",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -2304,15 +2304,7 @@ do
         ["129976080405072"] = true,
     }
 
-    -- chỉ các id này mới teleport
-    local delayedAnimations = {
---        ["74707328554358"]  = true,  -- Slash, Jason, Skin: #DeadRabbitsJason
---        ["109667959938617"] = true, -- Slash, Jason, Skin: PursuerJason
---        ["118298475669935"] = true, -- Slash, Jason (nhiều skin)
---        ["120112897026015"] = true, -- Slash, Jason, Skin: WhitePumpkinJason
---        ["125403313786645"] = true, -- Slash, Jason, Skin: Subject0Jason
---        ["126830014841198"] = true, -- Slash, Jason
-    }
+    local delayedAnimations = {}
 
     local toggleOn = false
     local strictRangeOn = false
@@ -2375,12 +2367,10 @@ do
         end
     end
 
-    -- cooldown cho teleport
     local lastTeleport = 0
-
     local function teleportDodge(killerChar)
         local now = tick()
-        if now - lastTeleport < 5 then return end -- delay 5s
+        if now - lastTeleport < 5 then return end
         lastTeleport = now
 
         local myChar = localPlayer.Character
@@ -2391,10 +2381,8 @@ do
         local oldCFrame = myRoot.CFrame
         local forward = killerRoot.CFrame.LookVector
 
-        -- teleport ra trước mặt Killer
         myRoot.CFrame = killerRoot.CFrame + forward * 7.5
 
-        -- quay lại sau 0.1s
         task.delay(0.1, function()
             if myRoot then
                 myRoot.CFrame = oldCFrame
@@ -2432,21 +2420,17 @@ do
     strictRangeOn = strictFlag.Value
     detectionRange = rangeFlag.Value
 
-    Tabs.Main:AddToggle("AutoBlockV2", {
-        Title = "Auto Block V3",
-        Default = toggleOn,
-    }):OnChanged(function(state)
-        toggleOn = state
-        toggleFlag.Value = state
-    end)
+    Tabs.Main:AddToggle("AutoBlockV2", {Title = "Auto Block V2.3", Default = toggleOn})
+        :OnChanged(function(state)
+            toggleOn = state
+            toggleFlag.Value = state
+        end)
 
-    Tabs.Main:AddToggle("StrictRangeCheck", {
-        Title = "Auto Check V3",
-        Default = strictRangeOn,
-    }):OnChanged(function(state)
-        strictRangeOn = state
-        strictFlag.Value = state
-    end)
+    Tabs.Main:AddToggle("StrictRangeCheck", {Title = "Auto Check V2.3", Default = strictRangeOn})
+        :OnChanged(function(state)
+            strictRangeOn = state
+            strictFlag.Value = state
+        end)
 
     Tabs.Main:AddInput("RangeCheckInput", {
         Title = "Range Check",
@@ -2494,12 +2478,20 @@ do
         end
     end
 
+    local massInfectionIds = {
+        ["131430497821198"] = true,
+        ["100592913030351"] = true,
+        ["70447634862911"]  = true,
+        ["83685305553364"]  = true,
+    }
+
     local function onAnimationPlayed(player, char, track)
         if not toggleOn then return end
         if not (track and track.Animation) then return end
         local animIdStr = track.Animation.AnimationId
         local id = animIdStr and string.match(animIdStr, "%d+")
         if not id or not animationIds[id] then return end
+
         if strictRangeOn then
             local myChar = localPlayer.Character
             local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
@@ -2508,8 +2500,14 @@ do
             local dist = (root.Position - myRoot.Position).Magnitude
             if dist > detectionRange then return end
         end
+
         if shouldBlockNow(player, id, track) then
-            fastBlock()
+            if massInfectionIds[id] then
+                task.delay(0.5, fastBlock) -- delay 0.5s cho MassInfection
+            else
+                fastBlock()
+            end
+
             if isKiller(player) and delayedAnimations[id] then
                 teleportDodge(char)
             end
@@ -7451,6 +7449,15 @@ end
 -- Dragging Support for PC & Mobile (on the same button)
 Button.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        StartDrag(input)
+    end
+end)
+
+Button.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        OnDrag(input)
+    end
+end) nputType.Touch then
         StartDrag(input)
     end
 end)
