@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Premium] | Forsaken",
-    SubTitle = "Version 4.4.9",
+    SubTitle = "Version 4.5.0",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -4299,6 +4299,203 @@ do
         end
     })
 end
+
+
+
+    Tabs.Player:AddSection("↳ Skill")
+
+
+do
+-- LocalScript (StarterPlayerScripts)
+
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+-- ⚡ Config
+local BUTTON_SIZE = 48 -- mặc định
+local FramesLocked = true -- mặc định khoá di chuyển (true = nút hiện và không di chuyển)
+local screenGui
+local createdFrames = {} -- chứa frame (mỗi frame có 1 nút)
+
+-- dữ liệu các nút
+local buttonsData = {
+    {Name = "Btn1", AnimationId = "135853087227453", PlayMusic = false},
+    {Name = "Btn2", AnimationId = "99784586201997", PlayMusic = false},
+    {Name = "Btn3", AnimationId = "121162477402224", PlayMusic = false},
+    {Name = "Btn4", AnimationId = "101816924844805", PlayMusic = true, MusicId = "88406027536494"},
+}
+
+-- vị trí ban đầu của frame
+local startPositions = {
+    UDim2.new(0, 80, 0, 200),
+    UDim2.new(0, 140, 0, 200),
+    UDim2.new(0, 200, 0, 200),
+    UDim2.new(0, 260, 0, 200),
+}
+
+-- 🌟 Drag Module (hỗ trợ PC + Mobile)
+local function makeDraggable(frame)
+    local dragging, dragStart, startPos
+
+    frame.InputBegan:Connect(function(input)
+        if not FramesLocked and (input.UserInputType == Enum.UserInputType.MouseButton1 
+            or input.UserInputType == Enum.UserInputType.Touch) then
+            dragging = true
+            dragStart = input.Position
+            startPos = frame.Position
+
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
+        end
+    end)
+
+    UserInputService.InputChanged:Connect(function(input)
+        if not FramesLocked and dragging and 
+            (input.UserInputType == Enum.UserInputType.MouseMovement 
+            or input.UserInputType == Enum.UserInputType.Touch) then
+            local delta = input.Position - dragStart
+            frame.Position = UDim2.new(
+                startPos.X.Scale,
+                startPos.X.Offset + delta.X,
+                startPos.Y.Scale,
+                startPos.Y.Offset + delta.Y
+            )
+        end
+    end)
+end
+
+-- 🔹 Tạo GUI container
+screenGui = Instance.new("ScreenGui")
+screenGui.Name = "CircleButtonsGUI"
+screenGui.ResetOnSpawn = false
+screenGui.IgnoreGuiInset = true
+screenGui.Enabled = false -- mặc định ẩn (bật bằng toggle)
+screenGui.Parent = playerGui
+
+-- 🔹 Hàm tạo frame + button
+local function createFrameWithButton(data, pos)
+    local frame = Instance.new("Frame")
+    frame.Name = data.Name .. "_Frame"
+    frame.Size = UDim2.new(0, BUTTON_SIZE, 0, BUTTON_SIZE)
+    frame.Position = pos
+    frame.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    frame.BackgroundTransparency = FramesLocked and 1 or 0.3
+    frame.ZIndex = 1
+    frame.Parent = screenGui
+    frame.Active = true
+
+    local frameCorner = Instance.new("UICorner")
+    frameCorner.CornerRadius = UDim.new(0.5, 0)
+    frameCorner.Parent = frame
+
+    local btn = Instance.new("TextButton")
+    btn.Name = data.Name
+    btn.Size = UDim2.new(1, 0, 1, 0)
+    btn.BackgroundColor3 = Color3.fromRGB(120, 40, 180)
+    btn.Text = ""
+    btn.ZIndex = 2
+    btn.Parent = frame
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0.5, 0)
+    corner.Parent = btn
+
+    local lbl = Instance.new("TextLabel")
+    lbl.Size = UDim2.new(1, 0, 1, 0)
+    lbl.BackgroundTransparency = 1
+    lbl.Text = data.Name:sub(-1)
+    lbl.Font = Enum.Font.SourceSansBold
+    lbl.TextScaled = true
+    lbl.TextColor3 = Color3.fromRGB(255,255,255)
+    lbl.Parent = btn
+
+    -- click chạy animation/nhạc
+    btn.MouseButton1Click:Connect(function()
+        if FramesLocked then
+            local char = player.Character or player.CharacterAdded:Wait()
+            local humanoid = char:FindFirstChildOfClass("Humanoid")
+            if not humanoid then return end
+
+            local animator = humanoid:FindFirstChildOfClass("Animator") or Instance.new("Animator", humanoid)
+            local anim = Instance.new("Animation")
+            anim.AnimationId = "rbxassetid://" .. data.AnimationId
+            local track = animator:LoadAnimation(anim)
+            track:Play()
+
+            if data.PlayMusic and data.MusicId then
+                local sound = Instance.new("Sound")
+                sound.SoundId = "rbxassetid://" .. data.MusicId
+                sound.Volume = 1
+                sound.Parent = char:FindFirstChild("Head") or playerGui
+                sound:Play()
+                sound.Ended:Connect(function() sound:Destroy() end)
+            end
+        end
+    end)
+
+    -- draggable
+    makeDraggable(frame)
+
+    -- trạng thái ban đầu
+    btn.Visible = FramesLocked
+    frame.BackgroundTransparency = FramesLocked and 1 or 0.3
+
+    table.insert(createdFrames, frame)
+end
+
+-- tạo nút
+for i, d in ipairs(buttonsData) do
+    createFrameWithButton(d, startPositions[i])
+end
+
+-- 🌟 Tích hợp Toggle + Input
+Tabs.Player:AddToggle("UnlockSukunaSkill", {
+    Title = "Unlock Sukuna Skill",
+    Default = false
+}):OnChanged(function(state)
+    screenGui.Enabled = state
+end)
+
+Tabs.Player:AddToggle("LockFrames", {
+    Title = "Lock Buttons",
+    Default = true
+}):OnChanged(function(state)
+    FramesLocked = state
+    for _, frame in ipairs(createdFrames) do
+        local btn = frame:FindFirstChildOfClass("TextButton")
+        if btn then
+            btn.Visible = FramesLocked
+        end
+        frame.BackgroundTransparency = FramesLocked and 1 or 0.3
+    end
+end)
+
+Tabs.Player:AddInput("ButtonSizeInput", {
+    Title = "Button Size",
+    Default = tostring(BUTTON_SIZE),
+    Placeholder = "Nhập số px",
+    Numeric = true,
+    Finished = true
+}):OnChanged(function(value)
+    local num = tonumber(value)
+    if num and num > 0 then
+        BUTTON_SIZE = num
+        for _, frame in ipairs(createdFrames) do
+            frame.Size = UDim2.new(0, BUTTON_SIZE, 0, BUTTON_SIZE)
+            local btn = frame:FindFirstChildOfClass("TextButton")
+            if btn then
+                btn.Size = UDim2.new(1, 0, 1, 0)
+            end
+        end
+    end
+end)
+end
+
 
     Tabs.Player:AddSection("↳ Hitbox")
 
