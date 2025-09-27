@@ -4335,9 +4335,9 @@ local createdFrames = {} -- chứa frame (mỗi frame có 1 nút)
 
 -- dữ liệu các nút
 local buttonsData = {
-    {Name = "Btn1", AnimationId = "135853087227453", PlayMusic = true, Musicid = "81361259756089"},
+    {Name = "Btn1", AnimationId = "135853087227453", PlayMusic = true, MusicId = "81361259756089"},
     {Name = "Btn2", AnimationId = "99784586201997", PlayMusic = false},
-    {Name = "Btn3", AnimationId = "121162477402224", PlayMusic = true, Musicid = "120185817748858"},
+    {Name = "Btn3", AnimationId = "121162477402224", PlayMusic = true, MusicId = "120185817748858"},
     {Name = "Btn4", AnimationId = "101816924844805", PlayMusic = true, MusicId = "88406027536494"},
 }
 
