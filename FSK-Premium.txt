@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Premium] | Forsaken",
-    SubTitle = "Version 4.5.4",
+    SubTitle = "Version 4.5.5",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -4380,20 +4380,20 @@ local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
 -- ⚡ Config
-local BUTTON_SIZE = 48 -- mặc định
-local FramesLocked = true -- mặc định khoá di chuyển (true = nút hiện và không di chuyển)
+local BUTTON_SIZE = 48
+local FramesLocked = true
 local screenGui
-local createdFrames = {} -- chứa frame (mỗi frame có 1 nút)
+local createdFrames = {}
 
 -- dữ liệu các nút
 local buttonsData = {
-    {Name = "Btn1", AnimationId = "135853087227453", PlayMusic = true, MusicId = "81361259756089"},
-    {Name = "Btn2", AnimationId = "99784586201997", PlayMusic = false},
-    {Name = "Btn3", AnimationId = "121162477402224", PlayMusic = true, MusicId = "120185817748858"},
-    {Name = "Btn4", AnimationId = "101816924844805", PlayMusic = true, MusicId = "88406027536494"},
+    {Name = "Btn1", AnimationId = "135853087227453", PlayMusic = true, MusicId = "81361259756089", ImageId = "134210378382767"},
+    {Name = "Btn2", AnimationId = "99784586201997", PlayMusic = false, ImageId = "134210378382767"},
+    {Name = "Btn3", AnimationId = "121162477402224", PlayMusic = true, MusicId = "120185817748858", ImageId = "85785826985052"},
+    {Name = "Btn4", AnimationId = "101816924844805", PlayMusic = true, MusicId = "88406027536494", ImageId = "85785826985052"},
 }
 
--- vị trí ban đầu của frame
+-- vị trí ban đầu
 local startPositions = {
     UDim2.new(0, 80, 0, 200),
     UDim2.new(0, 140, 0, 200),
@@ -4401,7 +4401,7 @@ local startPositions = {
     UDim2.new(0, 260, 0, 200),
 }
 
--- 🌟 Drag Module (hỗ trợ PC + Mobile)
+-- 🌟 Drag Module
 local function makeDraggable(frame)
     local dragging, dragStart, startPos
 
@@ -4435,12 +4435,12 @@ local function makeDraggable(frame)
     end)
 end
 
--- 🔹 Tạo GUI container
+-- 🔹 GUI container
 screenGui = Instance.new("ScreenGui")
 screenGui.Name = "CircleButtonsGUI"
 screenGui.ResetOnSpawn = false
 screenGui.IgnoreGuiInset = true
-screenGui.Enabled = false -- mặc định ẩn (bật bằng toggle)
+screenGui.Enabled = false
 screenGui.Parent = playerGui
 
 -- 🔹 Hàm tạo frame + button
@@ -4449,36 +4449,29 @@ local function createFrameWithButton(data, pos)
     frame.Name = data.Name .. "_Frame"
     frame.Size = UDim2.new(0, BUTTON_SIZE, 0, BUTTON_SIZE)
     frame.Position = pos
-    frame.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    frame.BackgroundTransparency = FramesLocked and 1 or 0.3
+    frame.BackgroundTransparency = 1
     frame.ZIndex = 1
     frame.Parent = screenGui
     frame.Active = true
 
+    -- bo tròn frame
     local frameCorner = Instance.new("UICorner")
-    frameCorner.CornerRadius = UDim.new(0.5, 0)
+    frameCorner.CornerRadius = UDim.new(1, 0)
     frameCorner.Parent = frame
 
-    local btn = Instance.new("TextButton")
+    local btn = Instance.new("ImageButton")
     btn.Name = data.Name
     btn.Size = UDim2.new(1, 0, 1, 0)
-    btn.BackgroundColor3 = Color3.fromRGB(120, 40, 180)
-    btn.Text = ""
+    btn.BackgroundTransparency = 1
+    btn.Image = "rbxassetid://" .. data.ImageId
     btn.ZIndex = 2
     btn.Parent = frame
+    btn.ScaleType = Enum.ScaleType.Fit -- giữ tỉ lệ ảnh
 
+    -- bo tròn nút
     local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0.5, 0)
+    corner.CornerRadius = UDim.new(1, 0)
     corner.Parent = btn
-
-    local lbl = Instance.new("TextLabel")
-    lbl.Size = UDim2.new(1, 0, 1, 0)
-    lbl.BackgroundTransparency = 1
-    lbl.Text = data.Name:sub(-1)
-    lbl.Font = Enum.Font.SourceSansBold
-    lbl.TextScaled = true
-    lbl.TextColor3 = Color3.fromRGB(255,255,255)
-    lbl.Parent = btn
 
     -- click chạy animation/nhạc
     btn.MouseButton1Click:Connect(function()
@@ -4504,10 +4497,8 @@ local function createFrameWithButton(data, pos)
         end
     end)
 
-    -- draggable
     makeDraggable(frame)
 
-    -- trạng thái ban đầu
     btn.Visible = FramesLocked
     frame.BackgroundTransparency = FramesLocked and 1 or 0.3
 
@@ -4533,7 +4524,7 @@ Tabs.Player:AddToggle("LockFrames", {
 }):OnChanged(function(state)
     FramesLocked = state
     for _, frame in ipairs(createdFrames) do
-        local btn = frame:FindFirstChildOfClass("TextButton")
+        local btn = frame:FindFirstChildOfClass("ImageButton")
         if btn then
             btn.Visible = FramesLocked
         end
@@ -4553,7 +4544,7 @@ Tabs.Player:AddInput("ButtonSizeInput", {
         BUTTON_SIZE = num
         for _, frame in ipairs(createdFrames) do
             frame.Size = UDim2.new(0, BUTTON_SIZE, 0, BUTTON_SIZE)
-            local btn = frame:FindFirstChildOfClass("TextButton")
+            local btn = frame:FindFirstChildOfClass("ImageButton")
             if btn then
                 btn.Size = UDim2.new(1, 0, 1, 0)
             end
