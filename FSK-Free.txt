@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Free] | Forsaken",
-    SubTitle = "Version 4.5.2",
+    SubTitle = "Version 4.5.3",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -7385,8 +7385,8 @@ SaveManager:LoadAutoloadConfig()
 local UserInputService = game:GetService("UserInputService")
 local CoreGui = game:GetService("CoreGui")
 local TweenService = game:GetService("TweenService")
-local VirtualInputManager = game:GetService("VirtualInputManager")
 
+-- Xóa nếu có UI minimize cũ
 local ExistingUI = CoreGui:FindFirstChild("HutaoHubMinimizeUI")
 if ExistingUI then
     ExistingUI:Destroy()
@@ -7396,62 +7396,61 @@ end
 local DragUI = Instance.new("ScreenGui")
 DragUI.Name = "HutaoHubMinimizeUI"
 DragUI.ResetOnSpawn = false
-DragUI.ZIndexBehavior = Enum.ZIndexBehavior.Sibling -- Ensures highest rendering priority
-DragUI.Parent = CoreGui -- Overrides all other UI elements
+DragUI.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+DragUI.Parent = CoreGui
 
--- Create Circular Button (Draggable + Clickable)
+-- Create Circular Button
 local Button = Instance.new("ImageButton")
 Button.Parent = DragUI
-Button.Size = UDim2.new(0, 50, 0, 50) -- Adjust size if needed
-Button.Position = UDim2.new(0, 10, 1, -85) -- Initial position
-Button.BackgroundColor3 = Color3.fromRGB(30, 30, 30) -- Windows 11 Style
-Button.BackgroundTransparency = 0.3 -- Semi-transparent
+Button.Size = UDim2.new(0, 50, 0, 50)
+Button.Position = UDim2.new(0, 10, 1, -85)
+Button.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+Button.BackgroundTransparency = 0.3
 Button.BorderSizePixel = 0
 Button.ClipsDescendants = true
-Button.Image = "rbxassetid://90508203972003" -- Replace with your custom image ID
+Button.Image = "rbxassetid://90508203972003" -- Thay icon nếu muốn
 Button.ScaleType = Enum.ScaleType.Fit
-Button.Active = true -- Allows drag functionality
-Button.ZIndex = 1000 -- Ensure it stays on top
+Button.Active = true
+Button.ZIndex = 1000
 
 -- Make UI Circular
 local UICorner = Instance.new("UICorner")
-UICorner.CornerRadius = UDim.new(1, 0) -- Full circle
+UICorner.CornerRadius = UDim.new(1, 0)
 UICorner.Parent = Button
 
 -- Tween Info for Animations
 local tweenInfo = TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 
--- Function to simulate RightShift key press
-local function SimulateKeyPress()
-    VirtualInputManager:SendKeyEvent(true, minimizeUI, false, game)
-    task.wait(0.1)
-    VirtualInputManager:SendKeyEvent(false, minimizeUI, false, game)
+-- 🟢 Toggle Fluent UI trực tiếp
+local function ToggleUI()
+    if Window.Minimized then
+        Window:Minimize(false) -- mở lại
+    else
+        Window:Minimize(true) -- thu nhỏ
+    end
 end
 
--- Click Animation & UI Toggle (Only if NOT dragged too much)
+-- Click Animation & UI Toggle
 local isDragging = false
-local dragThreshold = 10 -- Allow small movement without canceling click
+local dragThreshold = 10
 
 Button.MouseButton1Click:Connect(function()
-    if isDragging then return end -- Prevent click after large dragging
+    if isDragging then return end
 
-    -- Enhanced Click Animation
-    local tween = TweenService:Create(Button, tweenInfo, {
+    -- Click animation
+    TweenService:Create(Button, tweenInfo, {
         BackgroundTransparency = 0.5,
         Size = UDim2.new(0, 45, 0, 45),
         Rotation = 5
-    })
-    tween:Play()
+    }):Play()
     task.wait(0.1)
-    local tweenBack = TweenService:Create(Button, tweenInfo, {
+    TweenService:Create(Button, tweenInfo, {
         BackgroundTransparency = 0.3,
         Size = UDim2.new(0, 50, 0, 50),
         Rotation = 0
-    })
-    tweenBack:Play()
+    }):Play()
 
-    -- Simulate RightShift to Toggle UI
-    SimulateKeyPress()
+    ToggleUI()
 end)
 
 -- Hover Animation
@@ -7467,7 +7466,7 @@ end)
 local dragging, dragStart, startPos
 
 local function StartDrag(input)
-    isDragging = false -- Reset dragging state
+    isDragging = false
     dragging = true
     dragStart = input.Position
     startPos = Button.Position
@@ -7482,7 +7481,7 @@ end
 local function OnDrag(input)
     if dragging then
         local delta = (input.Position - dragStart).Magnitude
-        if delta > dragThreshold then -- Only mark as dragged if movement exceeds threshold
+        if delta > dragThreshold then
             isDragging = true
         end
         Button.Position = UDim2.new(
@@ -7494,7 +7493,7 @@ local function OnDrag(input)
     end
 end
 
--- Dragging Support for PC & Mobile (on the same button)
+-- Dragging Support
 Button.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
         StartDrag(input)
