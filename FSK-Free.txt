@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Free] | Forsaken",
-    SubTitle = "Version 4.5.3",
+    SubTitle = "Version 4.5.4",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -1891,6 +1891,12 @@ do
         "115194624791339",
         "86545133269813",
         "89448354637442",
+        "115194624791339",
+        "89448354637442",
+        "86545133269813",
+        "77119710693654",
+        "107640065977686",
+        "112902284724598",
     }
     local KILLER_MODELS = {
         ["Slasher"] = true, ["1x1x1x1"] = true, ["c00lkidd"] = true,
