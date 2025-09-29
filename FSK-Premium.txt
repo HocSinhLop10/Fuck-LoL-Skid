@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Premium] | Forsaken",
-    SubTitle = "Version 4.5.6",
+    SubTitle = "Version 4.5.8",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -291,7 +291,7 @@ local Players = game:GetService("Players")
 local LP = Players.LocalPlayer
 
 local solveGeneratorCooldown = false
-local genDelay = 0.75 -- delay mặc định 1s
+local genDelay = 0.75 -- delay mặc định
 local currentCharacter
 local Spectators = {}
 local isInGame, Survivor = false, false
@@ -323,7 +323,7 @@ local function isKillerNearGenerator(generatorPos, distance)
     return false
 end
 
--- 🟢 Tìm generator chưa xong
+-- 🟢 Tìm generator chưa xong (cập nhật genDelay luôn)
 local function getUnfinishedGenerators()
     local list = {}
     local map = workspace:FindFirstChild("Map") 
@@ -338,6 +338,14 @@ local function getUnfinishedGenerators()
             end
         end
     end
+
+    -- ⚡ Nếu chỉ còn 1 generator => tăng delay để tránh bị kick
+    if #list == 1 then
+        genDelay = 1.5
+    else
+        genDelay = 0.75
+    end
+
     return list
 end
 
