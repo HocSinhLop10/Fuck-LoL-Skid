@@ -3063,44 +3063,48 @@ end
 -- Tabs.Player
 
 
+
+-- Forsaken Player Aimlock with Fluent GUI Toggle (Fix: Switch to nearest, skip dead)
+if not game:IsLoaded() then game.Loaded:Wait() end
+
 -- ======= DỊCH VỤ =======
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 
--- ======= WHITELIST =======
-local AllowedPlayers = {
-    ["Noob"] = true, ["Guest1337"] = true, ["Elliot"] = true,
-    ["Shedletsky"] = true, ["TwoTime"] = true, ["007n7"] = true,
-    ["Chance"] = true, ["Builderman"] = true, ["Taph"] = true,
+-- ======= WHITELIST MODEL =======
+local AllowedModels = {
+    ["Noob"] = true,
+    ["Guest1337"] = true,
+    ["Elliot"] = true,
+    ["Shedletsky"] = true,
+    ["TwoTime"] = true,
+    ["007n7"] = true,
+    ["Chance"] = true,
+    ["Builderman"] = true,
+    ["Taph"] = true,
     ["Dusekkar"] = true,
 }
 
-local AllowedKillers = {
-    ["Slasher"] = true, ["1x1x1x1"] = true, ["c00lkidd"] = true,
-    ["Noli"] = true, ["JohnDoe"] = true, ["Quest666"] = true,
-}
-
 -- ======= BIẾN TRẠNG THÁI =======
-local AimlockPlayerEnabled = false
-local AimlockKillerEnabled = false
-local CurrentTarget = nil
+local AimlockEnabled = false
 
--- ======= HÀM HỖ TRỢ =======
-local function IsAllowed(model, list)
-    return list[model.Name] == true
+-- ======= HÀM KIỂM TRA MODEL =======
+local function IsAllowedModel(model)
+    return AllowedModels[model.Name] == true
 end
 
-local function GetModelFromPlayer(plr, list)
+-- ======= LẤY MODEL FORSAKEN =======
+local function GetPlayerModel(plr)
     if not plr.Character then return nil end
-    if IsAllowed(plr.Character, list) and plr.Character:FindFirstChildWhichIsA("Humanoid") then
+    if IsAllowedModel(plr.Character) and plr.Character:FindFirstChildWhichIsA("Humanoid") then
         return plr.Character
     end
     for _, model in ipairs(workspace:GetChildren()) do
         if model:IsA("Model") and model:FindFirstChildWhichIsA("Humanoid") then
             if model:FindFirstChild("Owner") and model.Owner.Value == plr then
-                if IsAllowed(model, list) then
+                if IsAllowedModel(model) then
                     return model
                 end
             end
@@ -3109,17 +3113,18 @@ local function GetModelFromPlayer(plr, list)
     return nil
 end
 
-local function GetClosestTarget(list)
+-- ======= LẤY MỤC TIÊU GẦN NHẤT =======
+local function GetClosestTarget()
     local myRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
     if not myRoot then return nil end
     local closest, dist = nil, math.huge
 
     for _, plr in ipairs(Players:GetPlayers()) do
         if plr ~= LocalPlayer then
-            local model = GetModelFromPlayer(plr, list)
+            local model = GetPlayerModel(plr)
             if model and model.PrimaryPart then
                 local humanoid = model:FindFirstChildWhichIsA("Humanoid")
-                if humanoid and humanoid.Health > 0 then
+                if humanoid and humanoid.Health > 0 then -- bỏ qua model chết
                     local distance = (model.PrimaryPart.Position - myRoot.Position).Magnitude
                     if distance < dist then
                         dist = distance
@@ -3132,56 +3137,113 @@ local function GetClosestTarget(list)
     return closest
 end
 
--- ======= KIỂM TRA TARGET HIỆN TẠI =======
-local function ValidateTarget(target)
-    if not target then return false end
-    local humanoid = target:FindFirstChildWhichIsA("Humanoid")
-    return humanoid and humanoid.Health > 0 and target.PrimaryPart ~= nil
+-- ======= AIMLOCK LOOP =======
+RunService.RenderStepped:Connect(function()
+    if AimlockEnabled then
+        local newTarget = GetClosestTarget()
+        if newTarget then
+            Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, newTarget.PrimaryPart.Position)
+        end
+    end
+end)
+
+-- ======= FLUENT GUI TOGGLE =======
+Tabs.Player:AddToggle("ForsakenAimlock", {
+    Title = "Aimlock Player",
+    Default = false
+}):OnChanged(function(Value)
+    AimlockEnabled = Value
+end)
+
+
+
+
+
+-- Auto Aim Killer To Shoot 
+if not game:IsLoaded() then game.Loaded:Wait() end
+
+-- ======= DỊCH VỤ =======
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+
+-- ======= WHITELIST MODEL =======
+local AllowedModels = {
+    ["Jason"] = true,
+    ["1x1x1x1"] = true,
+    ["c00lkidd"] = true,
+    ["Noli"] = true,
+    ["JohnDoe"] = true,
+    ["Quest666"] = true
+}
+
+-- ======= BIẾN TRẠNG THÁI =======
+local AimlockEnabled = false
+
+-- ======= HÀM KIỂM TRA MODEL =======
+local function IsAllowedModel(model)
+    return AllowedModels[model.Name] == true
+end
+
+-- ======= LẤY MODEL FORSAKEN =======
+local function GetPlayerModel(plr)
+    if not plr.Character then return nil end
+    if IsAllowedModel(plr.Character) and plr.Character:FindFirstChildWhichIsA("Humanoid") then
+        return plr.Character
+    end
+    for _, model in ipairs(workspace:GetChildren()) do
+        if model:IsA("Model") and model:FindFirstChildWhichIsA("Humanoid") then
+            if model:FindFirstChild("Owner") and model.Owner.Value == plr then
+                if IsAllowedModel(model) then
+                    return model
+                end
+            end
+        end
+    end
+    return nil
+end
+
+-- ======= LẤY MỤC TIÊU GẦN NHẤT =======
+local function GetClosestTarget()
+    local myRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not myRoot then return nil end
+    local closest, dist = nil, math.huge
+
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer then
+            local model = GetPlayerModel(plr)
+            if model and model.PrimaryPart then
+                local humanoid = model:FindFirstChildWhichIsA("Humanoid")
+                if humanoid and humanoid.Health > 0 then -- bỏ qua model chết
+                    local distance = (model.PrimaryPart.Position - myRoot.Position).Magnitude
+                    if distance < dist then
+                        dist = distance
+                        closest = model
+                    end
+                end
+            end
+        end
+    end
+    return closest
 end
 
 -- ======= AIMLOCK LOOP =======
 RunService.RenderStepped:Connect(function()
-    if AimlockPlayerEnabled then
-        if not ValidateTarget(CurrentTarget) then
-            CurrentTarget = GetClosestTarget(AllowedPlayers)
+    if AimlockEnabled then
+        local newTarget = GetClosestTarget()
+        if newTarget then
+            Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, newTarget.PrimaryPart.Position)
         end
-        if ValidateTarget(CurrentTarget) then
-            Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, CurrentTarget.PrimaryPart.Position)
-        end
-    elseif AimlockKillerEnabled then
-        if not ValidateTarget(CurrentTarget) then
-            CurrentTarget = GetClosestTarget(AllowedKillers)
-        end
-        if ValidateTarget(CurrentTarget) then
-            Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, CurrentTarget.PrimaryPart.Position)
-        end
-    else
-        -- nếu tắt aimlock thì reset target
-        CurrentTarget = nil
     end
 end)
 
--- ======= FLUENT TOGGLES =======
-Tabs.Player:AddToggle("ForsakenAimlock", {
-    Title = "Aimlock Player",
-    Default = false
-}):OnChanged(function(v)
-    AimlockPlayerEnabled = v
-    if v then 
-        AimlockKillerEnabled = false
-        CurrentTarget = nil -- reset để chọn lại khi bật
-    end
-end)
-
+-- ======= FLUENT GUI TOGGLE =======
 Tabs.Player:AddToggle("ForsakenAimlock1", {
     Title = "Aimlock Killer",
     Default = false
-}):OnChanged(function(v)
-    AimlockKillerEnabled = v
-    if v then 
-        AimlockPlayerEnabled = false
-        CurrentTarget = nil -- reset để chọn lại khi bật
-    end
+}):OnChanged(function(Value)
+    AimlockEnabled = Value
 end)
 
 
