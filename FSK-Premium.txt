@@ -3062,10 +3062,12 @@ end
 
 -- Tabs.Player
 
+
 -- ======= DỊCH VỤ =======
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
 
 -- ======= WHITELIST =======
 local AllowedPlayers = {
@@ -3084,7 +3086,6 @@ local AllowedKillers = {
 local AimlockPlayerEnabled = false
 local AimlockKillerEnabled = false
 local CurrentTarget = nil
-local lastHumanoidAutoRotate = nil
 
 -- ======= HÀM HỖ TRỢ =======
 local function IsAllowed(model, list)
@@ -3131,103 +3132,55 @@ local function GetClosestTarget(list)
     return closest
 end
 
+-- ======= KIỂM TRA TARGET HIỆN TẠI =======
 local function ValidateTarget(target)
     if not target then return false end
     local humanoid = target:FindFirstChildWhichIsA("Humanoid")
     return humanoid and humanoid.Health > 0 and target.PrimaryPart ~= nil
 end
 
--- reset khi respawn
-LocalPlayer.CharacterAdded:Connect(function(char)
-    CurrentTarget = nil
-    if lastHumanoidAutoRotate ~= nil then
-        local hum = char:FindFirstChildWhichIsA("Humanoid")
-        if hum then
-            hum.AutoRotate = lastHumanoidAutoRotate
-        end
-        lastHumanoidAutoRotate = nil
-    end
-end)
-
--- ======= AIMBOT LOOP (fix: hướng đúng, không bị đen màn hình) =======
+-- ======= AIMLOCK LOOP =======
 RunService.RenderStepped:Connect(function()
-    local myChar = LocalPlayer.Character
-    local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
-    local humanoid = myChar and myChar:FindFirstChildWhichIsA("Humanoid")
-
-    if not myRoot then return end
-
-    -- toggle AutoRotate
-    if (AimlockPlayerEnabled or AimlockKillerEnabled) and humanoid then
-        if lastHumanoidAutoRotate == nil then
-            lastHumanoidAutoRotate = humanoid.AutoRotate
-        end
-        humanoid.AutoRotate = false
-    elseif humanoid and lastHumanoidAutoRotate ~= nil then
-        humanoid.AutoRotate = lastHumanoidAutoRotate
-        lastHumanoidAutoRotate = nil
-    end
-
-    -- hàm xoay nhìn target (fix: dùng lookVector:Cross(up) để rightVector đúng)
-    local function faceTarget(target)
-        if not target or not target.PrimaryPart then return end
-        local pos = myRoot.Position
-        local targetPos = target.PrimaryPart.Position
-        local dir = Vector3.new(targetPos.X, pos.Y, targetPos.Z) - pos
-        if dir.Magnitude == 0 then return end
-
-        local lookVector = dir.Unit
-        local up = Vector3.yAxis
-        local rightVector = lookVector:Cross(up) -- CHỈNH: right = look x up (không ngược)
-        if rightVector.Magnitude == 0 then
-            rightVector = Vector3.new(1, 0, 0)
-        else
-            rightVector = rightVector.Unit
-        end
-
-        -- fromMatrix(position, rightVector, up) — chỉ thay orientation, giữ nguyên vị trí
-        myRoot.CFrame = CFrame.fromMatrix(pos, rightVector, up)
-    end
-
     if AimlockPlayerEnabled then
         if not ValidateTarget(CurrentTarget) then
             CurrentTarget = GetClosestTarget(AllowedPlayers)
         end
         if ValidateTarget(CurrentTarget) then
-            faceTarget(CurrentTarget)
+            Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, CurrentTarget.PrimaryPart.Position)
         end
     elseif AimlockKillerEnabled then
         if not ValidateTarget(CurrentTarget) then
             CurrentTarget = GetClosestTarget(AllowedKillers)
         end
         if ValidateTarget(CurrentTarget) then
-            faceTarget(CurrentTarget)
+            Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, CurrentTarget.PrimaryPart.Position)
         end
     else
+        -- nếu tắt aimlock thì reset target
         CurrentTarget = nil
     end
 end)
 
 -- ======= FLUENT TOGGLES =======
-Tabs.Player:AddToggle("ForsakenAimbot", {
-    Title = "Aimbot Player",
+Tabs.Player:AddToggle("ForsakenAimlock", {
+    Title = "Aimlock Player",
     Default = false
 }):OnChanged(function(v)
     AimlockPlayerEnabled = v
     if v then 
         AimlockKillerEnabled = false
-        CurrentTarget = nil
+        CurrentTarget = nil -- reset để chọn lại khi bật
     end
 end)
 
-Tabs.Player:AddToggle("ForsakenAimbot1", {
-    Title = "Aimbot Killer",
+Tabs.Player:AddToggle("ForsakenAimlock1", {
+    Title = "Aimlock Killer",
     Default = false
 }):OnChanged(function(v)
     AimlockKillerEnabled = v
     if v then 
         AimlockPlayerEnabled = false
-        CurrentTarget = nil
+        CurrentTarget = nil -- reset để chọn lại khi bật
     end
 end)
 
