@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Free] | Forsaken",
-    SubTitle = "Version 4.5.8",
+    SubTitle = "Version 4.5.9",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -7191,6 +7191,70 @@ Tabs.Misc:AddToggle("UnlockFPS", { -- "UnlockFPS" là ID toggle
         end
     end
 }) 
+
+
+
+
+
+-- ======= DỊCH VỤ =======
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+-- ======= DANH SÁCH BLOCK ANIMATION =======
+local blockedAnimations = {
+    ["127802146383565"] = true,
+    ["82691533602949"] = true,
+    ["123764169071995"] = true,
+}
+
+-- ======= BIẾN TRẠNG THÁI =======
+local BlockAnimEnabled = false
+local blockConnections = {}
+
+-- ======= HÀM =======
+local function hookHumanoid(humanoid)
+    if not humanoid then return end
+    local conn = humanoid.AnimationPlayed:Connect(function(track)
+        local id = track.Animation.AnimationId:match("%d+")
+        if BlockAnimEnabled and blockedAnimations[id] then
+            track:Stop()
+        end
+    end)
+    table.insert(blockConnections, conn)
+end
+
+local function setBlockAnimations(enabled)
+    BlockAnimEnabled = enabled
+
+    -- clear cũ
+    for _, conn in pairs(blockConnections) do
+        conn:Disconnect()
+    end
+    table.clear(blockConnections)
+
+    if enabled then
+        -- nhân vật hiện tại
+        if LocalPlayer.Character then
+            hookHumanoid(LocalPlayer.Character:FindFirstChildWhichIsA("Humanoid"))
+        end
+        -- respawn
+        local connChar = LocalPlayer.CharacterAdded:Connect(function(char)
+            char:WaitForChild("Humanoid")
+            hookHumanoid(char:FindFirstChildWhichIsA("Humanoid"))
+        end)
+        table.insert(blockConnections, connChar)
+    end
+end
+
+-- ======= TOGGLE FLUENT =======
+Tabs.Misc:AddToggle("BlockBadAnims", {
+    Title = "Block Animations",
+    Default = false
+}):OnChanged(function(v)
+    setBlockAnimations(v)
+end)
+
+
 
     Tabs.Misc:AddSection("↳ Show")
 
