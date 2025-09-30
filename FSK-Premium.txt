@@ -3252,47 +3252,44 @@ end
 
 
 
--- Forsaken Player Aimlock with Fluent GUI Toggle (Fix: Switch to nearest, skip dead)
-if not game:IsLoaded() then game.Loaded:Wait() end
-
 -- ======= DỊCH VỤ =======
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
-local Camera = workspace.CurrentCamera
 
--- ======= WHITELIST MODEL =======
-local AllowedModels = {
-    ["Noob"] = true,
-    ["Guest1337"] = true,
-    ["Elliot"] = true,
-    ["Shedletsky"] = true,
-    ["TwoTime"] = true,
-    ["007n7"] = true,
-    ["Chance"] = true,
-    ["Builderman"] = true,
-    ["Taph"] = true,
+-- ======= WHITELIST =======
+local AllowedPlayers = {
+    ["Noob"] = true, ["Guest1337"] = true, ["Elliot"] = true,
+    ["Shedletsky"] = true, ["TwoTime"] = true, ["007n7"] = true,
+    ["Chance"] = true, ["Builderman"] = true, ["Taph"] = true,
     ["Dusekkar"] = true,
 }
 
--- ======= BIẾN TRẠNG THÁI =======
-local AimlockEnabled = false
+local AllowedKillers = {
+    ["Slasher"] = true, ["1x1x1x1"] = true, ["c00lkidd"] = true,
+    ["Noli"] = true, ["JohnDoe"] = true, ["Quest666"] = true,
+}
 
--- ======= HÀM KIỂM TRA MODEL =======
-local function IsAllowedModel(model)
-    return AllowedModels[model.Name] == true
+-- ======= BIẾN TRẠNG THÁI =======
+local AimlockPlayerEnabled = false
+local AimlockKillerEnabled = false
+local CurrentTarget = nil
+local lastHumanoidAutoRotate = nil
+
+-- ======= HÀM HỖ TRỢ =======
+local function IsAllowed(model, list)
+    return list[model.Name] == true
 end
 
--- ======= LẤY MODEL FORSAKEN =======
-local function GetPlayerModel(plr)
+local function GetModelFromPlayer(plr, list)
     if not plr.Character then return nil end
-    if IsAllowedModel(plr.Character) and plr.Character:FindFirstChildWhichIsA("Humanoid") then
+    if IsAllowed(plr.Character, list) and plr.Character:FindFirstChildWhichIsA("Humanoid") then
         return plr.Character
     end
     for _, model in ipairs(workspace:GetChildren()) do
         if model:IsA("Model") and model:FindFirstChildWhichIsA("Humanoid") then
             if model:FindFirstChild("Owner") and model.Owner.Value == plr then
-                if IsAllowedModel(model) then
+                if IsAllowed(model, list) then
                     return model
                 end
             end
@@ -3301,18 +3298,17 @@ local function GetPlayerModel(plr)
     return nil
 end
 
--- ======= LẤY MỤC TIÊU GẦN NHẤT =======
-local function GetClosestTarget()
+local function GetClosestTarget(list)
     local myRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
     if not myRoot then return nil end
     local closest, dist = nil, math.huge
 
     for _, plr in ipairs(Players:GetPlayers()) do
         if plr ~= LocalPlayer then
-            local model = GetPlayerModel(plr)
+            local model = GetModelFromPlayer(plr, list)
             if model and model.PrimaryPart then
                 local humanoid = model:FindFirstChildWhichIsA("Humanoid")
-                if humanoid and humanoid.Health > 0 then -- bỏ qua model chết
+                if humanoid and humanoid.Health > 0 then
                     local distance = (model.PrimaryPart.Position - myRoot.Position).Magnitude
                     if distance < dist then
                         dist = distance
@@ -3325,22 +3321,104 @@ local function GetClosestTarget()
     return closest
 end
 
--- ======= AIMLOCK LOOP =======
-RunService.RenderStepped:Connect(function()
-    if AimlockEnabled then
-        local newTarget = GetClosestTarget()
-        if newTarget then
-            Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, newTarget.PrimaryPart.Position)
+local function ValidateTarget(target)
+    if not target then return false end
+    local humanoid = target:FindFirstChildWhichIsA("Humanoid")
+    return humanoid and humanoid.Health > 0 and target.PrimaryPart ~= nil
+end
+
+-- reset khi respawn
+LocalPlayer.CharacterAdded:Connect(function(char)
+    CurrentTarget = nil
+    if lastHumanoidAutoRotate ~= nil then
+        local hum = char:FindFirstChildWhichIsA("Humanoid")
+        if hum then
+            hum.AutoRotate = lastHumanoidAutoRotate
         end
+        lastHumanoidAutoRotate = nil
     end
 end)
 
--- ======= FLUENT GUI TOGGLE =======
-Tabs.Player:AddToggle("ForsakenAimlock", {
-    Title = "Aimlock Player",
+-- ======= AIMBOT LOOP (fix: hướng đúng, không bị đen màn hình) =======
+RunService.RenderStepped:Connect(function()
+    local myChar = LocalPlayer.Character
+    local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    local humanoid = myChar and myChar:FindFirstChildWhichIsA("Humanoid")
+
+    if not myRoot then return end
+
+    -- toggle AutoRotate
+    if (AimlockPlayerEnabled or AimlockKillerEnabled) and humanoid then
+        if lastHumanoidAutoRotate == nil then
+            lastHumanoidAutoRotate = humanoid.AutoRotate
+        end
+        humanoid.AutoRotate = false
+    elseif humanoid and lastHumanoidAutoRotate ~= nil then
+        humanoid.AutoRotate = lastHumanoidAutoRotate
+        lastHumanoidAutoRotate = nil
+    end
+
+    -- hàm xoay nhìn target (fix: dùng lookVector:Cross(up) để rightVector đúng)
+    local function faceTarget(target)
+        if not target or not target.PrimaryPart then return end
+        local pos = myRoot.Position
+        local targetPos = target.PrimaryPart.Position
+        local dir = Vector3.new(targetPos.X, pos.Y, targetPos.Z) - pos
+        if dir.Magnitude == 0 then return end
+
+        local lookVector = dir.Unit
+        local up = Vector3.yAxis
+        local rightVector = lookVector:Cross(up) -- CHỈNH: right = look x up (không ngược)
+        if rightVector.Magnitude == 0 then
+            rightVector = Vector3.new(1, 0, 0)
+        else
+            rightVector = rightVector.Unit
+        end
+
+        -- fromMatrix(position, rightVector, up) — chỉ thay orientation, giữ nguyên vị trí
+        myRoot.CFrame = CFrame.fromMatrix(pos, rightVector, up)
+    end
+
+    if AimlockPlayerEnabled then
+        if not ValidateTarget(CurrentTarget) then
+            CurrentTarget = GetClosestTarget(AllowedPlayers)
+        end
+        if ValidateTarget(CurrentTarget) then
+            faceTarget(CurrentTarget)
+        end
+    elseif AimlockKillerEnabled then
+        if not ValidateTarget(CurrentTarget) then
+            CurrentTarget = GetClosestTarget(AllowedKillers)
+        end
+        if ValidateTarget(CurrentTarget) then
+            faceTarget(CurrentTarget)
+        end
+    else
+        CurrentTarget = nil
+    end
+end)
+
+-- ======= FLUENT TOGGLES =======
+Tabs.Player:AddToggle("ForsakenAimbot", {
+    Title = "Aimbot Player",
     Default = false
-}):OnChanged(function(Value)
-    AimlockEnabled = Value
+}):OnChanged(function(v)
+    AimlockPlayerEnabled = v
+    if v then 
+        AimlockKillerEnabled = false
+        CurrentTarget = nil
+    end
+end)
+
+Tabs.Player:AddToggle("ForsakenAimbot1", {
+    Title = "Aimbot Killer",
+    Default = false
+}):OnChanged(function(v)
+    AimlockKillerEnabled = v
+    if v then 
+        AimlockPlayerEnabled = false
+        CurrentTarget = nil
+    end
 end)
 
 
