@@ -298,7 +298,7 @@ do
     local SkillList = {
         "Slash", -- Slasher, 1x1x1x1, John Doe
         "Stab", -- Noli
-        "Punch" -- Coolkidd
+        "Punch", -- Coolkidd
         "VoidRush", -- Noli
         "Nova", -- Noli
         "CorruptEnergy", -- John Doe
@@ -462,8 +462,8 @@ do
         end)
     end
 
-    Tabs.Farm:AddToggle("AutoKillSurvivors", {
-        Title = "Killer Farm V2",
+    Tabs.Farm:AddToggle("KillersFarmV2", {
+        Title = "Killers Farm V2",
         Default = false,
         Callback = function(Value)
             Active = Value
@@ -7689,4 +7689,4 @@ Button.InputChanged:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
         OnDrag(input)
     end
-end)
+end)  
