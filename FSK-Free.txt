@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Free] | Forsaken",
-    SubTitle = "Version 4.6.2",
+    SubTitle = "Version 4.6.3",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -2357,6 +2357,7 @@ do
 
     local running = false
     local animTrack
+    local InvisibleEnabled = false -- ✅ cờ để biết toggle có bật không
 
     local SpecialModels = {
         ["Noob"] = true, ["Guest1337"] = true, ["Elliot"] = true,
@@ -2399,7 +2400,6 @@ do
         end
     end
 
-    -- check model đặc biệt
     local function isSpecialModel(char)
         if not char then return false end
         if SpecialModels[char.Name] then
@@ -2414,13 +2414,15 @@ do
     end
 
     local function handleToggle(enabled)
+        InvisibleEnabled = enabled -- ✅ lưu trạng thái toggle
+
         local humanoid, char = getHumanoid()
         if not humanoid or not char then return end
 
         if enabled then
             running = true
             task.spawn(function()
-                while running do
+                while running and InvisibleEnabled do
                     humanoid, char = getHumanoid()
                     if not humanoid or not char then
                         task.wait(0.5)
@@ -2428,14 +2430,8 @@ do
                     end
 
                     if isSpecialModel(char) then
-                        local torso = char:FindFirstChild("Torso") or char:FindFirstChild("UpperTorso")
-                        if torso and torso.Transparency ~= 0 then
-                            playInvisibleAnim(humanoid)
-                        else
-                            stopInvisibleAnim()
-                        end
+                        playInvisibleAnim(humanoid)
                     else
-                        -- không phải model đặc biệt, chỉ skip chứ không break
                         stopInvisibleAnim()
                     end
 
@@ -2448,10 +2444,10 @@ do
         end
     end
 
-    -- auto khi respawn
+    -- chỉ tự chạy lại khi toggle đang bật
     LocalPlayer.CharacterAdded:Connect(function(char)
         task.wait(1)
-        if isSpecialModel(char) then
+        if InvisibleEnabled and isSpecialModel(char) then
             handleToggle(true)
         end
     end)
@@ -2467,6 +2463,8 @@ do
         Title = "Invisible Immediately",
         Default = false
     }):OnChanged(function(val)
+        InvisibleEnabled = val -- ✅ sync với cờ
+
         local humanoid, char = getHumanoid()
         if not humanoid or not char then return end
 
