@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Premium] | Forsaken",
-    SubTitle = "Version 4.6.4",
+    SubTitle = "Version 4.6.5",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -635,7 +635,7 @@ _G.PlayerControlled = false
 -- =========================
 local AllowedSurvivors = {
     ["Noob"] = true, ["Guest1337"] = true, ["Elliot"] = true,
-    ["Shedletsky"] = true, ["TwoTime"] = true, ["007n7"] = true,
+    ["Shedletsky"] = true, ["TwoTime"] = true, ["007n7"] = true, ["Veeronica"] = true,
     ["Chance"] = true, ["Builderman"] = true, ["Taph"] = true, ["Dusekkar"] = true,
 }
 
@@ -1242,7 +1242,7 @@ local dangerousAnimations = {
 local EliotModels = {["Elliot"] = true}
 local survivorModels = {
     ["Noob"] = true, ["Guest1337"] = true, ["Elliot"] = true,
-    ["Shedletsky"] = true, ["TwoTime"] = true, ["007n7"] = true,
+    ["Shedletsky"] = true, ["TwoTime"] = true, ["007n7"] = true, ["Veeronica"] = true,
     ["Chance"] = true, ["Builderman"] = true, ["Taph"] = true, ["Dusekkar"] = true
 }
 
@@ -1397,7 +1397,7 @@ do
     local lastTarget = nil
     local maxDistance = 5
 
-    local killerNames = { "Slasher", "c00lkidd", "JohnDoe", "1x1x1x1", "Noli" }
+    local killerNames = { "Slasher", "c00lkidd", "JohnDoe", "1x1x1x1", "Noli", "Quest666" }
     local killersFolder = workspace:WaitForChild("Players"):WaitForChild("Killers")
 
     -- Slash button + remote
@@ -1734,7 +1734,7 @@ local aimMode = "Normal"
 local aimDuration = 1.7
 local fasterDuration = 1.5
 local spinDuration = 0.5
-local aimTargets = {"Slasher", "c00lkidd", "JohnDoe", "1x1x1x1", "Noli"}
+local aimTargets = {"Slasher", "c00lkidd", "JohnDoe", "1x1x1x1", "Noli", "Quest666"}
 
 local Humanoid, HRP = nil, nil
 local originalWS, originalJP, originalAutoRotate = nil, nil, nil
@@ -2103,7 +2103,7 @@ do
     local checkRadius = 18
     local backstabDelay = 0.01
 
-    local killerNames = { "Slasher", "c00lkidd", "JohnDoe", "1x1x1x1", "Noli" }
+    local killerNames = { "Slasher", "c00lkidd", "JohnDoe", "1x1x1x1", "Noli", "Quest666" }
     local killersFolder = workspace:WaitForChild("Players"):WaitForChild("Killers")
 
     local ANIM_IDS = {
@@ -2364,7 +2364,7 @@ do
         ["Shedletsky"] = true, ["TwoTime"] = true, ["007n7"] = true,
         ["Chance"] = true, ["Builderman"] = true, ["Taph"] = true, ["Dusekkar"] = true,
         ["Slasher"] = true, ["1x1x1x1"] = true, ["c00lkidd"] = true,
-        ["Noli"] = true, ["JohnDoe"] = true, ["Quest666"] = true
+        ["Noli"] = true, ["JohnDoe"] = true, ["Quest666"] = true, ["Veeronica"] = true
     }
 
     local function getHumanoid()
@@ -3059,7 +3059,7 @@ local dangerousAnimations = {
 local killerModels = {["1x1x1x1"] = true}
 local survivorModels = {
     ["Noob"] = true, ["Guest1337"] = true, ["Elliot"] = true,
-    ["Shedletsky"] = true, ["TwoTime"] = true, ["007n7"] = true,
+    ["Shedletsky"] = true, ["TwoTime"] = true, ["007n7"] = true, ["Veeronica"] = true,
     ["Chance"] = true, ["Builderman"] = true, ["Taph"] = true, ["Dusekkar"] = true
 }
 
@@ -3314,7 +3314,7 @@ local AllowedPlayers = {
     ["Noob"] = true, ["Guest1337"] = true, ["Elliot"] = true,
     ["Shedletsky"] = true, ["TwoTime"] = true, ["007n7"] = true,
     ["Chance"] = true, ["Builderman"] = true, ["Taph"] = true,
-    ["Dusekkar"] = true,
+    ["Dusekkar"] = true, ["Veeronica"] = true,
 }
 
 local AllowedKillers = {
@@ -5598,7 +5598,7 @@ local Players = game:GetService("Players")
 -- Danh sách model
 local allowedModelsWhite = {
     ["Noob"] = true, ["Guest1337"] = true, ["Elliot"] = true,
-    ["Shedletsky"] = true, ["TwoTime"] = true, ["007n7"] = true,
+    ["Shedletsky"] = true, ["TwoTime"] = true, ["007n7"] = true, ["Veeronica"] = true,
     ["Chance"] = true, ["Builderman"] = true, ["Taph"] = true, ["Dusekkar"] = true,
 }
 
