@@ -3479,6 +3479,7 @@ end)
 
 
     Tabs.Player:AddSection("↳ Cheats")
+
 local ActiveNoStun = false
 local noStunLoop
 
@@ -3517,7 +3518,26 @@ end)
 
 
 
-
+do
+-- 🟢 Survivors Auto Farm
+Tabs.Player:AddToggle("AlwaysSprintToggle", {
+    Title = "Always Sprint",
+    Default = false
+}):OnChanged(function(Value)
+    _G.alwaysSprint = Value
+    if Value then
+        task.spawn(function()
+            while _G.alwaysSprint and task.wait() do
+                local sprint = require(game:GetService("ReplicatedStorage").Systems.Character.Game.Sprinting)
+                if not sprint.IsSprinting then
+                    sprint.IsSprinting = true
+                    sprint.__sprintedEvent:Fire(true)
+                end
+            end
+        end)
+    end
+end)
+end
 
 
 
