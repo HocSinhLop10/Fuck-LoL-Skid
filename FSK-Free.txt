@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Free] | Forsaken",
-    SubTitle = "Version 4.6.5",
+    SubTitle = "Version 4.6.6",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -1875,12 +1875,20 @@ local function computeAimPos(targetHRP)
     end
 end
 
+-- safe setter tránh NaN gây đen cam
+local function safeSetCFrame(newCF)
+    if typeof(newCF) == "CFrame" and tostring(newCF) ~= "nan" and HRP then
+        HRP.CFrame = newCF
+    end
+end
+
 local function faceInstant(toPos)
     if not HRP or not toPos then return end
     local fromPos = HRP.Position
+    if (toPos - fromPos).Magnitude < 0.01 then return end -- tránh lookAt chính mình
     local lookAt = Vector3.new(toPos.X, fromPos.Y, toPos.Z)
     local targetCF = CFrame.new(fromPos, lookAt)
-    HRP.CFrame = HRP.CFrame:Lerp(targetCF, 0.99)
+    safeSetCFrame(HRP.CFrame:Lerp(targetCF, 0.99))
 end
 
 -- coinflip helpers
@@ -2013,7 +2021,7 @@ RunService.RenderStepped:Connect(function()
                 if elapsed <= spinDuration then
                     local spinProgress = elapsed / spinDuration
                     local spinAngle = math.rad(360 * spinProgress)
-                    HRP.CFrame = CFrame.new(HRP.Position) * CFrame.Angles(0, spinAngle, 0)
+                    safeSetCFrame(CFrame.new(HRP.Position) * CFrame.Angles(0, spinAngle, 0))
                 elseif elapsed <= spinDuration + 0.7 then
                     if not originalWS then
                         originalWS, originalJP, originalAutoRotate = Humanoid.WalkSpeed, Humanoid.JumpPower, Humanoid.AutoRotate
@@ -2021,12 +2029,14 @@ RunService.RenderStepped:Connect(function()
                     Humanoid.AutoRotate = false
                     HRP.AssemblyAngularVelocity = Vector3.zero
                     local targetHRP = getValidTarget()
-                    if targetHRP then
+                    if targetHRP and targetHRP.Parent then
                         local aimPos = computeAimPos(targetHRP)
                         if targetHRP.Velocity.Magnitude > 0.1 then
                             local moveDir = targetHRP.Velocity.Unit
                             local lookAtPos = HRP.Position + Vector3.new(moveDir.X, 0, moveDir.Z)
-                            HRP.CFrame = CFrame.new(HRP.Position, lookAtPos)
+                            if (lookAtPos - HRP.Position).Magnitude > 0.01 then
+                                safeSetCFrame(CFrame.new(HRP.Position, lookAtPos))
+                            end
                         end
                         faceInstant(aimPos)
                     end
@@ -2048,12 +2058,14 @@ RunService.RenderStepped:Connect(function()
                     Humanoid.AutoRotate = false
                     HRP.AssemblyAngularVelocity = Vector3.zero
                     local targetHRP = getValidTarget()
-                    if targetHRP then
+                    if targetHRP and targetHRP.Parent then
                         local aimPos = computeAimPos(targetHRP)
                         if targetHRP.Velocity.Magnitude > 0.1 then
                             local moveDir = targetHRP.Velocity.Unit
                             local lookAtPos = HRP.Position + Vector3.new(moveDir.X, 0, moveDir.Z)
-                            HRP.CFrame = CFrame.new(HRP.Position, lookAtPos)
+                            if (lookAtPos - HRP.Position).Magnitude > 0.01 then
+                                safeSetCFrame(CFrame.new(HRP.Position, lookAtPos))
+                            end
                         end
                         faceInstant(aimPos)
                     end
@@ -5577,7 +5589,7 @@ local function startESP()
     end)
 end
 
--- ?? Tắt ESP
+-- 🛑 Tắt ESP
 local function stopESP()
     if espConnection then espConnection:Disconnect() end
     if addedConn then addedConn:Disconnect() end
