@@ -22,7 +22,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Premium] | Forsaken",
-    SubTitle = "Version 4.6.7",
+    SubTitle = "Version 4.6.8",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -3234,22 +3234,36 @@ end
     Tabs.Main:AddSection("↳ Noli")
 
 do
-    -- noli void rush control (sandboxed)
     local RunService = game:GetService("RunService")
     local Players = game:GetService("Players")
     local LocalPlayer = Players.LocalPlayer
 
+    -- ====== CONFIG ======
     local voidrushcontrol = false
-    local DEFAULT_SPEED = 16
-    local DASH_SPEED = 60
+    local DASH_SPEED = 80
+    local ATTACK_RANGE = 6
+    local ATTACK_INTERVAL = 0.2
+    local PRIORITY_NAMES = {
+        ["Noob"] = true, ["Guest1337"] = true, ["Elliot"] = true,
+        ["Shedletsky"] = true, ["TwoTime"] = true, ["007n7"] = true, ["Veeronica"] = true,
+        ["Chance"] = true, ["Builderman"] = true, ["Taph"] = true, ["Dusekkar"] = true
+    }
+
+    -- ====== STATE ======
     local isOverrideActive = false
     local connection
     local Humanoid, RootPart
+    local lastState = nil
+    local attackingLoop = nil
 
-    -- Setup nhân vật
+    -- setup character
     local function setupCharacter(character)
         Humanoid = character:WaitForChild("Humanoid")
         RootPart = character:WaitForChild("HumanoidRootPart")
+
+        Humanoid.Died:Connect(function()
+            stopOverride()
+        end)
     end
 
     if LocalPlayer.Character then
@@ -3257,62 +3271,122 @@ do
     end
     LocalPlayer.CharacterAdded:Connect(setupCharacter)
 
-    -- Bắt đầu override void rush
+    -- tìm mục tiêu hợp lệ
+    local function validTarget(p)
+        if p == LocalPlayer then return false end
+        local c = p.Character
+        if not c then return false end
+        local hrp = c:FindFirstChild("HumanoidRootPart")
+        local hum = c:FindFirstChild("Humanoid")
+        return hrp and hum and hum.Health > 0
+    end
+
+    -- tìm player gần nhất (ưu tiên whitelist)
+    local function getClosestTarget()
+        if not RootPart then return nil end
+
+        local closestW, distW = nil, math.huge
+        local closestA, distA = nil, math.huge
+
+        for _, p in ipairs(Players:GetPlayers()) do
+            if validTarget(p) then
+                local hrp = p.Character.HumanoidRootPart
+                local d = (hrp.Position - RootPart.Position).Magnitude
+
+                if PRIORITY_NAMES[p.Name] and d < distW then
+                    distW = d
+                    closestW = p
+                end
+                if d < distA then
+                    distA = d
+                    closestA = p
+                end
+            end
+        end
+
+        return closestW or closestA, distW < math.huge and distW or distA
+    end
+
+    -- cố gắng tấn công (tool:Activate())
+    local function attemptAttack()
+        local char = LocalPlayer.Character
+        if not char then return end
+        local tool = char:FindFirstChildOfClass("Tool")
+        if tool and tool.Parent == char then
+            pcall(function() tool:Activate() end)
+        end
+    end
+
+    -- điều khiển Void Rush
     local function startOverride()
         if isOverrideActive or not Humanoid or not RootPart then return end
         isOverrideActive = true
 
         connection = RunService.RenderStepped:Connect(function()
             if not Humanoid or not RootPart or Humanoid.Health <= 0 then return end
+            local target, dist = getClosestTarget()
 
-            Humanoid.WalkSpeed = DASH_SPEED
-            Humanoid.AutoRotate = false
+            if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
+                local hrp = target.Character.HumanoidRootPart
+                local dir = hrp.Position - RootPart.Position
+                local horizontal = Vector3.new(dir.X, 0, dir.Z)
 
-            local direction = RootPart.CFrame.LookVector
-            local horizontal = Vector3.new(direction.X, 0, direction.Z)
-            if horizontal.Magnitude > 0 then
-                Humanoid:Move(horizontal.Unit, true)
+                if horizontal.Magnitude > 0.1 then
+                    RootPart.CFrame = CFrame.new(RootPart.Position, Vector3.new(hrp.Position.X, RootPart.Position.Y, hrp.Position.Z))
+                    RootPart.AssemblyLinearVelocity = horizontal.Unit * DASH_SPEED
+                else
+                    RootPart.AssemblyLinearVelocity = Vector3.zero
+                end
+            else
+                RootPart.AssemblyLinearVelocity = Vector3.zero
+            end
+        end)
+
+        attackingLoop = task.spawn(function()
+            while isOverrideActive do
+                local target, dist = getClosestTarget()
+                if target and dist and dist <= ATTACK_RANGE then
+                    attemptAttack()
+                end
+                task.wait(ATTACK_INTERVAL)
             end
         end)
     end
 
-    -- Dừng override void rush
-    local function stopOverride()
+    function stopOverride()
         if not isOverrideActive then return end
         isOverrideActive = false
-
-        if Humanoid then
-            Humanoid.WalkSpeed = DEFAULT_SPEED
-            Humanoid.AutoRotate = true
-            Humanoid:Move(Vector3.zero, true)
-        end
 
         if connection then
             connection:Disconnect()
             connection = nil
         end
+        if RootPart then
+            RootPart.AssemblyLinearVelocity = Vector3.zero
+        end
     end
 
-    -- Main loop: detect void rush state
+    -- kiểm tra trạng thái void rush
     RunService.RenderStepped:Connect(function()
         if not voidrushcontrol or not Humanoid then return end
-
-        local char = Humanoid.Parent
-        local state = char and char:GetAttribute("VoidRushState")
-
-        if state == "Dashing" then
-            startOverride()
-        else
-            stopOverride()
+        local state = Humanoid.Parent and Humanoid.Parent:GetAttribute("VoidRushState")
+        if state ~= lastState then
+            lastState = state
+            if state == "Dashing" then
+                startOverride()
+            else
+                stopOverride()
+            end
         end
     end)
 
-    -- === Thêm toggle vào GUI ===
+    -- toggle GUI
     Tabs.Main:AddToggle("VoidRushControl", {
         Title = "Void Rush Aimbot",
         Default = false
-    }):OnChanged(function(val)
-        voidrushcontrol = val
+    }):OnChanged(function(v)
+        voidrushcontrol = v
+        if not v then stopOverride() end
     end)
 end
 
