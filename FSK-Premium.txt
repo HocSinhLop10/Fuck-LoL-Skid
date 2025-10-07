@@ -11,10 +11,9 @@
 
 ---------------------------------------------------------------------------------
 
+
 local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
-
 local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/SLK-gaming/Fluent/refs/heads/main/SaveManager.lua.txt"))()
-
 local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/SLK-gaming/Fluent/refs/heads/main/InterfaceManager.lua.txt"))()
 
 local minimizeUI = Enum.KeyCode.RightAlt
@@ -22,7 +21,7 @@ local minimizeUI = Enum.KeyCode.RightAlt
 -- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Premium] | Forsaken",
-    SubTitle = "Version 4.6.9",
+    SubTitle = "Version 4.7.0",
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
     Acrylic = false,
@@ -30,15 +29,46 @@ local Window = Fluent:CreateWindow({
     MinimizeKey = minimizeUI
 })
 
+-- 🧩 Add Logo inside a header frame in the TabHolder (fix overlap)
+task.spawn(function()
+    repeat task.wait() until Window and Window.TabHolder -- đợi Fluent load
+    local tabHolder = Window.TabHolder
+
+    -- nếu đã có header cũ thì xoá (tránh tạo 2 lần khi reload)
+    if tabHolder:FindFirstChild("HubHeader") then
+        tabHolder.HubHeader:Destroy()
+    end
+
+    -- Header frame sẽ nằm trên cùng của tab list (UIListLayout sẽ xếp các tab phía dưới)
+    local header = Instance.new("Frame")
+    header.Name = "HubHeader"
+    header.BackgroundTransparency = 1
+    header.Size = UDim2.new(1, 0, 0, 100) -- chỉnh kích cỡ khung hình
+    header.LayoutOrder = 0
+    header.Parent = tabHolder
+
+    -- Logo
+    local logo = Instance.new("ImageLabel")
+    logo.Name = "HubLogo"
+    logo.Image = "rbxassetid://121302760641013" -- đổi sang ID của bạn nếu muốn
+    logo.BackgroundTransparency = 1
+    logo.Size = UDim2.fromOffset(110, 110) -- kích thước logo
+    logo.Position = UDim2.new(0, 16, 0, -8) -- căn bên trái trong header
+    logo.AnchorPoint = Vector2.new(0, 0)
+    logo.Parent = header
+
+    -- (Không được xóa phần này)
+end)
+
 -- Tabs
 local Tabs = {
-    Dev = Window:AddTab({ Title = "About", Icon = "rbxassetid://121302760641013"}),
-    Farm = Window:AddTab({ Title = "Farm", Icon = "rbxassetid://121302760641013"}),
-    Main = Window:AddTab({ Title = "Main", Icon = "rbxassetid://121302760641013" }),
-    Player = Window:AddTab({ Title = "Player", Icon = "rbxassetid://121302760641013" }),
-    Visual = Window:AddTab({ Title = "Visual", Icon = "rbxassetid://121302760641013" }),
-    Misc = Window:AddTab({ Title = "Misc", Icon = "rbxassetid://121302760641013" }),
-    Settings = Window:AddTab({ Title = "Settings", Icon = "rbxassetid://121302760641013" }),
+    Dev = Window:AddTab({ Title = "About", Icon = "info"}),
+    Farm = Window:AddTab({ Title = "Farm", Icon = "Box"}),
+    Main = Window:AddTab({ Title = "Main", Icon = "home" }),
+    Player = Window:AddTab({ Title = "Player", Icon = "user" }),
+    Visual = Window:AddTab({ Title = "Visual", Icon = "eye" }),
+    Misc = Window:AddTab({ Title = "Misc", Icon = "menu" }),
+    Settings = Window:AddTab({ Title = "Settings", Icon = "settings" }),
 }         
 
 -- Tab.Dev
