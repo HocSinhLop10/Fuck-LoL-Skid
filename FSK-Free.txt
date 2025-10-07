@@ -63,7 +63,7 @@ end)
 -- Tabs
 local Tabs = {
     Dev = Window:AddTab({ Title = "About", Icon = "info"}),
-    Farm = Window:AddTab({ Title = "Farm", Icon = "Box"}),
+    Farm = Window:AddTab({ Title = "Farm", Icon = "box"}),
     Main = Window:AddTab({ Title = "Main", Icon = "home" }),
     Player = Window:AddTab({ Title = "Player", Icon = "user" }),
     Visual = Window:AddTab({ Title = "Visual", Icon = "eye" }),
