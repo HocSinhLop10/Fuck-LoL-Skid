@@ -1158,7 +1158,362 @@ do
 end
 
 
+MainTab:Seperator("Chance");
 
+do
+    -- ================= DỊCH VỤ =================
+    local Players = game:GetService("Players")
+    local RunService = game:GetService("RunService")
+    local Stats = game:GetService("Stats")
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+    local LocalPlayer = Players.LocalPlayer
+
+    local active = false
+    local useOffset = true
+    local predictionMode = "Speed"
+    local aimMode = "Normal"
+    local aimDuration = 1.7
+    local fasterDuration = 1.5
+    local spinDuration = 0.5
+    local aimTargets = {"Slasher", "c00lkidd", "JohnDoe", "1x1x1x1", "Noli", "Quest666"}
+
+    local Humanoid, HRP = nil, nil
+    local originalWS, originalJP, originalAutoRotate = nil, nil, nil
+    local aiming = false
+    local prevFlintVisibleAim = false
+    local lastTriggerTime = 0
+
+    local autoCoinflip = false
+    local coinflipTargetCharge = 3
+    local coinflipCooldown = 0.15
+    local lastCoinflipTime = 0
+
+    local blockCoinflipWhenClose = true
+    local coinflipBlockDist = 50
+
+    local RemoteEvent
+    pcall(function()
+        RemoteEvent = ReplicatedStorage:WaitForChild("Modules"):WaitForChild("Network"):WaitForChild("RemoteEvent")
+    end)
+
+    -- ================= FLUENT DROPDOWNS =================
+    local AimModeList = {"Normal", "Faster", "Reflex"}
+    MainTab:Dropdown("Aim Mode", AimModeList, aimMode, function(value)
+        aimMode = value
+    end)
+
+    local PredictionList = {"Speed", "Ping", "front", "No Lag"}
+    MainTab:Dropdown("Prediction Mode", PredictionList, predictionMode, function(value)
+        predictionMode = value
+    end)
+
+    local CoinflipChargeList = {"1 Point", "2 Point", "3 Point"}
+    MainTab:Dropdown("Coinflip Charge", CoinflipChargeList, "3 Point", function(value)
+        local num = tonumber(value and value:match("%d+"))
+        if num then coinflipTargetCharge = num end
+    end)
+
+    MainTab:Toggle("Safe Mode (Coinflip)", blockCoinflipWhenClose, "Không tung xu khi có killers ở gần", function(state)
+        blockCoinflipWhenClose = state
+    end)
+
+    MainTab:Toggle("Enable Offset", useOffset, "Thêm tính toán độ lệch để aim chuẩn hơn", function(state)
+        useOffset = state
+    end)
+
+    MainTab:Toggle("Auto Aim Shoot", active, "Tự động aim khi dùng kỹ năng bắn", function(state)
+        active = state
+    end)
+
+    MainTab:Toggle("Auto Coin Flip", autoCoinflip, "Tự động tung đồng xu theo điểm đã chọn", function(state)
+        autoCoinflip = state
+    end)
+
+    MainTab:Slider("Coinflip Safe Distance", 10, 300, coinflipBlockDist, function(val)
+        coinflipBlockDist = val
+    end)
+
+    -- ================= CHARACTER SETUP =================
+    local function setupCharacter(char)
+        Humanoid = char:WaitForChild("Humanoid")
+        HRP = char:WaitForChild("HumanoidRootPart")
+    end
+    if LocalPlayer.Character then setupCharacter(LocalPlayer.Character) end
+    LocalPlayer.CharacterAdded:Connect(setupCharacter)
+
+    -- ================= HELPER FUNCS =================
+    local function getValidTarget()
+        for _, plr in ipairs(Players:GetPlayers()) do
+            if plr ~= LocalPlayer and plr.Character then
+                local char = plr.Character
+                local hrp = char:FindFirstChild("HumanoidRootPart")
+                if hrp then
+                    for _, targetName in ipairs(aimTargets) do
+                        if char.Name:lower():find(targetName:lower()) then
+                            return hrp
+                        end
+                    end
+                end
+            end
+        end
+        return nil
+    end
+
+    local function getPingSeconds()
+        local pingStat = Stats.Network.ServerStatsItem["Data Ping"]
+        if pingStat then return pingStat:GetValue() / 1000 end
+        return 0.1
+    end
+
+    local function isFlintlockVisible()
+        if not LocalPlayer.Character then return false end
+        local flint = LocalPlayer.Character:FindFirstChild("Flintlock", true)
+        if not flint then return false end
+        if not (flint:IsA("BasePart") or flint:IsA("MeshPart") or flint:IsA("UnionOperation")) then
+            flint = flint:FindFirstChildWhichIsA("BasePart", true)
+            if not flint then return false end
+        end
+        return flint.Transparency < 1
+    end
+
+    local movementThreshold = 0.5
+    local function getPredictedAimPosPing(targetHRP)
+        local ping = getPingSeconds()
+        local velocity = targetHRP.Velocity
+        if velocity.Magnitude <= movementThreshold then return targetHRP.Position end
+        return targetHRP.Position + (velocity * ping)
+    end
+
+    local function getPredictedAimPosInfrontHRPPing(targetHRP)
+        local ping = getPingSeconds()
+        local studs = ping * 60
+        if targetHRP.Velocity.Magnitude <= movementThreshold then return targetHRP.Position end
+        return targetHRP.Position + (targetHRP.CFrame.LookVector * studs)
+    end
+
+    local function computeAimPos(targetHRP)
+        if predictionMode == "Ping" then
+            return getPredictedAimPosPing(targetHRP)
+        elseif predictionMode == "front" then
+            return targetHRP.Position + targetHRP.CFrame.LookVector * 4
+        elseif predictionMode == "No Lag" then
+            return getPredictedAimPosInfrontHRPPing(targetHRP)
+        else
+            local velocity = targetHRP.Velocity
+            if velocity.Magnitude > 0.1 then
+                if useOffset and HRP then
+                    local ok, toTarget = pcall(function() return (targetHRP.Position - HRP.Position).Unit end)
+                    if not ok then return targetHRP.Position end
+                    local moveDir = velocity.Unit
+                    local dot = toTarget:Dot(moveDir)
+                    if math.abs(dot) < 0.85 then
+                        return targetHRP.Position + velocity * (4 / 60)
+                    else
+                        return targetHRP.Position
+                    end
+                else
+                    return targetHRP.Position
+                end
+            else
+                return targetHRP.Position
+            end
+        end
+    end
+
+    local function safeSetCFrame(newCF)
+        if typeof(newCF) == "CFrame" and tostring(newCF) ~= "nan" and HRP then
+            HRP.CFrame = newCF
+        end
+    end
+
+    local function faceInstant(toPos)
+        if not HRP or not toPos then return end
+        local fromPos = HRP.Position
+        if (toPos - fromPos).Magnitude < 0.01 then return end
+        local lookAt = Vector3.new(toPos.X, fromPos.Y, toPos.Z)
+        local targetCF = CFrame.new(fromPos, lookAt)
+        safeSetCFrame(HRP.CFrame:Lerp(targetCF, 0.99))
+    end
+
+    -- ================= COINFLIP HELPERS =================
+    local function getAbilityContainer()
+        local ok, container = pcall(function()
+            local gui = LocalPlayer:FindFirstChild("PlayerGui")
+            if not gui then return nil end
+            local mainUI = gui:FindFirstChild("MainUI")
+            if not mainUI then return nil end
+            return mainUI:FindFirstChild("AbilityContainer")
+        end)
+        if ok then return container end
+        return nil
+    end
+
+    local function tryActivateButton(button)
+        if not button then return false end
+        pcall(function() if button.Activate then button:Activate() end end)
+        local ok, conns = pcall(function()
+            if type(getconnections) == "function" and button.MouseButton1Click then
+                return getconnections(button.MouseButton1Click)
+            end
+            return nil
+        end)
+        if ok and conns then
+            for _, conn in ipairs(conns) do
+                pcall(function()
+                    if conn.Function then conn.Function()
+                    elseif conn.func then conn.func()
+                    elseif conn.Fire then conn.Fire() end
+                end)
+            end
+        end
+        pcall(function() if button.Activated then button.Activated:Fire() end end)
+        pcall(function() if button.MouseButton1Click then button.MouseButton1Click:Fire() end end)
+        return true
+    end
+
+    local function findAbilityButtonByName(name)
+        local container = getAbilityContainer()
+        if not container then return nil end
+        local btn = container:FindFirstChild(name)
+        if btn then return btn end
+        local lname = name:lower()
+        for _, child in ipairs(container:GetChildren()) do
+            if child.Name and child.Name:lower():find(lname) then return child end
+            local found = child:FindFirstChildWhichIsA("ImageButton") or child:FindFirstChildWhichIsA("TextButton")
+            if found and found.Name and found.Name:lower():find(lname) then
+                return found
+            end
+        end
+        return nil
+    end
+
+    local function clickCoinflipButton()
+        local tryNames = {"CoinFlip", "Coin", "Reroll"}
+        for _, n in ipairs(tryNames) do
+            local b = findAbilityButtonByName(n)
+            if b then
+                if tryActivateButton(b) then return true end
+            end
+        end
+        return false
+    end
+
+    local function findRerollContainer()
+        local container = getAbilityContainer()
+        if not container then return nil end
+        local reroll = container:FindFirstChild("Reroll") or container:FindFirstChild("RerollAbility") or nil
+        if reroll then return reroll end
+        for _, child in ipairs(container:GetChildren()) do
+            for _, obj in ipairs(child:GetDescendants()) do
+                if (obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox")) and obj.Text and tostring(obj.Text):match("%d") then
+                    return child
+                end
+            end
+        end
+        return nil
+    end
+
+    local function getNearbyMaxNumber()
+        local reroll = findRerollContainer()
+        if not reroll then return nil end
+        local maxNum = nil
+        for _, obj in ipairs(reroll:GetDescendants()) do
+            if (obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox")) and obj.Text then
+                for num in tostring(obj.Text):gmatch("%d+") do
+                    local n = tonumber(num)
+                    if n then
+                        if not maxNum or n > maxNum then maxNum = n end
+                    end
+                end
+            end
+        end
+        return maxNum
+    end
+
+    -- ================= MAIN LOOP =================
+    RunService.RenderStepped:Connect(function()
+        if active and Humanoid and HRP then
+            local isVisible = isFlintlockVisible()
+            if isVisible and not prevFlintVisibleAim and not aiming then
+                lastTriggerTime = tick()
+                aiming = true
+            end
+            prevFlintVisibleAim = isVisible
+
+            if aiming then
+                local elapsed = tick() - lastTriggerTime
+                local duration = (aimMode == "Faster") and fasterDuration or aimDuration
+
+                if aimMode == "Reflex" then
+                    if elapsed <= spinDuration then
+                        local spinProgress = elapsed / spinDuration
+                        local spinAngle = math.rad(360 * spinProgress)
+                        safeSetCFrame(CFrame.new(HRP.Position) * CFrame.Angles(0, spinAngle, 0))
+                    elseif elapsed <= spinDuration + 0.7 then
+                        if not originalWS then
+                            originalWS, originalJP, originalAutoRotate = Humanoid.WalkSpeed, Humanoid.JumpPower, Humanoid.AutoRotate
+                        end
+                        Humanoid.AutoRotate = false
+                        HRP.AssemblyAngularVelocity = Vector3.zero
+                        local targetHRP = getValidTarget()
+                        if targetHRP then faceInstant(computeAimPos(targetHRP)) end
+                    else
+                        aiming = false
+                        if originalWS then
+                            Humanoid.WalkSpeed, Humanoid.JumpPower, Humanoid.AutoRotate = originalWS, originalJP, originalAutoRotate
+                            originalWS, originalJP, originalAutoRotate = nil, nil, nil
+                        end
+                    end
+                else
+                    if elapsed <= duration then
+                        if not originalWS then
+                            originalWS, originalJP, originalAutoRotate = Humanoid.WalkSpeed, Humanoid.JumpPower, Humanoid.AutoRotate
+                        end
+                        Humanoid.AutoRotate = false
+                        HRP.AssemblyAngularVelocity = Vector3.zero
+                        local targetHRP = getValidTarget()
+                        if targetHRP then faceInstant(computeAimPos(targetHRP)) end
+                    else
+                        aiming = false
+                        if originalWS then
+                            Humanoid.WalkSpeed, Humanoid.JumpPower, Humanoid.AutoRotate = originalWS, originalJP, originalAutoRotate
+                            originalWS, originalJP, originalAutoRotate = nil, nil, nil
+                        end
+                    end
+                end
+            end
+        end
+
+        -- COINFLIP
+        if autoCoinflip then
+            local tooClose = false
+            if blockCoinflipWhenClose then
+                local targetHRP = getValidTarget()
+                if targetHRP and HRP then
+                    if (targetHRP.Position - HRP.Position).Magnitude <= coinflipBlockDist then
+                        tooClose = true
+                    end
+                end
+            end
+
+            if not tooClose then
+                local maxNum = getNearbyMaxNumber()
+                if not maxNum or maxNum < coinflipTargetCharge then
+                    if tick() - lastCoinflipTime >= coinflipCooldown then
+                        lastCoinflipTime = tick()
+                        local ok = clickCoinflipButton()
+                        if not ok and RemoteEvent then
+                            pcall(function()
+                                RemoteEvent:FireServer("UseActorAbility", "CoinFlip")
+                            end)
+                        end
+                    end
+                end
+            end
+        end
+    end)
+end
 
 
 ---------------------------------------------------------------------------------
