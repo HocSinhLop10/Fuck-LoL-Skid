@@ -119,6 +119,47 @@ task.spawn(function()
 end)
 
 ---------------------------------------------------------------------------------
+-- 💾 Save File
+---------------------------------------------------------------------------------
+
+-- 📁 TỰ LƯU CẤU HÌNH GUI
+local HttpService = game:GetService("HttpService")
+local SaveFolder = "HutaoSaves"
+local SaveFile = SaveFolder .. "/Settings.json"
+
+if not isfolder(SaveFolder) then
+	makefolder(SaveFolder)
+end
+
+local Settings = {}
+
+-- 🧠 Tải dữ liệu đã lưu
+local function LoadSettings()
+	if isfile(SaveFile) then
+		local ok, data = pcall(function()
+			return HttpService:JSONDecode(readfile(SaveFile))
+		end)
+		if ok and typeof(data) == "table" then
+			Settings = data
+		end
+	end
+end
+
+-- 💾 Lưu dữ liệu hiện tại
+local function SaveSettings()
+	writefile(SaveFile, HttpService:JSONEncode(Settings))
+end
+
+LoadSettings()
+
+return {
+	Settings = Settings,
+	Save = SaveSettings,
+	Load = LoadSettings
+}
+
+
+---------------------------------------------------------------------------------
 -- Chức Năng
 ---------------------------------------------------------------------------------
 
@@ -506,7 +547,7 @@ FarmTab:Seperator("Generator");
 do
     local solveGeneratorCooldown = false
     _G.AutoFinishGen = _G.AutoFinishGen or false
-    local genDelay = 2 -- mặc định 2s
+    _G.GenDelay = _G.GenDelay or 2 -- mặc định 2s, để global để thread có thể đọc realtime
 
     -- 🧭 Hàm tìm generator gần nhất
     local function getClosestGenerator()
@@ -552,7 +593,7 @@ do
         if gen and gen:FindFirstChild("Remotes") and gen.Remotes:FindFirstChild("RE") then
             gen.Remotes.RE:FireServer()
             solveGeneratorCooldown = true
-            task.delay(genDelay, function()
+            task.delay(_G.GenDelay, function()
                 solveGeneratorCooldown = false
             end)
         else
@@ -577,8 +618,10 @@ do
                     if gen and gen:FindFirstChild("Remotes") and gen.Remotes:FindFirstChild("RE") then
                         gen.Remotes.RE:FireServer()
                     end
+
                     solveGeneratorCooldown = true
-                    task.wait(genDelay)
+                    -- 🧠 dùng _G.GenDelay realtime, không bị giữ giá trị cũ
+                    task.wait(_G.GenDelay)
                     solveGeneratorCooldown = false
                 end
             end)
@@ -588,9 +631,10 @@ do
     end)
 
     -- 🎚️ Slider chỉnh delay (chuẩn Fluent)
-    FarmTab:Slider("Generator Delay", 2, 10, genDelay, 0.1, "Delay sửa máy phát điện", function(value)
-        genDelay = value
-        print("⏱ Delay set to:", genDelay)
+    -- ⚙️ Dạng đúng của Fluent slider: Tab:Slider("Tên", min, max, default, callback)
+    FarmTab:Slider("Generator Delay", 2, 10, _G.GenDelay, function(v)
+        _G.GenDelay = v
+        print("⏱ Delay set to:", v)
     end)
 end
 
