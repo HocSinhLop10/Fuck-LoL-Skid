@@ -1074,6 +1074,93 @@ end
 
 
 
+
+do
+    -- Invisible upon Cloning (sandboxed)
+    local Players = game:GetService("Players")
+    local LocalPlayer = Players.LocalPlayer
+
+    local running = false
+    local animTrack
+
+    local function getHumanoid()
+        local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+        return char:FindFirstChildOfClass("Humanoid"), char
+    end
+
+    local function getAnimator(humanoid)
+        local animator = humanoid:FindFirstChildOfClass("Animator")
+        if not animator then
+            animator = Instance.new("Animator")
+            animator.Parent = humanoid
+        end
+        return animator
+    end
+
+    local function playInvisibleAnim(humanoid)
+        local animator = getAnimator(humanoid)
+        if not animTrack or not animTrack.IsPlaying then
+            local animation = Instance.new("Animation")
+            animation.AnimationId = "rbxassetid://75804462760596"
+            animTrack = animator:LoadAnimation(animation)
+            animTrack.Looped = true
+            animTrack:Play()
+            animTrack:AdjustSpeed(0)
+        end
+    end
+
+    local function stopInvisibleAnim()
+        if animTrack and animTrack.IsPlaying then
+            animTrack:Stop()
+            animTrack = nil
+        end
+    end
+
+    local function handleToggle(enabled)
+        local humanoid, char = getHumanoid()
+        if not humanoid or not char then return end
+
+        if enabled then
+            running = true
+            task.spawn(function()
+                while running do
+                    humanoid, char = getHumanoid()
+                    if not humanoid or not char then break end
+
+                    local torso = char:FindFirstChild("Torso") or char:FindFirstChild("UpperTorso")
+                    local root = char:FindFirstChild("HumanoidRootPart")
+
+                    if torso and torso.Transparency ~= 0 then
+                        playInvisibleAnim(humanoid)
+                        if root then root.Transparency = 0.4 end
+                    else
+                        stopInvisibleAnim()
+                        if root then root.Transparency = 1 end
+                    end
+
+                    task.wait(0.5)
+                end
+            end)
+        else
+            running = false
+            stopInvisibleAnim()
+            if char and char:FindFirstChild("HumanoidRootPart") then
+                char.HumanoidRootPart.Transparency = 1
+            end
+        end
+    end
+
+    -- === Toggle Fluent chính (bỏ “InstantInvisible”) ===
+    MainTab:Toggle("Invisible if cloned", _G.InvisibleClone, "Tự động tàng hình khi tạo bản sao", function(value)
+        _G.InvisibleClone = value
+        handleToggle(_G.InvisibleClone)
+    end)
+end
+
+
+
+
+
 ---------------------------------------------------------------------------------
 -- Player
 ---------------------------------------------------------------------------------
