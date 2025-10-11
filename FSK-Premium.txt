@@ -495,7 +495,7 @@ do
 end
 
 
-
+do
 local Players = game:GetService("Players")
 local LP = Players.LocalPlayer
 
@@ -649,7 +649,7 @@ task.spawn(function()
         end
     end
 end)
-
+end
 
 FarmTab:Seperator("Generator");
 
@@ -1293,6 +1293,7 @@ end
 
 PlayerTab:Seperator("Cheats");
 
+do
 local ActiveNoStun = false
 local noStunLoop
 
@@ -1326,7 +1327,7 @@ PlayerTab:Toggle("No Stun", _G.NoStun or false, "Chặn bị stun khi bị tấn
         end
     end
 end)
-
+end
 
 
 
@@ -1614,6 +1615,7 @@ end
 
 PlayerTab:Seperator("Hitbox");
 
+do
 repeat task.wait() until game:IsLoaded()
 
 -- 🔧 Biến cấu hình toàn cục
@@ -1830,7 +1832,7 @@ task.spawn(function()
         pcall(ForsakenReachLogic)
     end
 end)
-
+end
 
 PlayerTab:Seperator("Walk Speed");
 
@@ -2596,7 +2598,7 @@ end
 
 
 
-ldo
+do
     local RunService = game:GetService("RunService")
     local Camera = workspace.CurrentCamera
 
