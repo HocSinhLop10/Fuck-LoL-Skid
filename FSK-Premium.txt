@@ -119,174 +119,12 @@ task.spawn(function()
 end)
 
 ---------------------------------------------------------------------------------
--- 🏆 Anti Afk
+-- Chức Năng
 ---------------------------------------------------------------------------------
-local antiAFKCons = {}
 
--- Kiểm tra getconnections có tồn tại không
-if getconnections then
-    local idleCons = getconnections(game.Players.LocalPlayer.Idled)
-
-    -- Lưu & disable các connection để không bị kick AFK
-    for _, c in ipairs(idleCons) do
-        antiAFKCons[c] = true
-        c:Disable()
-    end
-
-    print("[AntiAFK] Đã tự động bật, bạn sẽ không bị kick AFK.")
-else
-    warn("[AntiAFK] Executor không hỗ trợ getconnections, script không thể chạy.")
-end
----------------------------------------------------------------------------------
--- 🪙 Anti Ban
----------------------------------------------------------------------------------
 do
-    local Players = game:GetService("Players")
-    local LocalPlayer = Players.LocalPlayer
-    local LocalizationService = game:GetService("LocalizationService")
 
-    shared.AntiBanSafe = shared.AntiBanSafe or {running = false, hooks = {}}
-    local data = shared.AntiBanSafe
 
-    local oldNamecall, oldIndex
-    local protectionThread
-
-    local function safe(func, ...)
-        local ok, res = pcall(func, ...)
-        if ok then return res end
-    end
-
-    -- Disable screenshot/video flags khi bật protection
-    local function disableReportFlags()
-        if typeof(setfflag) == "function" then
-            pcall(function()
-                setfflag("AbuseReportScreenshot", "False")
-                setfflag("AbuseReportScreenshotPercentage", "0")
-                setfflag("AbuseReportEnabled", "False")
-                setfflag("ReportAbuseMenu", "False")
-                setfflag("EnableAbuseReportScreenshot", "False")
-                setfflag("AbuseReportVideo", "False")
-                setfflag("AbuseReportVideoPercentage", "0")
-                setfflag("VideoCaptureEnabled", "False")
-                setfflag("RecordVideo", "False")
-            end)
-        end
-    end
-
-    -- Restore flag về bình thường khi tắt protection
-    local function setFlagsOn()
-        if typeof(setfflag) == "function" then
-            pcall(function()
-                setfflag("AbuseReportScreenshot", "True")
-                setfflag("AbuseReportScreenshotPercentage", "100")
-            end)
-        end
-    end
-
-    -- Hook requests (block report)
-    local function hookRequests()
-        if data.hooks.requestHooked then return end
-        local oldRequest = (syn and syn.request) or request or http_request
-        if typeof(oldRequest) == "function" and typeof(hookfunction) == "function" then
-            hookfunction(oldRequest, function(req)
-                if req and req.Url and tostring(req.Url):lower():find("abuse") then
-                    return {StatusCode = 200, Body = "Blocked"}
-                end
-                return oldRequest(req)
-            end)
-            data.hooks.requestHooked = true
-        end
-    end
-
-    -- Hook FindFirstChild (block GUI video/screenshot)
-    local function hookFindFirstChild()
-        if data.hooks.findHooked then return end
-        local oldFind = workspace.FindFirstChild
-        if typeof(oldFind) == "function" and typeof(hookfunction) == "function" then
-            hookfunction(oldFind, function(self, name, ...)
-                if name and tostring(name):lower():find("screenshot") then return nil end
-                if name and tostring(name):lower():find("video") then return nil end
-                return oldFind(self, name, ...)
-            end)
-            data.hooks.findHooked = true
-        end
-    end
-
-    -- Safe bypass (__namecall)
-    local function safeBypass()
-        if getrawmetatable and hookmetamethod and newcclosure then
-            local mt = getrawmetatable(game)
-            setreadonly(mt, false)
-            oldNamecall = oldNamecall or mt.__namecall
-            oldIndex = oldIndex or mt.__index
-
-            mt.__namecall = newcclosure(function(self, ...)
-                local method = getnamecallmethod()
-                local args = {...}
-
-                if (method == "Kick" or method == "Ban") and self == LocalPlayer then return nil end
-                if (method == "FireServer" or method == "InvokeServer") and args[1] then
-                    local msg = tostring(args[1]):lower()
-                    if msg:find("kick") or msg:find("ban") then return nil end
-                end
-                if self == LocalizationService and method == "GetCountryRegionForPlayerAsync" then
-                    local success, result = pcall(function()
-                        return LocalizationService:GetCountryRegionForPlayerAsync(LocalPlayer)
-                    end)
-                    if success then return result else return "US" end
-                end
-
-                return oldNamecall(self, ...)
-            end)
-
-            mt.__index = newcclosure(function(t, k)
-                local key = tostring(k):lower()
-                if key:find("kick") or key:find("ban") then return function() return nil end end
-                return oldIndex(t, k)
-            end)
-
-            setreadonly(mt, true)
-        end
-    end
-
-    -- Restore hooks
-    local function restoreHooks()
-        if getrawmetatable then
-            local mt = getrawmetatable(game)
-            setreadonly(mt, false)
-            if oldNamecall then mt.__namecall = oldNamecall end
-            if oldIndex then mt.__index = oldIndex end
-            setreadonly(mt, true)
-            oldNamecall, oldIndex = nil, nil
-        end
-    end
-
-    -- Start protection
-    local function startAntiBanSafe()
-        if data.running then return end
-        data.running = true
-
-        safe(hookRequests)
-        safe(hookFindFirstChild)
-        safe(safeBypass)
-
-        -- Disable screenshot/video flags liên tục
-        protectionThread = task.spawn(function()
-            while data.running do
-                safe(disableReportFlags)
-                task.wait(0.2)
-            end
-        end)
-
-        print("[Anti-Ban Safe] 🛡️ ENABLED!")
-    end
-
-    -- Tự động bật AntiBanV3 ngay khi chạy script
-    startAntiBanSafe()
-end
----------------------------------------------------------------------------------
--- 🪄 Chức Năng
----------------------------------------------------------------------------------
 
 do
     local Players = game:GetService("Players")
@@ -865,12 +703,12 @@ do
     end
 
     -- Toggle kiểu MainTab
-    MiscTab:Toggle("Auto Slash", enabled, "Tự động dịch chuyển và tấn công", function(val)
+    MainTab:Toggle("Auto Slash", enabled, "Tự động dịch chuyển và tấn công", function(val)
         enabled = val
     end)
 
     -- Slider kiểu SeaTab
-    MiscTab:Slider("Slash Distance", 1, 50, maxDistance, function(v)
+    MainTab:Slider("Slash Distance", 1, 50, maxDistance, function(v)
         maxDistance = v
     end)
 
@@ -1007,15 +845,15 @@ do
     end
 
     -- Toggle + slider UI kiểu Fluent
-    MiscTab:Toggle("Auto Heal", healEnabled, "Tự động hồi máu khi HP thấp và không có kẻ gần", function(val)
+    MainTab:Toggle("Auto Heal", healEnabled, "Tự động hồi máu khi HP thấp và không có kẻ gần", function(val)
         healEnabled = val
     end)
 
-    MiscTab:Slider("Heal HP", 1, 100, healHPThreshold, function(v)
+    MainTab:Slider("Heal HP", 1, 100, healHPThreshold, function(v)
         healHPThreshold = v
     end)
 
-    MiscTab:Slider("Heal Distance", 1, 150, healDistance, function(v)
+    MainTab:Slider("Heal Distance", 1, 150, healDistance, function(v)
         healDistance = v
     end)
 
@@ -2798,7 +2636,7 @@ end)
 
 
 
-MainTab:Seperator("Cammera");
+MiscTab:Seperator("Cammera");
 
 
 
@@ -2897,7 +2735,7 @@ end)
 
 
 
-MainTab:Seperator("Show");
+MiscTab:Seperator("Show");
 
 
 local RunService = game:GetService("RunService")
@@ -3284,7 +3122,7 @@ end
 
 
 
-MainTab:Seperator("Fix Lag");
+MiscTab:Seperator("Fix Lag");
 
 -- Lưu dữ liệu gốc
 local originalLighting = {}
@@ -3468,6 +3306,10 @@ MiscTab:Toggle("Block Animations", BlockAnimEnabled, "Loại bỏ hoạt ảnh s
     setBlockAnimations(value)
 end)
 
+
+
+
+end
 
 
 
