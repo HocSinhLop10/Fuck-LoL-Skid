@@ -1746,6 +1746,359 @@ do
 end
 
 
+
+
+MainTab:Seperator("Noli");
+
+
+--// ⚡ Void Rush Aimbot (Fluent UI Version)
+do
+    local RunService = game:GetService("RunService")
+    local Players = game:GetService("Players")
+    local LocalPlayer = Players.LocalPlayer
+
+    -- ====== CONFIG ======
+    _G.VoidRushControl = false
+    local DASH_SPEED = 80
+    local ATTACK_RANGE = 6
+    local ATTACK_INTERVAL = 0.2
+    local PRIORITY_NAMES = {
+        ["Noob"] = true, ["Guest1337"] = true, ["Elliot"] = true,
+        ["Shedletsky"] = true, ["TwoTime"] = true, ["007n7"] = true, ["Veeronica"] = true,
+        ["Chance"] = true, ["Builderman"] = true, ["Taph"] = true, ["Dusekkar"] = true
+    }
+
+    -- ====== STATE ======
+    local isOverrideActive = false
+    local connection
+    local Humanoid, RootPart
+    local lastState = nil
+    local attackingLoop = nil
+
+    -- 🧩 Character setup
+    local function setupCharacter(character)
+        Humanoid = character:WaitForChild("Humanoid")
+        RootPart = character:WaitForChild("HumanoidRootPart")
+
+        Humanoid.Died:Connect(function()
+            stopOverride()
+        end)
+    end
+
+    if LocalPlayer.Character then
+        setupCharacter(LocalPlayer.Character)
+    end
+    LocalPlayer.CharacterAdded:Connect(setupCharacter)
+
+    -- 🎯 Target validator
+    local function validTarget(p)
+        if p == LocalPlayer then return false end
+        local c = p.Character
+        if not c then return false end
+        local hrp = c:FindFirstChild("HumanoidRootPart")
+        local hum = c:FindFirstChild("Humanoid")
+        return hrp and hum and hum.Health > 0
+    end
+
+    -- 🔍 Find closest target (priority by whitelist)
+    local function getClosestTarget()
+        if not RootPart then return nil end
+
+        local closestW, distW = nil, math.huge
+        local closestA, distA = nil, math.huge
+
+        for _, p in ipairs(Players:GetPlayers()) do
+            if validTarget(p) then
+                local hrp = p.Character.HumanoidRootPart
+                local d = (hrp.Position - RootPart.Position).Magnitude
+
+                if PRIORITY_NAMES[p.Name] and d < distW then
+                    distW = d
+                    closestW = p
+                end
+                if d < distA then
+                    distA = d
+                    closestA = p
+                end
+            end
+        end
+
+        return closestW or closestA, distW < math.huge and distW or distA
+    end
+
+    -- ⚔️ Attempt attack (Tool:Activate)
+    local function attemptAttack()
+        local char = LocalPlayer.Character
+        if not char then return end
+        local tool = char:FindFirstChildOfClass("Tool")
+        if tool and tool.Parent == char then
+            pcall(function() tool:Activate() end)
+        end
+    end
+
+    -- 🌀 Control Void Rush
+    local function startOverride()
+        if isOverrideActive or not Humanoid or not RootPart then return end
+        isOverrideActive = true
+
+        connection = RunService.RenderStepped:Connect(function()
+            if not Humanoid or not RootPart or Humanoid.Health <= 0 then return end
+            local target, dist = getClosestTarget()
+
+            if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
+                local hrp = target.Character.HumanoidRootPart
+                local dir = hrp.Position - RootPart.Position
+                local horizontal = Vector3.new(dir.X, 0, dir.Z)
+
+                if horizontal.Magnitude > 0.1 then
+                    RootPart.CFrame = CFrame.new(RootPart.Position, Vector3.new(hrp.Position.X, RootPart.Position.Y, hrp.Position.Z))
+                    RootPart.AssemblyLinearVelocity = horizontal.Unit * DASH_SPEED
+                else
+                    RootPart.AssemblyLinearVelocity = Vector3.zero
+                end
+            else
+                RootPart.AssemblyLinearVelocity = Vector3.zero
+            end
+        end)
+
+        attackingLoop = task.spawn(function()
+            while isOverrideActive do
+                local target, dist = getClosestTarget()
+                if target and dist and dist <= ATTACK_RANGE then
+                    attemptAttack()
+                end
+                task.wait(ATTACK_INTERVAL)
+            end
+        end)
+    end
+
+    function stopOverride()
+        if not isOverrideActive then return end
+        isOverrideActive = false
+
+        if connection then
+            connection:Disconnect()
+            connection = nil
+        end
+        if RootPart then
+            RootPart.AssemblyLinearVelocity = Vector3.zero
+        end
+    end
+
+    -- 🔄 Check Void Rush State
+    RunService.RenderStepped:Connect(function()
+        if not _G.VoidRushControl or not Humanoid then return end
+        local state = Humanoid.Parent and Humanoid.Parent:GetAttribute("VoidRushState")
+        if state ~= lastState then
+            lastState = state
+            if state == "Dashing" then
+                startOverride()
+            else
+                stopOverride()
+            end
+        end
+    end)
+
+    -- 🧭 Fluent Toggle
+    MainTab:Toggle("Void Rush Aimbot", _G.VoidRushControl, "Tự động aim vào người gần nhất", function(v)
+        _G.VoidRushControl = v
+        if not v then
+            stopOverride()
+        end
+    end)
+end
+
+
+MainTab:Seperator("1x1x1x1");
+
+--// ⚡ 1x1x1x1 MassInfection Aimbot (Fluent UI Version)
+do
+    -- === STATE + UI CONFIG ===
+    _G.MassAimOn = false
+    local aimMode = "One Player"
+    local predictMovement = false
+
+    MainTab:Dropdown("Aim Mode", {"One Player", "Multi Players", "Teleport"}, aimMode, "Select aim type", function(v)
+        aimMode = v
+    end)
+
+    MainTab:Toggle("MassInfection Aimbot", _G.MassAimOn, "Tự động điều chỉnh hướng ném chiêu", function(v)
+        _G.MassAimOn = v
+    end)
+
+    MainTab:Toggle("Predict Movement", predictMovement, "Thêm độ lệch nếu mục tiêu di chuyển", function(v)
+        predictMovement = v
+    end)
+
+    -- === SERVICES ===
+    local Players = game:GetService("Players")
+    local RunService = game:GetService("RunService")
+    local localPlayer = Players.LocalPlayer
+
+    -- === DATA ===
+    local dangerousAnimations = {
+        ["131430497821198"] = true,
+        ["100592913030351"] = true,
+        ["70447634862911"]  = true,
+        ["83685305553364"] = true
+    }
+
+    local killerModels = {["1x1x1x1"] = true}
+    local survivorModels = {
+        ["Noob"] = true, ["Guest1337"] = true, ["Elliot"] = true,
+        ["Shedletsky"] = true, ["TwoTime"] = true, ["007n7"] = true, ["Veeronica"] = true,
+        ["Chance"] = true, ["Builderman"] = true, ["Taph"] = true, ["Dusekkar"] = true
+    }
+
+    -- === STATE ===
+    local autoRotateDisabledByScript = false
+    local currentTarget, isLockedOn, wasPlayingAnimation = nil, false, false
+
+    -- === UTILITIES ===
+    local function isKiller()
+        local char = localPlayer.Character
+        return char and killerModels[char.Name] or false
+    end
+
+    local function getMyHumanoid()
+        local char = localPlayer.Character
+        return char and char:FindFirstChildWhichIsA("Humanoid")
+    end
+
+    local function restoreAutoRotate()
+        local hum = getMyHumanoid()
+        if hum and autoRotateDisabledByScript then
+            hum.AutoRotate = true
+            autoRotateDisabledByScript = false
+        end
+    end
+
+    local function isPlayingDangerousAnimation()
+        local humanoid = getMyHumanoid()
+        if not humanoid then return false end
+        local animator = humanoid:FindFirstChildOfClass("Animator")
+        if not animator then return false end
+
+        for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
+            local animId = tostring(track.Animation.AnimationId):match("%d+")
+            if animId and dangerousAnimations[animId] then
+                return true
+            end
+        end
+        return false
+    end
+
+    local function getClosestSurvivor()
+        local myHumanoid = getMyHumanoid()
+        if not myHumanoid then return nil end
+        local myRoot = myHumanoid.Parent and myHumanoid.Parent:FindFirstChild("HumanoidRootPart")
+        if not myRoot then return nil end
+
+        local closest, closestDist = nil, math.huge
+        for _, obj in pairs(workspace:GetDescendants()) do
+            if obj:IsA("Model") and survivorModels[obj.Name] then
+                local hrp = obj:FindFirstChild("HumanoidRootPart")
+                local hum = obj:FindFirstChildWhichIsA("Humanoid")
+                if hrp and hum and hum.Health > 0 then
+                    local dist = (hrp.Position - myRoot.Position).Magnitude
+                    if dist < closestDist then
+                        closest = obj
+                        closestDist = dist
+                    end
+                end
+            end
+        end
+        return closest
+    end
+
+    -- reset khi respawn
+    localPlayer.CharacterAdded:Connect(function()
+        task.delay(0.1, function()
+            autoRotateDisabledByScript = false
+        end)
+    end)
+
+    -- === MAIN LOOP ===
+    RunService.RenderStepped:Connect(function()
+        if not _G.MassAimOn then
+            restoreAutoRotate()
+            currentTarget, isLockedOn, wasPlayingAnimation = nil, false, false
+            return
+        end
+
+        if not isKiller() then
+            restoreAutoRotate()
+            currentTarget, isLockedOn, wasPlayingAnimation = nil, false, false
+            return
+        end
+
+        local myHumanoid = getMyHumanoid()
+        if not myHumanoid then return end
+        local myRoot = myHumanoid.Parent and myHumanoid.Parent:FindFirstChild("HumanoidRootPart")
+        if not myRoot then return end
+
+        local isPlaying = isPlayingDangerousAnimation()
+
+        -- Lock target 1 lần khi bắt đầu animation
+        if isPlaying and not isLockedOn then
+            currentTarget = getClosestSurvivor()
+            if currentTarget then isLockedOn = true end
+        end
+
+        -- Validate target
+        if isLockedOn and currentTarget then
+            local tHum = currentTarget:FindFirstChildWhichIsA("Humanoid")
+            local tHrp = currentTarget:FindFirstChild("HumanoidRootPart")
+            if (not tHum) or (tHum and tHum.Health <= 0) or (not tHrp) then
+                currentTarget, isLockedOn = nil, false
+            end
+        end
+
+        -- Reset sau animation
+        if (not isPlaying) and wasPlayingAnimation then
+            currentTarget, isLockedOn = nil, false
+            restoreAutoRotate()
+        end
+        wasPlayingAnimation = isPlaying
+
+        -- Aim/Teleport logic
+        if isPlaying and isLockedOn and currentTarget and currentTarget:FindFirstChild("HumanoidRootPart") then
+            local hrp = currentTarget.HumanoidRootPart
+            local targetPos = hrp.Position
+
+            if not autoRotateDisabledByScript then
+                myHumanoid.AutoRotate = false
+                autoRotateDisabledByScript = true
+            end
+
+            -- Predict movement nếu bật
+            if predictMovement then
+                local vel = hrp.Velocity
+                if vel.Magnitude > 2 then
+                    targetPos = targetPos + hrp.CFrame.LookVector * 3
+                end
+            end
+
+            local lookAt = Vector3.new(targetPos.X, myRoot.Position.Y, targetPos.Z)
+
+            if aimMode == "One Player" then
+                myRoot.CFrame = myRoot.CFrame:Lerp(CFrame.lookAt(myRoot.Position, lookAt), 0.99)
+
+            elseif aimMode == "Multi Players" then
+                local newTarget = getClosestSurvivor()
+                if newTarget then currentTarget = newTarget end
+                myRoot.CFrame = myRoot.CFrame:Lerp(CFrame.lookAt(myRoot.Position, lookAt), 0.99)
+
+            elseif aimMode == "Teleport" then
+                local targetLookVector = hrp.CFrame.LookVector
+                local behindPos = hrp.Position - targetLookVector * 3
+                myRoot.CFrame = CFrame.new(behindPos, targetPos)
+            end
+        end
+    end)
+end
+
+
 ---------------------------------------------------------------------------------
 -- Player
 ---------------------------------------------------------------------------------
