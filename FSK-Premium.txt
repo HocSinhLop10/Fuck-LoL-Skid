@@ -1913,29 +1913,35 @@ MainTab:Seperator("1x1x1x1");
 
 --// ⚡ 1x1x1x1 MassInfection Aimbot (Fluent UI Version)
 do
-    -- === STATE + UI CONFIG ===
+    -- ⚙️ STATE
+    local aimModes = {
+        "One Player",
+        "Multi Players",
+        "Teleport"
+    }
+
+    _G.AimMode = "One Player"
     _G.MassAimOn = false
-    local aimMode = "One Player"
-    local predictMovement = false
+    _G.PredictMovement = false
 
-    MainTab:Dropdown("Aim Mode", {"One Player", "Multi Players", "Teleport"}, aimMode, "Select aim type", function(v)
-        aimMode = v
+    -- 🧩 GUI
+    MainTab:Dropdown("Aim Mode", aimModes, _G.AimMode, function(value)
+        _G.AimMode = value
     end)
 
-    MainTab:Toggle("MassInfection Aimbot", _G.MassAimOn, "Tự động điều chỉnh hướng ném chiêu", function(v)
-        _G.MassAimOn = v
+    MainTab:Toggle("MassInfection Aimbot", _G.MassAimOn, "Auto Aim system for killer 1x1x1x1", function(value)
+        _G.MassAimOn = value
     end)
 
-    MainTab:Toggle("Predict Movement", predictMovement, "Thêm độ lệch nếu mục tiêu di chuyển", function(v)
-        predictMovement = v
+    MainTab:Toggle("Predict Movement", _G.PredictMovement, "Predict target movement slightly ahead", function(value)
+        _G.PredictMovement = value
     end)
 
-    -- === SERVICES ===
+    -- 🧠 SERVICES
     local Players = game:GetService("Players")
     local RunService = game:GetService("RunService")
     local localPlayer = Players.LocalPlayer
 
-    -- === DATA ===
     local dangerousAnimations = {
         ["131430497821198"] = true,
         ["100592913030351"] = true,
@@ -1950,11 +1956,9 @@ do
         ["Chance"] = true, ["Builderman"] = true, ["Taph"] = true, ["Dusekkar"] = true
     }
 
-    -- === STATE ===
     local autoRotateDisabledByScript = false
     local currentTarget, isLockedOn, wasPlayingAnimation = nil, false, false
 
-    -- === UTILITIES ===
     local function isKiller()
         local char = localPlayer.Character
         return char and killerModels[char.Name] or false
@@ -2011,14 +2015,13 @@ do
         return closest
     end
 
-    -- reset khi respawn
     localPlayer.CharacterAdded:Connect(function()
         task.delay(0.1, function()
             autoRotateDisabledByScript = false
         end)
     end)
 
-    -- === MAIN LOOP ===
+    -- 🔁 MAIN LOOP
     RunService.RenderStepped:Connect(function()
         if not _G.MassAimOn then
             restoreAutoRotate()
@@ -2039,13 +2042,11 @@ do
 
         local isPlaying = isPlayingDangerousAnimation()
 
-        -- Lock target 1 lần khi bắt đầu animation
         if isPlaying and not isLockedOn then
             currentTarget = getClosestSurvivor()
             if currentTarget then isLockedOn = true end
         end
 
-        -- Validate target
         if isLockedOn and currentTarget then
             local tHum = currentTarget:FindFirstChildWhichIsA("Humanoid")
             local tHrp = currentTarget:FindFirstChild("HumanoidRootPart")
@@ -2054,14 +2055,12 @@ do
             end
         end
 
-        -- Reset sau animation
         if (not isPlaying) and wasPlayingAnimation then
             currentTarget, isLockedOn = nil, false
             restoreAutoRotate()
         end
         wasPlayingAnimation = isPlaying
 
-        -- Aim/Teleport logic
         if isPlaying and isLockedOn and currentTarget and currentTarget:FindFirstChild("HumanoidRootPart") then
             local hrp = currentTarget.HumanoidRootPart
             local targetPos = hrp.Position
@@ -2071,8 +2070,7 @@ do
                 autoRotateDisabledByScript = true
             end
 
-            -- Predict movement nếu bật
-            if predictMovement then
+            if _G.PredictMovement then
                 local vel = hrp.Velocity
                 if vel.Magnitude > 2 then
                     targetPos = targetPos + hrp.CFrame.LookVector * 3
@@ -2081,15 +2079,13 @@ do
 
             local lookAt = Vector3.new(targetPos.X, myRoot.Position.Y, targetPos.Z)
 
-            if aimMode == "One Player" then
+            if _G.AimMode == "One Player" then
                 myRoot.CFrame = myRoot.CFrame:Lerp(CFrame.lookAt(myRoot.Position, lookAt), 0.99)
-
-            elseif aimMode == "Multi Players" then
+            elseif _G.AimMode == "Multi Players" then
                 local newTarget = getClosestSurvivor()
                 if newTarget then currentTarget = newTarget end
                 myRoot.CFrame = myRoot.CFrame:Lerp(CFrame.lookAt(myRoot.Position, lookAt), 0.99)
-
-            elseif aimMode == "Teleport" then
+            elseif _G.AimMode == "Teleport" then
                 local targetLookVector = hrp.CFrame.LookVector
                 local behindPos = hrp.Position - targetLookVector * 3
                 myRoot.CFrame = CFrame.new(behindPos, targetPos)
