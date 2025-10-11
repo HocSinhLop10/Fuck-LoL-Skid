@@ -121,6 +121,7 @@ end)
 ---------------------------------------------------------------------------------
 -- đŸ† Anti Afk
 ---------------------------------------------------------------------------------
+do
 local antiAFKCons = {}
 
 -- Kiá»ƒm tra getconnections cĂ³ tá»“n táº¡i khĂ´ng
@@ -136,6 +137,7 @@ if getconnections then
     print("[AntiAFK] ÄĂ£ tá»± Ä‘á»™ng báº­t, báº¡n sáº½ khĂ´ng bá»‹ kick AFK.")
 else
     warn("[AntiAFK] Executor khĂ´ng há»— trá»£ getconnections, script khĂ´ng thá»ƒ cháº¡y.")
+end
 end
 ---------------------------------------------------------------------------------
 -- đŸª™ Anti Ban
@@ -2210,7 +2212,7 @@ do
     -- 🧩 Toggle kiểu Fluent
     _G.ESPPlayer = _G.ESPPlayer or false
 
-    PlayerTab:Toggle("ESP Player", _G.ESPPlayer, "Hiện vị trí của người chơi", function(value)
+    VisualTab:Toggle("ESP Player", _G.ESPPlayer, "Hiện vị trí của người chơi", function(value)
         _G.ESPPlayer = value
         if value then
             startESP()
@@ -2725,4 +2727,758 @@ end
 ---------------------------------------------------------------------------------
 -- Misc
 ---------------------------------------------------------------------------------
+
+-- FullBright Toggle
+local fullBrightEnabled = false
+local fullBrightLoop
+
+local function applyFullBright()
+    if not fullBrightEnabled then return end
+    game:GetService("Lighting").Ambient = Color3.fromRGB(200, 200, 200)
+    game:GetService("Lighting").Brightness = 4
+    game:GetService("Lighting").GlobalShadows = false
+end
+
+local function enableFullBright()
+    if fullBrightLoop then fullBrightLoop:Disconnect() end
+    applyFullBright()
+    fullBrightLoop = game:GetService("Lighting"):GetPropertyChangedSignal("ClockTime"):Connect(applyFullBright)
+end
+
+local function disableFullBright()
+    if fullBrightLoop then fullBrightLoop:Disconnect() fullBrightLoop=nil end
+    local Lighting = game:GetService("Lighting")
+    Lighting.Ambient = Color3.fromRGB(128,128,128)
+    Lighting.Brightness = 1
+    Lighting.GlobalShadows = true
+end
+
+MiscTab:Toggle("Full Bright", fullBrightEnabled, "Giúp Trời Sáng hơn x200 lần", function(value)
+    fullBrightEnabled = value
+    if fullBrightEnabled then
+        enableFullBright()
+    else
+        disableFullBright()
+    end
+end)
+
+-- Remove Fog Toggle
+local fogEnabled = false
+local fogLoop
+
+local function removeFog()
+    local Lighting = game:GetService("Lighting")
+    Lighting.FogStart = 0
+    Lighting.FogEnd = 1000000
+    local atmosphere = Lighting:FindFirstChild("Atmosphere")
+    if atmosphere then
+        atmosphere.Density = 0
+        atmosphere.Offset = 0
+        atmosphere.Haze = 0
+        atmosphere.Color = Color3.new(1,1,1)
+    end
+end
+
+local function restoreFog()
+    local Lighting = game:GetService("Lighting")
+    Lighting.FogStart = 200
+    Lighting.FogEnd = 1000
+    local atmosphere = Lighting:FindFirstChild("Atmosphere")
+    if atmosphere then
+        atmosphere.Density = 0.3
+        atmosphere.Offset = 0
+        atmosphere.Haze = 0.5
+        atmosphere.Color = Color3.fromRGB(200,200,200)
+    end
+end
+
+MiscTab:Toggle("Remove Fog", fogEnabled, "Loại bỏ sương mù quanh bản đồ", function(value)
+    fogEnabled = value
+    if fogEnabled then
+        removeFog()
+        if fogLoop then fogLoop:Disconnect() end
+        fogLoop = game:GetService("RunService").Heartbeat:Connect(removeFog)
+    else
+        if fogLoop then fogLoop:Disconnect() fogLoop=nil end
+        restoreFog()
+    end
+end)
+
+
+
+
+MiscTab:Seperator("Cammera");
+
+
+
+local Lighting = game:GetService("Lighting")
+local Players = game:GetService("Players")
+local LP = Players.LocalPlayer
+local PlayerGui = LP:WaitForChild("PlayerGui")
+
+-- Flag bật/tắt
+local ActiveRemoveAll = true
+
+-- Danh sách tên hiệu ứng thường gặp
+local effectNames = {
+    "BlurEffect", "ColorCorrectionEffect", "BloomEffect", "SunRaysEffect", 
+    "DepthOfFieldEffect", "ScreenFlash", "HitEffect", "DamageOverlay", 
+    "BloodEffect", "Vignette", "BlackScreen", "WhiteScreen", "ShockEffect",
+    "Darkness", "JumpScare", "LowHealthOverlay", "Flashbang", "FadeEffect"
+}
+
+-- Danh sách class hiệu ứng trong Lighting
+local effectClasses = {
+    "BlurEffect",
+    "BloomEffect",
+    "SunRaysEffect",
+    "DepthOfFieldEffect",
+    "ColorCorrectionEffect"
+}
+
+-- 🌟 Hàm xoá tất cả (effects + popups)
+local function removeAll()
+    -- Xoá hiệu ứng trong Lighting
+    for _, obj in pairs(Lighting:GetDescendants()) do
+        if table.find(effectNames, obj.Name) or table.find(effectClasses, obj.ClassName) then
+            obj:Destroy()
+        end
+    end
+
+    -- Xoá GUI overlay
+    for _, obj in pairs(PlayerGui:GetDescendants()) do
+        if table.find(effectNames, obj.Name) then
+            obj:Destroy()
+        elseif obj:IsA("ScreenGui") or obj:IsA("BillboardGui") or obj:IsA("SurfaceGui") then
+            if obj:FindFirstChildWhichIsA("ImageLabel") or obj:FindFirstChildWhichIsA("Frame") then
+                if table.find(effectNames, obj.Name) or obj.Name:lower():find("overlay") or obj.Name:lower():find("effect") then
+                    obj:Destroy()
+                end
+            end
+        end
+    end
+
+    -- Xoá popup 1x1x1x1
+    local temp = PlayerGui:FindFirstChild("TemporaryUI")
+    if temp then
+        local popup = temp:FindFirstChild("1x1x1x1Popup")
+        if popup then
+            popup:Destroy()
+            warn("[Remover] 1x1x1x1Popup removed")
+        end
+    end
+end
+
+-- ✅ Toggle dạng nút inline
+MiscTab:Toggle("Remove Effects", ActiveRemoveAll, "Xóa bỏ một số hiệu ứng  bất lợi", function(value)
+    ActiveRemoveAll = value
+    if ActiveRemoveAll then
+        task.spawn(function()
+            while ActiveRemoveAll do
+                removeAll()
+                task.wait(0.5)
+            end
+        end)
+    end
+end)
+
+
+
+
+
+local Players = game:GetService("Players")
+local LP = Players.LocalPlayer
+
+-- ✅ Toggle Infinite Zoom
+MiscTab:Toggle("Infinite Zoom", false, "Giúp bạn phóng to cammera vô hạn", function(value)
+    if value then
+        LP.CameraMaxZoomDistance = math.huge
+        LP.CameraMinZoomDistance = 0
+        warn("[Camera] Infinite zoom enabled")
+    else
+        LP.CameraMaxZoomDistance = 128 -- giá trị mặc định Roblox
+        LP.CameraMinZoomDistance = 0.5 -- giá trị mặc định Roblox
+        warn("[Camera] Zoom reset to default")
+    end
+end)
+
+
+
+
+
+MiscTab:Seperator("Show");
+
+
+local RunService = game:GetService("RunService")
+local showFPS = true
+local showPing = true
+
+local fpsText = Drawing.new("Text")
+fpsText.Size = 16
+fpsText.Position = Vector2.new(workspace.CurrentCamera.ViewportSize.X - 100, 10)
+fpsText.Color = Color3.fromRGB(0, 255, 0)
+fpsText.Center = false
+fpsText.Outline = true
+fpsText.Visible = showFPS
+
+local msText = Drawing.new("Text")
+msText.Size = 16
+msText.Position = Vector2.new(workspace.CurrentCamera.ViewportSize.X - 100, 30)
+msText.Color = Color3.fromRGB(0, 255, 0)
+msText.Center = false
+msText.Outline = true
+msText.Visible = showPing
+
+local fpsCounter = 0
+local fpsLastUpdate = tick()
+
+RunService.RenderStepped:Connect(function()
+    fpsCounter += 1
+    if tick() - fpsLastUpdate >= 1 then
+        -- Update FPS
+        fpsText.Text = "FPS: " .. tostring(fpsCounter)
+        fpsText.Visible = showFPS
+
+        -- Update Ping
+        local pingStat = game:GetService("Stats").Network.ServerStatsItem["Data Ping"]
+        local ping = pingStat and math.floor(pingStat:GetValue()) or 0
+        msText.Text = "Ping: " .. ping .. " ms"
+
+        if ping <= 60 then
+            msText.Color = Color3.fromRGB(0, 255, 0)
+        elseif ping <= 120 then
+            msText.Color = Color3.fromRGB(255, 165, 0)
+        else
+            msText.Color = Color3.fromRGB(255, 0, 0)
+        end
+        msText.Visible = showPing
+
+        fpsCounter = 0
+        fpsLastUpdate = tick()
+    end
+end)
+
+-- ✅ Toggle: Show FPS
+MiscTab:Toggle("Show FPS", showFPS, "Hiện Fps hiện tại của bạn", function(value)
+    showFPS = value
+    fpsText.Visible = value
+end)
+
+-- ✅ Toggle: Show Ping
+MiscTab:Toggle("Show Ping", showPing, "Hiện Ping hiện tại của bạn", function(value)
+    showPing = value
+    msText.Visible = value
+end)
+
+
+
+do
+-- LocalScript: Custom mirror of Roblox chat (view + send + collapse)
+-- Place in StarterPlayerScripts hoặc StarterGui
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
+local TextChatService = game:GetService("TextChatService")
+
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+-- === CONFIG ===
+local USE_RICHTEXT = true
+
+-- === ScreenGui ===
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "CustomChatGUI"
+screenGui.ResetOnSpawn = false
+screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+screenGui.Parent = playerGui
+
+-- === Frame chính ===
+local chatFrame = Instance.new("Frame")
+chatFrame.Name = "ChatFrame"
+chatFrame.Size = UDim2.fromScale(0.32, 0.42)
+chatFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+chatFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
+chatFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+chatFrame.BackgroundTransparency = 0.25
+chatFrame.BorderSizePixel = 0
+chatFrame.Active = true
+chatFrame.ClipsDescendants = true
+chatFrame.Parent = screenGui
+
+local sizeConstraint = Instance.new("UISizeConstraint")
+sizeConstraint.MaxSize = Vector2.new(660, 480)
+sizeConstraint.MinSize = Vector2.new(260, 32)
+sizeConstraint.Parent = chatFrame
+
+local uiCorner = Instance.new("UICorner")
+uiCorner.CornerRadius = UDim.new(0, 12)
+uiCorner.Parent = chatFrame
+
+-- === Thanh tiêu đề ===
+local titleBar = Instance.new("Frame")
+titleBar.Name = "TitleBar"
+titleBar.Size = UDim2.new(1, 0, 0, 28)
+titleBar.BackgroundTransparency = 1
+titleBar.Parent = chatFrame
+
+local title = Instance.new("TextLabel")
+title.BackgroundTransparency = 1
+title.Size = UDim2.new(1, -40, 1, 0)
+title.Position = UDim2.new(0, 6, 0, 0)
+title.Font = Enum.Font.SourceSansSemibold
+title.TextSize = 18
+title.TextXAlignment = Enum.TextXAlignment.Left
+title.TextColor3 = Color3.fromRGB(240, 240, 240)
+title.Text = "Khung chat ảo"
+title.Parent = titleBar
+
+-- Nút thu gọn
+local toggleBtn = Instance.new("TextButton")
+toggleBtn.Name = "ToggleBtn"
+toggleBtn.Size = UDim2.new(0, 28, 0, 24)
+toggleBtn.Position = UDim2.new(1, -32, 0.5, -12)
+toggleBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+toggleBtn.Text = "-"
+toggleBtn.Font = Enum.Font.SourceSansBold
+toggleBtn.TextSize = 20
+toggleBtn.TextColor3 = Color3.fromRGB(255,255,255)
+toggleBtn.Parent = titleBar
+
+local toggleCorner = Instance.new("UICorner")
+toggleCorner.CornerRadius = UDim.new(0, 6)
+toggleCorner.Parent = toggleBtn
+
+-- Viền mỏng
+local stroke = Instance.new("UIStroke")
+stroke.Thickness = 1
+stroke.Transparency = 0.6
+stroke.Color = Color3.fromRGB(255,255,255)
+stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+stroke.Parent = chatFrame
+
+-- === ScrollingFrame ===
+local scroll = Instance.new("ScrollingFrame")
+scroll.Name = "Messages"
+scroll.Size = UDim2.new(1, -10, 1, -72)
+scroll.Position = UDim2.new(0, 5, 0, 34)
+scroll.BackgroundTransparency = 1
+scroll.BorderSizePixel = 0
+scroll.ScrollBarThickness = 6
+scroll.ScrollingDirection = Enum.ScrollingDirection.Y
+scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+scroll.CanvasSize = UDim2.new(0,0,0,0)
+scroll.Parent = chatFrame
+
+local padding = Instance.new("UIPadding")
+padding.PaddingTop = UDim.new(0, 4)
+padding.PaddingBottom = UDim.new(0, 6)
+padding.PaddingLeft = UDim.new(0, 6)
+padding.PaddingRight = UDim.new(0, 6)
+padding.Parent = scroll
+
+local layout = Instance.new("UIListLayout")
+layout.Padding = UDim.new(0, 4)
+layout.SortOrder = Enum.SortOrder.LayoutOrder
+layout.Parent = scroll
+
+layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+	scroll.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 8)
+end)
+
+-- === Input bar ===
+local inputBar = Instance.new("Frame")
+inputBar.Name = "InputBar"
+inputBar.Size = UDim2.new(1, -10, 0, 32)
+inputBar.Position = UDim2.new(0, 5, 1, -36)
+inputBar.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+inputBar.BackgroundTransparency = 0.2
+inputBar.BorderSizePixel = 0
+inputBar.Parent = chatFrame
+
+local inputCorner = Instance.new("UICorner")
+inputCorner.CornerRadius = UDim.new(0, 8)
+inputCorner.Parent = inputBar
+
+local textBox = Instance.new("TextBox")
+textBox.Name = "ChatInput"
+textBox.Size = UDim2.new(1, -50, 1, 0)
+textBox.Position = UDim2.new(0, 6, 0, 0)
+textBox.BackgroundTransparency = 1
+textBox.Font = Enum.Font.SourceSans
+textBox.TextSize = 18
+textBox.TextXAlignment = Enum.TextXAlignment.Left
+textBox.PlaceholderText = "Nhập tin nhắn..."
+textBox.TextColor3 = Color3.fromRGB(255,255,255)
+textBox.Parent = inputBar
+
+local sendBtn = Instance.new("TextButton")
+sendBtn.Name = "SendBtn"
+sendBtn.Size = UDim2.new(0, 44, 1, 0)
+sendBtn.Position = UDim2.new(1, -44, 0, 0)
+sendBtn.BackgroundColor3 = Color3.fromRGB(50, 120, 255)
+sendBtn.Text = "➤"
+sendBtn.Font = Enum.Font.SourceSansBold
+sendBtn.TextSize = 20
+sendBtn.TextColor3 = Color3.fromRGB(255,255,255)
+sendBtn.Parent = inputBar
+
+local sendCorner = Instance.new("UICorner")
+sendCorner.CornerRadius = UDim.new(0, 8)
+sendCorner.Parent = sendBtn
+
+-- === Collapse logic ===
+local collapsed = false
+local fullHeight = chatFrame.Size
+
+toggleBtn.MouseButton1Click:Connect(function()
+	collapsed = not collapsed
+	if collapsed then
+		scroll.Visible = false
+		inputBar.Visible = false
+		chatFrame.Size = UDim2.new(chatFrame.Size.X.Scale, chatFrame.Size.X.Offset, 0, 32)
+		toggleBtn.Text = "+"
+	else
+		scroll.Visible = true
+		inputBar.Visible = true
+		chatFrame.Size = fullHeight
+		toggleBtn.Text = "-"
+	end
+end)
+
+-- === Helper: strip tag ===
+local function stripTags(str)
+	return (str:gsub("<[^>]->", ""))
+end
+
+-- === Add message ===
+local function addMessage(text, speaker)
+	local msg = Instance.new("TextLabel")
+	msg.Name = "Msg"
+	msg.BackgroundTransparency = 1
+	msg.TextXAlignment = Enum.TextXAlignment.Left
+	msg.TextWrapped = true
+	msg.RichText = USE_RICHTEXT
+	msg.Font = Enum.Font.SourceSans
+	msg.TextSize = 18
+	msg.TextColor3 = Color3.fromRGB(255, 255, 255)
+	msg.AutomaticSize = Enum.AutomaticSize.Y
+	msg.Size = UDim2.new(1, 0, 0, 0)
+
+	if not USE_RICHTEXT then
+		text = stripTags(text or "")
+	end
+
+	msg.Text = string.format("[%s]: %s", speaker or "Hệ thống", text or "")
+	msg.Parent = scroll
+
+	task.defer(function()
+		scroll.CanvasPosition = Vector2.new(0, 1e7)
+	end)
+end
+
+-- === Kéo/thả ===
+do
+	local dragging, dragInput, dragStart, startPos
+	local function update(input)
+		local delta = input.Position - dragStart
+		chatFrame.Position = UDim2.new(
+			startPos.X.Scale, startPos.X.Offset + delta.X,
+			startPos.Y.Scale, startPos.Y.Offset + delta.Y
+		)
+	end
+	titleBar.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1
+			or input.UserInputType == Enum.UserInputType.Touch then
+			dragging = true
+			dragStart = input.Position
+			startPos = chatFrame.Position
+			input.Changed:Connect(function()
+				if input.UserInputState == Enum.UserInputState.End then
+					dragging = false
+				end
+			end)
+		end
+	end)
+	titleBar.InputChanged:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseMovement
+			or input.UserInputType == Enum.UserInputType.Touch then
+			dragInput = input
+		end
+	end)
+	UserInputService.InputChanged:Connect(function(input)
+		if dragging and input == dragInput then
+			update(input)
+		end
+	end)
+end
+
+-- === Nhận chat ===
+local function hookTextChatService()
+	TextChatService.MessageReceived:Connect(function(message)
+		local text = message and message.Text or ""
+		local speaker = "Hệ thống"
+		if message then
+			if message.PrefixText and #message.PrefixText > 0 then
+				speaker = message.PrefixText:gsub(":%s*$","")
+			elseif message.TextSource then
+				local p = Players:GetPlayerByUserId(message.TextSource.UserId)
+				speaker = (p and p.DisplayName) or "Người chơi"
+			end
+		end
+		addMessage(text, speaker)
+	end)
+end
+
+local function hookLegacyChat()
+	local chatEvents = ReplicatedStorage:FindFirstChild("DefaultChatSystemChatEvents")
+	if not chatEvents then return end
+	local onMsg = chatEvents:FindFirstChild("OnMessageDoneFiltering")
+	if not onMsg then return end
+	onMsg.OnClientEvent:Connect(function(data)
+		addMessage(data.Message, data.FromSpeaker or "Hệ thống")
+	end)
+end
+
+-- === Gửi chat ===
+local function sendChat(text)
+	if not text or text == "" then return end
+	if TextChatService and TextChatService.ChatInputBarConfiguration then
+		local channel = TextChatService.ChatInputBarConfiguration.TargetTextChannel
+		if channel then
+			channel:SendAsync(text)
+			return
+		end
+	end
+	local chatEvents = ReplicatedStorage:FindFirstChild("DefaultChatSystemChatEvents")
+	if chatEvents then
+		local sayMsg = chatEvents:FindFirstChild("SayMessageRequest")
+		if sayMsg then
+			sayMsg:FireServer(text, "All")
+			return
+		end
+	end
+end
+
+sendBtn.MouseButton1Click:Connect(function()
+	sendChat(textBox.Text)
+	textBox.Text = ""
+end)
+textBox.FocusLost:Connect(function(enterPressed)
+	if enterPressed then
+		sendChat(textBox.Text)
+		textBox.Text = ""
+	end
+end)
+
+-- Hook
+local okNew = false
+pcall(function()
+	if TextChatService and TextChatService.MessageReceived then
+		okNew = true
+		hookTextChatService()
+	end
+end)
+if not okNew then
+	hookLegacyChat()
+end
+
+-- === 📌 Toggle Fluent UI kiểu inline ===
+Misc:Toggle("Show Chat", screenGui.Enabled, "Hiện một khung chat ảo", function(value)
+	screenGui.Enabled = value
+end)
+end
+
+
+
+
+MiscTab:Seperator("Fix Lag");
+
+-- Lưu dữ liệu gốc
+local originalLighting = {}
+local originalParts = {}
+
+-- Hàm lưu Lighting gốc
+local function saveLighting()
+    originalLighting.QualityLevel = settings().Rendering.QualityLevel
+    originalLighting.GlobalShadows = game.Lighting.GlobalShadows
+    originalLighting.FogEnd = game.Lighting.FogEnd
+    originalLighting.Brightness = game.Lighting.Brightness
+    originalLighting.PostEffects = {}
+    for _, v in ipairs(game.Lighting:GetChildren()) do
+        if v:IsA("PostEffect") then
+            originalLighting.PostEffects[v] = v.Enabled
+        end
+    end
+end
+
+-- Hàm khôi phục Lighting
+local function restoreLighting()
+    if not originalLighting.QualityLevel then return end
+    settings().Rendering.QualityLevel = originalLighting.QualityLevel
+    game.Lighting.GlobalShadows = originalLighting.GlobalShadows
+    game.Lighting.FogEnd = originalLighting.FogEnd
+    game.Lighting.Brightness = originalLighting.Brightness
+    for effect, state in pairs(originalLighting.PostEffects) do
+        if effect and effect.Parent == game.Lighting then
+            effect.Enabled = state
+        end
+    end
+end
+
+-- Hàm giảm đồ họa triệt để
+local function simplifyModel(obj)
+    if obj:IsA("BasePart") then
+        if not originalParts[obj] then
+            originalParts[obj] = {
+                Material = obj.Material,
+                Color = obj.Color,
+                Reflectance = obj.Reflectance,
+                CastShadow = obj.CastShadow
+            }
+        end
+        obj.Material = Enum.Material.SmoothPlastic
+        obj.Color = Color3.fromRGB(163, 162, 165)
+        obj.Reflectance = 0
+        obj.CastShadow = false
+    elseif obj:IsA("Decal") or obj:IsA("Texture") or obj:IsA("SurfaceAppearance") then
+        obj:Destroy()
+    elseif obj:IsA("ParticleEmitter") or obj:IsA("Trail") or obj:IsA("Beam") 
+        or obj:IsA("Fire") or obj:IsA("Smoke") or obj:IsA("Sparkles") then
+        obj.Enabled = false
+    end
+end
+
+-- Hàm khôi phục BasePart
+local function restoreParts()
+    for part, data in pairs(originalParts) do
+        if part and part.Parent then
+            part.Material = data.Material
+            part.Color = data.Color
+            part.Reflectance = data.Reflectance
+            part.CastShadow = data.CastShadow
+        end
+    end
+    originalParts = {} -- reset
+end
+
+-- ==============================
+-- Inline Toggle kiểu MainTab
+-- ==============================
+local autoThread
+local connection
+
+MiscTab:Toggle("FPS Boost", false, "Giảm đồ họa trò chơi", function(state)
+    if state then
+        print("🔄 Auto Reduce ON")
+
+        -- Lưu lighting gốc
+        saveLighting()
+
+        -- Giảm đồ họa lighting khi bật
+        settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
+        game.Lighting.GlobalShadows = false
+        game.Lighting.FogEnd = 9e9
+        game.Lighting.Brightness = 1
+        for _, v in ipairs(game.Lighting:GetChildren()) do
+            if v:IsA("PostEffect") then
+                v.Enabled = false
+            end
+        end
+
+        -- 🔥 Giảm ngay 1 lần đầu tiên
+        for _, obj in ipairs(workspace:GetDescendants()) do
+            simplifyModel(obj)
+        end
+
+        -- Nếu có object spawn thêm thì cũng xử lý
+        connection = workspace.DescendantAdded:Connect(simplifyModel)
+
+        -- Sau đó auto lặp mỗi 10s
+        autoThread = task.spawn(function()
+            while state do
+                task.wait(10)
+                for _, obj in ipairs(workspace:GetDescendants()) do
+                    simplifyModel(obj)
+                end
+            end
+        end)
+
+    else
+        print("⏹ Auto Reduce OFF")
+        if connection then
+            connection:Disconnect()
+            connection = nil
+        end
+
+        -- Khôi phục đồ họa gốc
+        restoreLighting()
+        restoreParts()
+        print("✅ Đã khôi phục đồ họa gốc")
+    end
+end)
+
+
+
+
+-- ======= DỊCH VỤ =======
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+-- ======= DANH SÁCH BLOCK ANIMATION =======
+local blockedAnimations = {
+    ["127802146383565"] = true,
+    ["82691533602949"] = true,
+    ["123764169071995"] = true,
+}
+
+-- ======= BIẾN TRẠNG THÁI =======
+local BlockAnimEnabled = false
+local blockConnections = {}
+
+-- ======= HÀM =======
+local function hookHumanoid(humanoid)
+    if not humanoid then return end
+    local conn = humanoid.AnimationPlayed:Connect(function(track)
+        local id = track.Animation.AnimationId:match("%d+")
+        if BlockAnimEnabled and blockedAnimations[id] then
+            track:Stop()
+        end
+    end)
+    table.insert(blockConnections, conn)
+end
+
+local function setBlockAnimations(enabled)
+    BlockAnimEnabled = enabled
+
+    -- clear cũ
+    for _, conn in pairs(blockConnections) do
+        conn:Disconnect()
+    end
+    table.clear(blockConnections)
+
+    if enabled then
+        -- nhân vật hiện tại
+        if LocalPlayer.Character then
+            hookHumanoid(LocalPlayer.Character:FindFirstChildWhichIsA("Humanoid"))
+        end
+        -- respawn
+        local connChar = LocalPlayer.CharacterAdded:Connect(function(char)
+            char:WaitForChild("Humanoid")
+            hookHumanoid(char:FindFirstChildWhichIsA("Humanoid"))
+        end)
+        table.insert(blockConnections, connChar)
+    end
+end
+
+-- ======= TOGGLE INLINE KIỂU AUTO FARM =======
+MiscTab:Toggle("Block Animations", BlockAnimEnabled, "Loại bỏ hoạt ảnh sửa máy phát điện", function(value)
+    setBlockAnimations(value)
+end)
+
+
+
+
+
 
