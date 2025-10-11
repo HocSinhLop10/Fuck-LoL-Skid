@@ -124,8 +124,24 @@ end)
 
 
 
+---------------------------------------------------------------------------------
+-- About
+---------------------------------------------------------------------------------
+
+AboutTab:Button("Copy Youtube Link", function()
+	setclipboard("https://www.youtube.com/@SLKgamingSSR");
+end);
 
 
+AboutTab:Button("Copy Discord Link", function()
+	setclipboard("https://discord.gg/s8NVhKwUz");
+end);
+
+AboutTab:Seperator("Update 5.0.0");
+Client = AboutTab:Label("• New Hutao Hub");
+Client = AboutTab:Label("• Update Anti Ban");
+Client = AboutTab:Label("• Fix All Button");
+Client = AboutTab:Label("• Protect Code Max");
 
 do
     local Players = game:GetService("Players")
