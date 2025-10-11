@@ -119,175 +119,7 @@ task.spawn(function()
 end)
 
 ---------------------------------------------------------------------------------
--- đŸ† Anti Afk
----------------------------------------------------------------------------------
-do
-local antiAFKCons = {}
-
--- Kiá»ƒm tra getconnections cĂ³ tá»“n táº¡i khĂ´ng
-if getconnections then
-    local idleCons = getconnections(game.Players.LocalPlayer.Idled)
-
-    -- LÆ°u & disable cĂ¡c connection Ä‘á»ƒ khĂ´ng bá»‹ kick AFK
-    for _, c in ipairs(idleCons) do
-        antiAFKCons[c] = true
-        c:Disable()
-    end
-
-    print("[AntiAFK] ÄĂ£ tá»± Ä‘á»™ng báº­t, báº¡n sáº½ khĂ´ng bá»‹ kick AFK.")
-else
-    warn("[AntiAFK] Executor khĂ´ng há»— trá»£ getconnections, script khĂ´ng thá»ƒ cháº¡y.")
-end
-end
----------------------------------------------------------------------------------
--- đŸª™ Anti Ban
----------------------------------------------------------------------------------
-do
-    local Players = game:GetService("Players")
-    local LocalPlayer = Players.LocalPlayer
-    local LocalizationService = game:GetService("LocalizationService")
-
-    shared.AntiBanSafe = shared.AntiBanSafe or {running = false, hooks = {}}
-    local data = shared.AntiBanSafe
-
-    local oldNamecall, oldIndex
-    local protectionThread
-
-    local function safe(func, ...)
-        local ok, res = pcall(func, ...)
-        if ok then return res end
-    end
-
-    -- Disable screenshot/video flags khi báº­t protection
-    local function disableReportFlags()
-        if typeof(setfflag) == "function" then
-            pcall(function()
-                setfflag("AbuseReportScreenshot", "False")
-                setfflag("AbuseReportScreenshotPercentage", "0")
-                setfflag("AbuseReportEnabled", "False")
-                setfflag("ReportAbuseMenu", "False")
-                setfflag("EnableAbuseReportScreenshot", "False")
-                setfflag("AbuseReportVideo", "False")
-                setfflag("AbuseReportVideoPercentage", "0")
-                setfflag("VideoCaptureEnabled", "False")
-                setfflag("RecordVideo", "False")
-            end)
-        end
-    end
-
-    -- Restore flag vá» bĂ¬nh thÆ°á»ng khi táº¯t protection
-    local function setFlagsOn()
-        if typeof(setfflag) == "function" then
-            pcall(function()
-                setfflag("AbuseReportScreenshot", "True")
-                setfflag("AbuseReportScreenshotPercentage", "100")
-            end)
-        end
-    end
-
-    -- Hook requests (block report)
-    local function hookRequests()
-        if data.hooks.requestHooked then return end
-        local oldRequest = (syn and syn.request) or request or http_request
-        if typeof(oldRequest) == "function" and typeof(hookfunction) == "function" then
-            hookfunction(oldRequest, function(req)
-                if req and req.Url and tostring(req.Url):lower():find("abuse") then
-                    return {StatusCode = 200, Body = "Blocked"}
-                end
-                return oldRequest(req)
-            end)
-            data.hooks.requestHooked = true
-        end
-    end
-
-    -- Hook FindFirstChild (block GUI video/screenshot)
-    local function hookFindFirstChild()
-        if data.hooks.findHooked then return end
-        local oldFind = workspace.FindFirstChild
-        if typeof(oldFind) == "function" and typeof(hookfunction) == "function" then
-            hookfunction(oldFind, function(self, name, ...)
-                if name and tostring(name):lower():find("screenshot") then return nil end
-                if name and tostring(name):lower():find("video") then return nil end
-                return oldFind(self, name, ...)
-            end)
-            data.hooks.findHooked = true
-        end
-    end
-
-    -- Safe bypass (__namecall)
-    local function safeBypass()
-        if getrawmetatable and hookmetamethod and newcclosure then
-            local mt = getrawmetatable(game)
-            setreadonly(mt, false)
-            oldNamecall = oldNamecall or mt.__namecall
-            oldIndex = oldIndex or mt.__index
-
-            mt.__namecall = newcclosure(function(self, ...)
-                local method = getnamecallmethod()
-                local args = {...}
-
-                if (method == "Kick" or method == "Ban") and self == LocalPlayer then return nil end
-                if (method == "FireServer" or method == "InvokeServer") and args[1] then
-                    local msg = tostring(args[1]):lower()
-                    if msg:find("kick") or msg:find("ban") then return nil end
-                end
-                if self == LocalizationService and method == "GetCountryRegionForPlayerAsync" then
-                    local success, result = pcall(function()
-                        return LocalizationService:GetCountryRegionForPlayerAsync(LocalPlayer)
-                    end)
-                    if success then return result else return "US" end
-                end
-
-                return oldNamecall(self, ...)
-            end)
-
-            mt.__index = newcclosure(function(t, k)
-                local key = tostring(k):lower()
-                if key:find("kick") or key:find("ban") then return function() return nil end end
-                return oldIndex(t, k)
-            end)
-
-            setreadonly(mt, true)
-        end
-    end
-
-    -- Restore hooks
-    local function restoreHooks()
-        if getrawmetatable then
-            local mt = getrawmetatable(game)
-            setreadonly(mt, false)
-            if oldNamecall then mt.__namecall = oldNamecall end
-            if oldIndex then mt.__index = oldIndex end
-            setreadonly(mt, true)
-            oldNamecall, oldIndex = nil, nil
-        end
-    end
-
-    -- Start protection
-    local function startAntiBanSafe()
-        if data.running then return end
-        data.running = true
-
-        safe(hookRequests)
-        safe(hookFindFirstChild)
-        safe(safeBypass)
-
-        -- Disable screenshot/video flags liĂªn tá»¥c
-        protectionThread = task.spawn(function()
-            while data.running do
-                safe(disableReportFlags)
-                task.wait(0.2)
-            end
-        end)
-
-        print("[Anti-Ban Safe] đŸ›¡ï¸ ENABLED!")
-    end
-
-    -- Tá»± Ä‘á»™ng báº­t AntiBanV3 ngay khi cháº¡y script
-    startAntiBanSafe()
-end
----------------------------------------------------------------------------------
--- đŸª„ Chá»©c NÄƒng
+-- Chức Năng
 ---------------------------------------------------------------------------------
 
 
@@ -800,7 +632,7 @@ end
 -- Main
 ---------------------------------------------------------------------------------
 
-
+MainTab:Seperator("Shedletky");
 
 do
     local Players = game:GetService("Players")
@@ -1118,6 +950,108 @@ do
     end)
 end
 
+
+MainTab:Seperator("007n7");
+
+
+do
+    local Players = game:GetService("Players")
+    local LocalPlayer = Players.LocalPlayer
+
+    local running = false
+    local animTrack
+    local InvisibleEnabled = false
+
+    local SpecialModels = {
+        ["Noob"] = true, ["Guest1337"] = true, ["Elliot"] = true,
+        ["Shedletsky"] = true, ["TwoTime"] = true, ["007n7"] = true,
+        ["Chance"] = true, ["Builderman"] = true, ["Taph"] = true, ["Dusekkar"] = true,
+        ["Slasher"] = true, ["1x1x1x1"] = true, ["c00lkidd"] = true,
+        ["Noli"] = true, ["JohnDoe"] = true, ["Quest666"] = true, ["Veeronica"] = true
+    }
+
+    local function getHumanoid()
+        local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+        return char:FindFirstChildOfClass("Humanoid"), char
+    end
+
+    local function getAnimator(humanoid)
+        local animator = humanoid:FindFirstChildOfClass("Animator")
+        if not animator then
+            animator = Instance.new("Animator")
+            animator.Parent = humanoid
+        end
+        return animator
+    end
+
+    local function playInvisibleAnim(humanoid)
+        local animator = getAnimator(humanoid)
+        if not animTrack or not animTrack.IsPlaying then
+            local animation = Instance.new("Animation")
+            animation.AnimationId = "rbxassetid://75804462760596"
+            animTrack = animator:LoadAnimation(animation)
+            animTrack.Looped = true
+            animTrack:Play()
+            animTrack:AdjustSpeed(0)
+        end
+    end
+
+    local function stopInvisibleAnim()
+        if animTrack and animTrack.IsPlaying then
+            animTrack:Stop()
+            animTrack = nil
+        end
+    end
+
+    local function isSpecialModel(char)
+        if not char then return false end
+        if SpecialModels[char.Name] then return true end
+        for _, child in ipairs(char:GetChildren()) do
+            if SpecialModels[child.Name] then return true end
+        end
+        return false
+    end
+
+    local function handleToggle(enabled)
+        InvisibleEnabled = enabled
+        local humanoid, char = getHumanoid()
+        if not humanoid or not char then return end
+
+        if enabled then
+            running = true
+            task.spawn(function()
+                while running and InvisibleEnabled do
+                    humanoid, char = getHumanoid()
+                    if not humanoid or not char then
+                        task.wait(0.5)
+                        continue
+                    end
+                    if isSpecialModel(char) then
+                        playInvisibleAnim(humanoid)
+                    else
+                        stopInvisibleAnim()
+                    end
+                    task.wait(0.5)
+                end
+            end)
+        else
+            running = false
+            stopInvisibleAnim()
+        end
+    end
+
+    LocalPlayer.CharacterAdded:Connect(function(char)
+        task.wait(1)
+        if InvisibleEnabled and isSpecialModel(char) then
+            handleToggle(true)
+        end
+    end)
+
+    -- === Toggle Fluent dạng nút chuẩn ===
+    MainTab:Toggle("Instant Invisible", InvisibleEnabled, "Khi bật tàng hình ngay lập tức", function(value)
+        handleToggle(value)
+    end)
+end
 
 
 
@@ -2972,323 +2906,6 @@ end)
 
 
 
-do
--- LocalScript: Custom mirror of Roblox chat (view + send + collapse)
--- Place in StarterPlayerScripts hoặc StarterGui
-
-local Players = game:GetService("Players")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local UserInputService = game:GetService("UserInputService")
-local TextChatService = game:GetService("TextChatService")
-
-local player = Players.LocalPlayer
-local playerGui = player:WaitForChild("PlayerGui")
-
--- === CONFIG ===
-local USE_RICHTEXT = true
-
--- === ScreenGui ===
-local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "CustomChatGUI"
-screenGui.ResetOnSpawn = false
-screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-screenGui.Parent = playerGui
-
--- === Frame chính ===
-local chatFrame = Instance.new("Frame")
-chatFrame.Name = "ChatFrame"
-chatFrame.Size = UDim2.fromScale(0.32, 0.42)
-chatFrame.AnchorPoint = Vector2.new(0.5, 0.5)
-chatFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
-chatFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-chatFrame.BackgroundTransparency = 0.25
-chatFrame.BorderSizePixel = 0
-chatFrame.Active = true
-chatFrame.ClipsDescendants = true
-chatFrame.Parent = screenGui
-
-local sizeConstraint = Instance.new("UISizeConstraint")
-sizeConstraint.MaxSize = Vector2.new(660, 480)
-sizeConstraint.MinSize = Vector2.new(260, 32)
-sizeConstraint.Parent = chatFrame
-
-local uiCorner = Instance.new("UICorner")
-uiCorner.CornerRadius = UDim.new(0, 12)
-uiCorner.Parent = chatFrame
-
--- === Thanh tiêu đề ===
-local titleBar = Instance.new("Frame")
-titleBar.Name = "TitleBar"
-titleBar.Size = UDim2.new(1, 0, 0, 28)
-titleBar.BackgroundTransparency = 1
-titleBar.Parent = chatFrame
-
-local title = Instance.new("TextLabel")
-title.BackgroundTransparency = 1
-title.Size = UDim2.new(1, -40, 1, 0)
-title.Position = UDim2.new(0, 6, 0, 0)
-title.Font = Enum.Font.SourceSansSemibold
-title.TextSize = 18
-title.TextXAlignment = Enum.TextXAlignment.Left
-title.TextColor3 = Color3.fromRGB(240, 240, 240)
-title.Text = "Khung chat ảo"
-title.Parent = titleBar
-
--- Nút thu gọn
-local toggleBtn = Instance.new("TextButton")
-toggleBtn.Name = "ToggleBtn"
-toggleBtn.Size = UDim2.new(0, 28, 0, 24)
-toggleBtn.Position = UDim2.new(1, -32, 0.5, -12)
-toggleBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-toggleBtn.Text = "-"
-toggleBtn.Font = Enum.Font.SourceSansBold
-toggleBtn.TextSize = 20
-toggleBtn.TextColor3 = Color3.fromRGB(255,255,255)
-toggleBtn.Parent = titleBar
-
-local toggleCorner = Instance.new("UICorner")
-toggleCorner.CornerRadius = UDim.new(0, 6)
-toggleCorner.Parent = toggleBtn
-
--- Viền mỏng
-local stroke = Instance.new("UIStroke")
-stroke.Thickness = 1
-stroke.Transparency = 0.6
-stroke.Color = Color3.fromRGB(255,255,255)
-stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-stroke.Parent = chatFrame
-
--- === ScrollingFrame ===
-local scroll = Instance.new("ScrollingFrame")
-scroll.Name = "Messages"
-scroll.Size = UDim2.new(1, -10, 1, -72)
-scroll.Position = UDim2.new(0, 5, 0, 34)
-scroll.BackgroundTransparency = 1
-scroll.BorderSizePixel = 0
-scroll.ScrollBarThickness = 6
-scroll.ScrollingDirection = Enum.ScrollingDirection.Y
-scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-scroll.CanvasSize = UDim2.new(0,0,0,0)
-scroll.Parent = chatFrame
-
-local padding = Instance.new("UIPadding")
-padding.PaddingTop = UDim.new(0, 4)
-padding.PaddingBottom = UDim.new(0, 6)
-padding.PaddingLeft = UDim.new(0, 6)
-padding.PaddingRight = UDim.new(0, 6)
-padding.Parent = scroll
-
-local layout = Instance.new("UIListLayout")
-layout.Padding = UDim.new(0, 4)
-layout.SortOrder = Enum.SortOrder.LayoutOrder
-layout.Parent = scroll
-
-layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-	scroll.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 8)
-end)
-
--- === Input bar ===
-local inputBar = Instance.new("Frame")
-inputBar.Name = "InputBar"
-inputBar.Size = UDim2.new(1, -10, 0, 32)
-inputBar.Position = UDim2.new(0, 5, 1, -36)
-inputBar.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-inputBar.BackgroundTransparency = 0.2
-inputBar.BorderSizePixel = 0
-inputBar.Parent = chatFrame
-
-local inputCorner = Instance.new("UICorner")
-inputCorner.CornerRadius = UDim.new(0, 8)
-inputCorner.Parent = inputBar
-
-local textBox = Instance.new("TextBox")
-textBox.Name = "ChatInput"
-textBox.Size = UDim2.new(1, -50, 1, 0)
-textBox.Position = UDim2.new(0, 6, 0, 0)
-textBox.BackgroundTransparency = 1
-textBox.Font = Enum.Font.SourceSans
-textBox.TextSize = 18
-textBox.TextXAlignment = Enum.TextXAlignment.Left
-textBox.PlaceholderText = "Nhập tin nhắn..."
-textBox.TextColor3 = Color3.fromRGB(255,255,255)
-textBox.Parent = inputBar
-
-local sendBtn = Instance.new("TextButton")
-sendBtn.Name = "SendBtn"
-sendBtn.Size = UDim2.new(0, 44, 1, 0)
-sendBtn.Position = UDim2.new(1, -44, 0, 0)
-sendBtn.BackgroundColor3 = Color3.fromRGB(50, 120, 255)
-sendBtn.Text = "➤"
-sendBtn.Font = Enum.Font.SourceSansBold
-sendBtn.TextSize = 20
-sendBtn.TextColor3 = Color3.fromRGB(255,255,255)
-sendBtn.Parent = inputBar
-
-local sendCorner = Instance.new("UICorner")
-sendCorner.CornerRadius = UDim.new(0, 8)
-sendCorner.Parent = sendBtn
-
--- === Collapse logic ===
-local collapsed = false
-local fullHeight = chatFrame.Size
-
-toggleBtn.MouseButton1Click:Connect(function()
-	collapsed = not collapsed
-	if collapsed then
-		scroll.Visible = false
-		inputBar.Visible = false
-		chatFrame.Size = UDim2.new(chatFrame.Size.X.Scale, chatFrame.Size.X.Offset, 0, 32)
-		toggleBtn.Text = "+"
-	else
-		scroll.Visible = true
-		inputBar.Visible = true
-		chatFrame.Size = fullHeight
-		toggleBtn.Text = "-"
-	end
-end)
-
--- === Helper: strip tag ===
-local function stripTags(str)
-	return (str:gsub("<[^>]->", ""))
-end
-
--- === Add message ===
-local function addMessage(text, speaker)
-	local msg = Instance.new("TextLabel")
-	msg.Name = "Msg"
-	msg.BackgroundTransparency = 1
-	msg.TextXAlignment = Enum.TextXAlignment.Left
-	msg.TextWrapped = true
-	msg.RichText = USE_RICHTEXT
-	msg.Font = Enum.Font.SourceSans
-	msg.TextSize = 18
-	msg.TextColor3 = Color3.fromRGB(255, 255, 255)
-	msg.AutomaticSize = Enum.AutomaticSize.Y
-	msg.Size = UDim2.new(1, 0, 0, 0)
-
-	if not USE_RICHTEXT then
-		text = stripTags(text or "")
-	end
-
-	msg.Text = string.format("[%s]: %s", speaker or "Hệ thống", text or "")
-	msg.Parent = scroll
-
-	task.defer(function()
-		scroll.CanvasPosition = Vector2.new(0, 1e7)
-	end)
-end
-
--- === Kéo/thả ===
-do
-	local dragging, dragInput, dragStart, startPos
-	local function update(input)
-		local delta = input.Position - dragStart
-		chatFrame.Position = UDim2.new(
-			startPos.X.Scale, startPos.X.Offset + delta.X,
-			startPos.Y.Scale, startPos.Y.Offset + delta.Y
-		)
-	end
-	titleBar.InputBegan:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1
-			or input.UserInputType == Enum.UserInputType.Touch then
-			dragging = true
-			dragStart = input.Position
-			startPos = chatFrame.Position
-			input.Changed:Connect(function()
-				if input.UserInputState == Enum.UserInputState.End then
-					dragging = false
-				end
-			end)
-		end
-	end)
-	titleBar.InputChanged:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseMovement
-			or input.UserInputType == Enum.UserInputType.Touch then
-			dragInput = input
-		end
-	end)
-	UserInputService.InputChanged:Connect(function(input)
-		if dragging and input == dragInput then
-			update(input)
-		end
-	end)
-end
-
--- === Nhận chat ===
-local function hookTextChatService()
-	TextChatService.MessageReceived:Connect(function(message)
-		local text = message and message.Text or ""
-		local speaker = "Hệ thống"
-		if message then
-			if message.PrefixText and #message.PrefixText > 0 then
-				speaker = message.PrefixText:gsub(":%s*$","")
-			elseif message.TextSource then
-				local p = Players:GetPlayerByUserId(message.TextSource.UserId)
-				speaker = (p and p.DisplayName) or "Người chơi"
-			end
-		end
-		addMessage(text, speaker)
-	end)
-end
-
-local function hookLegacyChat()
-	local chatEvents = ReplicatedStorage:FindFirstChild("DefaultChatSystemChatEvents")
-	if not chatEvents then return end
-	local onMsg = chatEvents:FindFirstChild("OnMessageDoneFiltering")
-	if not onMsg then return end
-	onMsg.OnClientEvent:Connect(function(data)
-		addMessage(data.Message, data.FromSpeaker or "Hệ thống")
-	end)
-end
-
--- === Gửi chat ===
-local function sendChat(text)
-	if not text or text == "" then return end
-	if TextChatService and TextChatService.ChatInputBarConfiguration then
-		local channel = TextChatService.ChatInputBarConfiguration.TargetTextChannel
-		if channel then
-			channel:SendAsync(text)
-			return
-		end
-	end
-	local chatEvents = ReplicatedStorage:FindFirstChild("DefaultChatSystemChatEvents")
-	if chatEvents then
-		local sayMsg = chatEvents:FindFirstChild("SayMessageRequest")
-		if sayMsg then
-			sayMsg:FireServer(text, "All")
-			return
-		end
-	end
-end
-
-sendBtn.MouseButton1Click:Connect(function()
-	sendChat(textBox.Text)
-	textBox.Text = ""
-end)
-textBox.FocusLost:Connect(function(enterPressed)
-	if enterPressed then
-		sendChat(textBox.Text)
-		textBox.Text = ""
-	end
-end)
-
--- Hook
-local okNew = false
-pcall(function()
-	if TextChatService and TextChatService.MessageReceived then
-		okNew = true
-		hookTextChatService()
-	end
-end)
-if not okNew then
-	hookLegacyChat()
-end
-
--- === 📌 Toggle Fluent UI kiểu inline ===
-Misc:Toggle("Show Chat", screenGui.Enabled, "Hiện một khung chat ảo", function(value)
-	screenGui.Enabled = value
-end)
-end
 
 
 
