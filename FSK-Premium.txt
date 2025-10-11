@@ -970,6 +970,236 @@ do
 end
 
 
+
+
+
+MainTab:Seperator("Two Time");
+
+--// Auto Backstab Unified (AI Aimbot + Player Aimbot, Fluent UI Version)
+do
+    local Players = game:GetService("Players")
+    local RunService = game:GetService("RunService")
+    local lp = Players.LocalPlayer
+
+    -- ⚙️ CONFIG
+    local ModeList = { "AI Aimbot", "Player Aimbot" }
+    _G.BackstabMode = "AI Aimbot"
+    _G.AutoBackstab = false
+    _G.BackstabRadius = 18
+
+    local backstabDelay = 0.01
+    local killerNames = { "Slasher", "c00lkidd", "JohnDoe", "1x1x1x1", "Noli", "Quest666" }
+    local killersFolder = workspace:WaitForChild("Players"):WaitForChild("Killers")
+
+    local ANIM_IDS = {
+        "115194624791339", "86545133269813", "89448354637442",
+        "115194624791339", "89448354637442", "86545133269813",
+        "77119710693654", "107640065977686", "112902284724598",
+    }
+    local KILLER_MODELS = {
+        ["Slasher"] = true, ["1x1x1x1"] = true, ["c00lkidd"] = true,
+        ["Noli"] = true, ["JohnDoe"] = true, ["Quest666"] = true,
+    }
+
+    -- 🧭 UI
+    MainTab:Dropdown("Backstab Mode", ModeList, _G.BackstabMode, function(value)
+        _G.BackstabMode = value
+        print("🎯 Backstab Mode:", value)
+    end)
+
+    MainTab:Toggle("Auto Backstab V2", _G.AutoBackstab, "Tự động tấn công kẻ giết người", function(state)
+        _G.AutoBackstab = state
+        print("🔪 Auto Backstab:", state and "ON" or "OFF")
+    end)
+
+    MainTab:Slider("Backstab Radius", 1, 100, _G.BackstabRadius, function(v)
+        _G.BackstabRadius = v
+        print("📏 Check Radius set to:", v)
+    end)
+
+    -- ⚙️ REMOTE HANDLER
+    local daggerButton, daggerRemote, daggerConnections = nil, nil, {}
+
+    local function findDaggerRemote()
+        if daggerRemote then return daggerRemote end
+        if not daggerButton then return nil end
+        for _, conn in ipairs(getconnections(daggerButton.MouseButton1Click)) do
+            local f = conn.Function
+            if f and islclosure(f) then
+                local upvals = getupvalues(f)
+                for _, v in pairs(upvals) do
+                    if typeof(v) == "Instance" and v:IsA("RemoteEvent") then
+                        daggerRemote = v
+                        warn("[Backstab] Found Dagger Remote:", v:GetFullName())
+                        return daggerRemote
+                    end
+                end
+            end
+        end
+        return nil
+    end
+
+    local function initDaggerButton()
+        local gui = lp:FindFirstChild("PlayerGui")
+        if not gui then return end
+        local mainUI = gui:FindFirstChild("MainUI")
+        local container = mainUI and mainUI:FindFirstChild("AbilityContainer")
+        daggerButton = container and container:FindFirstChild("Dagger")
+        if daggerButton and daggerButton:IsA("ImageButton") then
+            daggerConnections = getconnections(daggerButton.MouseButton1Click)
+            findDaggerRemote()
+        end
+    end
+
+    initDaggerButton()
+    lp.CharacterAdded:Connect(function()
+        task.wait(0.5)
+        initDaggerButton()
+    end)
+
+    local function useDagger()
+        if daggerRemote then
+            pcall(function()
+                daggerRemote:FireServer(true)
+                task.delay(0.05, function()
+                    daggerRemote:FireServer(false)
+                end)
+            end)
+        elseif daggerButton then
+            for _, conn in ipairs(daggerConnections) do
+                pcall(function() conn:Fire() end)
+            end
+            pcall(function() daggerButton:Activate() end)
+        end
+    end
+
+    -- 🧠 CORE LOGIC
+    local function getCharacter()
+        local ch = lp.Character
+        if ch and ch.Parent then
+            local hrp = ch:FindFirstChild("HumanoidRootPart")
+            local humanoid = ch:FindFirstChildOfClass("Humanoid")
+            return ch, humanoid, hrp
+        end
+        return nil, nil, nil
+    end
+
+    local function isPlayingTargetAnimation(humanoid)
+        if not humanoid then return false end
+        for _, t in ipairs(humanoid:GetPlayingAnimationTracks()) do
+            local animId = tostring(t.Animation.AnimationId or "")
+            for _, id in ipairs(ANIM_IDS) do
+                if animId:find(id, 1, true) then
+                    return true
+                end
+            end
+        end
+        return false
+    end
+
+    local function teleportBehind(targetHRP, myHRP)
+        local look = targetHRP.CFrame.LookVector
+        local destPos = targetHRP.Position - look * 2
+        myHRP.CFrame = CFrame.new(destPos, destPos + look)
+    end
+
+    local function isBehindTarget(targetHRP, myHRP)
+        local look = targetHRP.CFrame.LookVector
+        local dir = (myHRP.Position - targetHRP.Position).Unit
+        return look:Dot(dir) < -0.5
+    end
+
+    local function getNearbyKillers(position)
+        local killers = {}
+        for _, plr in ipairs(Players:GetPlayers()) do
+            if plr ~= lp and plr.Character then
+                local char = plr.Character
+                local hrp = char:FindFirstChild("HumanoidRootPart") or char.PrimaryPart
+                if hrp and KILLER_MODELS[char.Name] then
+                    local dist = (hrp.Position - position).Magnitude
+                    if dist <= _G.BackstabRadius then
+                        table.insert(killers, {model = char, hrp = hrp, dist = dist})
+                    end
+                end
+            end
+        end
+        return killers
+    end
+
+    local function getNearbyAIKillers(hrp)
+        local killers = {}
+        for _, name in ipairs(killerNames) do
+            local killer = killersFolder:FindFirstChild(name)
+            if killer and killer:FindFirstChild("HumanoidRootPart") then
+                local kHRP = killer.HumanoidRootPart
+                local dist = (kHRP.Position - hrp.Position).Magnitude
+                if dist <= _G.BackstabRadius then
+                    table.insert(killers, {model = killer, hrp = kHRP, dist = dist})
+                end
+            end
+        end
+        return killers
+    end
+
+    -- 🔄 LOOP
+    local cooldown = false
+    local lastTarget = nil
+
+    RunService.Heartbeat:Connect(function()
+        if not _G.AutoBackstab or cooldown then return end
+        local char, humanoid, myHRP = getCharacter()
+        if not (char and humanoid and myHRP) then return end
+
+        if char.Name ~= "TwoTime" then return end
+
+        if _G.BackstabMode == "Player Aimbot" then
+            if isPlayingTargetAnimation(humanoid) then
+                local killers = getNearbyKillers(myHRP.Position)
+                if #killers > 0 then
+                    table.sort(killers, function(a,b) return a.dist < b.dist end)
+                    teleportBehind(killers[1].hrp, myHRP)
+                end
+            end
+
+        elseif _G.BackstabMode == "AI Aimbot" then
+            local killers = getNearbyAIKillers(myHRP)
+            if #killers > 0 then
+                table.sort(killers, function(a,b) return a.dist < b.dist end)
+                local target = killers[1]
+                if target.model ~= lastTarget and isBehindTarget(target.hrp, myHRP) then
+                    cooldown = true
+                    lastTarget = target.model
+
+                    local start = tick()
+                    local conn
+                    conn = RunService.Heartbeat:Connect(function()
+                        if not (char and char.Parent and target.hrp and target.hrp.Parent) then
+                            if conn then conn:Disconnect() end
+                            return
+                        end
+                        if tick() - start >= 0.7 then
+                            if conn then conn:Disconnect() end
+                            task.delay(10, function()
+                                cooldown = false
+                                lastTarget = nil
+                            end)
+                            return
+                        end
+
+                        teleportBehind(target.hrp, myHRP)
+                        useDagger()
+                    end)
+                end
+            end
+        end
+    end)
+
+    lp.CharacterAdded:Connect(function()
+        task.wait(1)
+        print("🔄 Character respawned/changed, Auto Backstab vẫn hoạt động (nếu model = 'TwoTime').")
+    end)
+end
+
 MainTab:Seperator("007n7");
 
 
