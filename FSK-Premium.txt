@@ -1,15 +1,16 @@
---[[
+--[[  
  _   _    _   _   _____     _       ___     _   _   _   _   ____   
 | | | |  | | | | |_   _|   / \     / _ \   | | | | | | | | | __ )  
-| |_| |  | | | |   | |    / _ \   | | | |  | |_| | | | | |  _ \  
+| |_| |  | | | |   | |    / _ \   | | | |  | |_| | | | | | |  _ \  
 |  _  |  | | | |   | |   / ___ \  | |_| |  |  _  | | |_| | | |_) | 
 \_| |_/   \___/    \_/  /_/   \_\  \___/   \_| |_/  \___/  |____/
                         Hutao Hub
 ]]
 
 ---------------------------------------------------------------------------------
--- 🌐 Load GUI gốc
+-- ⚙️ Load GUI gốc
 ---------------------------------------------------------------------------------
+
 local Update = loadstring(game:HttpGet("https://raw.githubusercontent.com/SLK-gaming/New-Gui/refs/heads/main/Hutao-Hub-V2.lua"))()
 local Library = Update:Window(" ")
 
@@ -22,8 +23,9 @@ local MiscTab = Library:Tab("Misc", "rbxassetid://10723424838")
 local SettingsTab = Library:Tab("Setting", "rbxassetid://10734950309")
 
 ---------------------------------------------------------------------------------
--- 🔁 Thay chữ + ảnh
+-- 🧩 Thay chữ + ảnh
 ---------------------------------------------------------------------------------
+
 local OLD_TEXTS = {"relz hub |", "RELZ HUB |", "Relz Hub |"}
 local NEW_TEXT = "Hutao Hub [Free] | Forsaken | Version 5.0.0"
 local OLD_IMG = "13940080072"
@@ -37,6 +39,14 @@ local function FixObject(obj)
 				obj.Text = gsub(obj.Text, v, NEW_TEXT)
 			end
 		end
+	elseif obj:IsA("StringValue") or obj:IsA("ValueBase") then
+		if typeof(obj.Value) == "string" then
+			for _, v in ipairs(OLD_TEXTS) do
+				if find(lower(obj.Value), lower(v)) then
+					obj.Value = gsub(obj.Value, v, NEW_TEXT)
+				end
+			end
+		end
 	elseif obj:IsA("ImageLabel") or obj:IsA("ImageButton") then
 		if obj.Image and find(obj.Image, OLD_IMG) then
 			obj.Image = NEW_IMG
@@ -48,110 +58,65 @@ local function FixObject(obj)
 	end
 end
 
-for _, obj in ipairs(game:GetDescendants()) do pcall(FixObject, obj) end
-game.DescendantAdded:Connect(function(obj) pcall(FixObject, obj) end)
+for _, obj in ipairs(game:GetDescendants()) do FixObject(obj) end
+game.DescendantAdded:Connect(FixObject)
 
 ---------------------------------------------------------------------------------
--- 🧩 Tự động phát hiện nút toggle GUI bị che
+-- 🧠 Phát hiện và “cứu” nút toggle ẩn/hiện GUI khỏi bị che
 ---------------------------------------------------------------------------------
+
 local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
-local PlayerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
-
-local Wrapper = Instance.new("ScreenGui")
-Wrapper.Name = "Hutao_ToggleWrapper"
-Wrapper.ResetOnSpawn = false
-Wrapper.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-Wrapper.Parent = CoreGui
+local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
 
 local function ProtectToggleButtons(container)
 	for _, obj in ipairs(container:GetDescendants()) do
 		if obj:IsA("TextButton") or obj:IsA("ImageButton") then
-			local n = string.lower(obj.Name)
-			if n:find("toggle") or n:find("open") or n:find("show") or n:find("hide") then
-				if not obj:IsDescendantOf(Wrapper) then
-					obj.Parent = Wrapper
-					obj.ZIndex = 99999
-					pcall(function() obj.Draggable = true end)
+			local nameLower = string.lower(obj.Name)
+			if nameLower:find("toggle") or nameLower:find("hide") or nameLower:find("open") or nameLower:find("show") then
+				-- Di chuyển nút ra ngoài GUI bị che
+				obj.Parent = CoreGui
+				obj.ZIndex = 99999
+				obj.Active = true
+				obj.Draggable = true
+				obj.AutoButtonColor = true
+
+				-- Nếu có frame nền đen, vô hiệu hóa
+				local bg = obj:FindFirstAncestorWhichIsA("Frame")
+				if bg and bg.BackgroundColor3 == Color3.new(0, 0, 0) and bg.BackgroundTransparency < 0.5 then
+					bg.BackgroundTransparency = 1
 				end
 			end
 		end
 	end
 end
 
+-- Quét cả CoreGui + PlayerGui
 for _, gui in ipairs(CoreGui:GetChildren()) do ProtectToggleButtons(gui) end
-for _, gui in ipairs(PlayerGui:GetChildren()) do ProtectToggleButtons(gui) end
+for _, gui in ipairs(playerGui:GetChildren()) do ProtectToggleButtons(gui) end
+
+-- Tự cập nhật khi GUI mới được thêm vào
 CoreGui.ChildAdded:Connect(ProtectToggleButtons)
-PlayerGui.ChildAdded:Connect(ProtectToggleButtons)
+playerGui.ChildAdded:Connect(ProtectToggleButtons)
 
 ---------------------------------------------------------------------------------
 -- ✨ Tăng độ sáng ảnh
 ---------------------------------------------------------------------------------
+
 task.spawn(function()
-	while task.wait(2) do
+	while true do
 		for _, img in ipairs(CoreGui:GetDescendants()) do
 			if img:IsA("ImageLabel") or img:IsA("ImageButton") then
 				if img.Image == NEW_IMG then
-					img.ImageColor3 = Color3.fromRGB(255,255,255)
+					img.ImageColor3 = Color3.fromRGB(255, 255, 255)
 					img.ImageTransparency = 0.05
 					img.ZIndex = 9999
 				end
 			end
 		end
+		task.wait(2)
 	end
 end)
-
----------------------------------------------------------------------------------
--- 💾 SAVE / LOAD cấu hình GUI (fixed, không gây freeze GUI)
----------------------------------------------------------------------------------
-local HttpService = game:GetService("HttpService")
-local SaveFolder = "HutaoSaves"
-local SaveFile = SaveFolder .. "/Settings.json"
-
-if not isfolder(SaveFolder) then
-	makefolder(SaveFolder)
-end
-
-local Settings = { AutoSave = false }
-
-local function LoadSettings()
-	if isfile(SaveFile) then
-		local ok, data = pcall(function()
-			return HttpService:JSONDecode(readfile(SaveFile))
-		end)
-		if ok and typeof(data) == "table" then
-			for k,v in pairs(data) do
-				Settings[k] = v
-			end
-		end
-	end
-end
-
-local function SaveSettings()
-	pcall(function()
-		writefile(SaveFile, HttpService:JSONEncode(Settings))
-	end)
-end
-
-LoadSettings()
-
-
----------------------------------------------------------------------------------
--- ⚙️ Toggle Auto Save trong GUI
----------------------------------------------------------------------------------
-SettingsTab:Toggle("Auto Save Settings", Settings.AutoSave, "Tự động lưu cài đặt của bạn", function(v)
-	Settings.AutoSave = v
-	SaveSettings()
-end)
-
-task.spawn(function()
-	while task.wait(1) do
-		if Settings.AutoSave then
-			SaveSettings()
-		end
-	end
-end)
-
 
 ---------------------------------------------------------------------------------
 -- Chức Năng
