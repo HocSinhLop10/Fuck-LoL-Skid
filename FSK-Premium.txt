@@ -1946,7 +1946,7 @@ do
     local delayedAnimations, blockRemote, blockButton = {}, nil, nil
     local connections, playerConns, recentBlocks, circles = {}, {}, {}, {}
     local toggleOn, strictRangeOn, detectionRange = false, false, 18
-    local COOLDOWN_ZERO, COOLDOWN_MISS, lastTeleport = 0, 0, 0
+    local COOLDOWN_ZERO, COOLDOWN_MISS, lastTeleport = 0.1, 0.1, 0  -- fix cooldown
 
     local function findBlockRemote()
         if blockRemote or not blockButton then return blockRemote end
@@ -2081,6 +2081,13 @@ do
         if shouldBlockNow(player, id, track) then
             if massInfectionIds[id] then task.delay(0.5, fastBlock) else fastBlock() end
             if isKiller(player) and delayedAnimations[id] then teleportDodge(char) end
+
+            -- Reset recentBlocks sau khi animation kết thúc
+            task.delay(track.Length, function()
+                if recentBlocks[player.UserId] then
+                    recentBlocks[player.UserId][id] = nil
+                end
+            end)
         end
     end
 
@@ -2149,6 +2156,11 @@ do
 
     Players.PlayerRemoving:Connect(removeCircle)
 end
+
+
+
+
+
 
 do
 	local RunService = game:GetService("RunService")
