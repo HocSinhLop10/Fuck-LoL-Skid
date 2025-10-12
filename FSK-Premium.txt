@@ -1917,242 +1917,237 @@ do
     local RunService = game:GetService("RunService")
     local localPlayer = Players.LocalPlayer
 
-    local Killers = {
-        ["Slasher"] = true, ["1x1x1x1"] = true, ["c00lkidd"] = true,
-        ["Noli"] = true, ["JohnDoe"] = true, ["Quest666"] = true
-    }
+    local Killers = {  
+        ["Slasher"] = true, ["1x1x1x1"] = true, ["c00lkidd"] = true,  
+        ["Noli"] = true, ["JohnDoe"] = true, ["Quest666"] = true  
+    }  
 
-    local function isKiller(player)
-        local char = player.Character
-        if not char then return false end
-        return Killers[char.Name] == true
-    end
+    local function isKiller(player)  
+        local char = player.Character  
+        if not char then return false end  
+        return Killers[char.Name] == true  
+    end  
 
-    local animationIds = {
-        ["83829782357897"] = true, ["126355327951215"] = true, ["121086746534252"] = true,
-        ["105458270463374"] = true, ["18885909645"] = true, ["94162446513587"] = true,
-        ["93069721274110"] = true, ["97433060861952"] = true, ["121293883585738"] = true,
-        ["92173139187970"] = true, ["106847695270773"] = true, ["81639435858902"] = true,
-        ["137314737492715"] = true, ["82113744478546"] = true, ["126681776859538"] = true,
-        ["129976080405072"] = true, ["133336594357903"] = true, ["86204001129974"] = true,
-        ["70371667919898"] = true, ["131543461321709"] = true, ["106776364623742"] = true,
-        ["136323728355613"] = true, ["109230267448394"] = true, ["139835501033932"] = true,
-        ["114356208094580"] = true, ["106538427162796"] = true, ["126896426760253"] = true,
-        ["131430497821198"] = true, ["100592913030351"] = true, ["70447634862911"] = true,
-        ["83685305553364"] = true, ["126171487400618"] = true, ["97167027849946"] = true,
-        ["99135633258223"] = true, ["98456918873918"] = true, ["83251433279852"] = true
-    }
+    local animationIds = {  
+        ["83829782357897"] = true, ["126355327951215"] = true, ["121086746534252"] = true,  
+        ["105458270463374"] = true, ["18885909645"] = true, ["94162446513587"] = true,  
+        ["93069721274110"] = true, ["97433060861952"] = true, ["121293883585738"] = true,  
+        ["92173139187970"] = true, ["106847695270773"] = true, ["81639435858902"] = true,  
+        ["137314737492715"] = true, ["82113744478546"] = true, ["126681776859538"] = true,  
+        ["129976080405072"] = true, ["133336594357903"] = true, ["86204001129974"] = true,  
+        ["70371667919898"] = true, ["131543461321709"] = true, ["106776364623742"] = true,  
+        ["136323728355613"] = true, ["109230267448394"] = true, ["139835501033932"] = true,  
+        ["114356208094580"] = true, ["106538427162796"] = true, ["126896426760253"] = true,  
+        ["131430497821198"] = true, ["100592913030351"] = true, ["70447634862911"] = true,  
+        ["83685305553364"] = true, ["126171487400618"] = true, ["97167027849946"] = true,  
+        ["99135633258223"] = true, ["98456918873918"] = true, ["83251433279852"] = true  
+    }  
 
-    local delayedAnimations, blockRemote, blockButton = {}, nil, nil
-    local connections, playerConns, recentBlocks, circles = {}, {}, {}, {}
-    local toggleOn, strictRangeOn, detectionRange = false, false, 18
-    local COOLDOWN_ZERO, COOLDOWN_MISS, lastTeleport = 0.1, 0.1, 0  -- fix cooldown
+    local delayedAnimations, blockRemote, blockButton = {}, nil, nil  
+    local connections, playerConns, recentBlocks, circles = {}, {}, {}, {}  
+    local toggleOn, strictRangeOn, detectionRange = false, false, 18  
+    local lastTeleport = 0  
 
-    local function findBlockRemote()
-        if blockRemote or not blockButton then return blockRemote end
-        for _, conn in ipairs(getconnections(blockButton.MouseButton1Click)) do
-            local f = conn.Function
-            if f and islclosure(f) then
-                for _, v in pairs(getupvalues(f)) do
-                    if typeof(v) == "Instance" and v:IsA("RemoteEvent") then
-                        blockRemote = v
-                        return blockRemote
-                    end
-                end
-            end
-        end
-        return nil
-    end
+    local function findBlockRemote()  
+        if blockRemote or not blockButton then return blockRemote end  
+        for _, conn in ipairs(getconnections(blockButton.MouseButton1Click)) do  
+            local f = conn.Function  
+            if f and islclosure(f) then  
+                for _, v in pairs(getupvalues(f)) do  
+                    if typeof(v) == "Instance" and v:IsA("RemoteEvent") then  
+                        blockRemote = v  
+                        return blockRemote  
+                    end  
+                end  
+            end  
+        end  
+        return nil  
+    end  
 
-    local function initBlockButton()
-        local gui = localPlayer:FindFirstChild("PlayerGui")
-        if not gui then return end
-        local mainUI = gui:FindFirstChild("MainUI")
-        local container = mainUI and mainUI:FindFirstChild("AbilityContainer")
-        blockButton = container and container:FindFirstChild("Block")
-        if blockButton and blockButton:IsA("ImageButton") then
-            connections = getconnections(blockButton.MouseButton1Click)
-            findBlockRemote()
-        end
-    end
+    local function initBlockButton()  
+        local gui = localPlayer:FindFirstChild("PlayerGui")  
+        if not gui then return end  
+        local mainUI = gui:FindFirstChild("MainUI")  
+        local container = mainUI and mainUI:FindFirstChild("AbilityContainer")  
+        blockButton = container and container:FindFirstChild("Block")  
+        if blockButton and blockButton:IsA("ImageButton") then  
+            connections = getconnections(blockButton.MouseButton1Click)  
+            findBlockRemote()  
+        end  
+    end  
 
-    local function fastBlock()
-        if blockRemote then
-            pcall(function()
-                blockRemote:FireServer(true)
-                task.delay(1e-10, function() blockRemote:FireServer(false) end)
-            end)
-        else
-            if not blockButton or not blockButton.Visible then return end
-            for _, conn in ipairs(connections) do
-                pcall(function() conn:Fire() end)
-            end
-            pcall(function() blockButton:Activate() end)
-        end
-    end
+    local function fastBlock()  
+        if blockRemote then  
+            pcall(function()  
+                blockRemote:FireServer(true)  
+                task.delay(1e-10, function() blockRemote:FireServer(false) end)  
+            end)  
+        else  
+            if not blockButton or not blockButton.Visible then return end  
+            for _, conn in ipairs(connections) do  
+                pcall(function() conn:Fire() end)  
+            end  
+            pcall(function() blockButton:Activate() end)  
+        end  
+    end  
 
-    local function teleportDodge(killerChar)
-        local now = tick()
-        if now - lastTeleport < 5 then return end
-        lastTeleport = now
-        local myChar, killerRoot = localPlayer.Character, killerChar and killerChar:FindFirstChild("HumanoidRootPart")
-        local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
-        if not (myRoot and killerRoot) then return end
-        local oldCFrame, forward = myRoot.CFrame, killerRoot.CFrame.LookVector
-        myRoot.CFrame = killerRoot.CFrame + forward * 7.5
-        task.delay(0.1, function() if myRoot then myRoot.CFrame = oldCFrame end end)
-    end
+    local function teleportDodge(killerChar)  
+        local now = tick()  
+        if now - lastTeleport < 5 then return end  
+        lastTeleport = now  
+        local myChar, killerRoot = localPlayer.Character, killerChar and killerChar:FindFirstChild("HumanoidRootPart")  
+        local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")  
+        if not (myRoot and killerRoot) then return end  
+        local oldCFrame, forward = myRoot.CFrame, killerRoot.CFrame.LookVector  
+        myRoot.CFrame = killerRoot.CFrame + forward * 7.5  
+        task.delay(0.1, function() if myRoot then myRoot.CFrame = oldCFrame end end)  
+    end  
 
-    local function getBoolFlag(name, default)
-        local flag = localPlayer:FindFirstChild(name)
-        if not flag then
-            flag = Instance.new("BoolValue")
-            flag.Name, flag.Value, flag.Parent = name, default, localPlayer
-        end
-        return flag
-    end
+    local function getBoolFlag(name, default)  
+        local flag = localPlayer:FindFirstChild(name)  
+        if not flag then  
+            flag = Instance.new("BoolValue")  
+            flag.Name, flag.Value, flag.Parent = name, default, localPlayer  
+        end  
+        return flag  
+    end  
 
-    local function getNumberFlag(name, default)
-        local flag = localPlayer:FindFirstChild(name)
-        if not flag then
-            flag = Instance.new("NumberValue")
-            flag.Name, flag.Value, flag.Parent = name, default, localPlayer
-        end
-        return flag
-    end
+    local function getNumberFlag(name, default)  
+        local flag = localPlayer:FindFirstChild(name)  
+        if not flag then  
+            flag = Instance.new("NumberValue")  
+            flag.Name, flag.Value, flag.Parent = name, default, localPlayer  
+        end  
+        return flag  
+    end  
 
-    local toggleFlag = getBoolFlag("AutoBlockToggle", false)
-    local strictFlag = getBoolFlag("AutoBlockStrictRange", false)
-    local rangeFlag = getNumberFlag("AutoBlockRange", 18)
-    toggleOn, strictRangeOn, detectionRange = toggleFlag.Value, strictFlag.Value, rangeFlag.Value
+    local toggleFlag = getBoolFlag("AutoBlockToggle", false)  
+    local strictFlag = getBoolFlag("AutoBlockStrictRange", false)  
+    local rangeFlag = getNumberFlag("AutoBlockRange", 18)  
+    toggleOn, strictRangeOn, detectionRange = toggleFlag.Value, strictFlag.Value, rangeFlag.Value  
 
-    MainTab:Toggle("Auto Block V2.3", toggleOn, "Tự động chặn đòn tấn công nguy hiểm", function(state)
-        toggleOn = state
-        toggleFlag.Value = state
-    end)
+    MainTab:Toggle("Auto Block V2.3", toggleOn, "Tự động chặn đòn tấn công nguy hiểm", function(state)  
+        toggleOn = state  
+        toggleFlag.Value = state  
+    end)  
 
-    MainTab:Toggle("Auto Check V2.3", strictRangeOn, "Tự kiểm tra kẻ địch có trong phạm vi không", function(state)
-        strictRangeOn = state
-        strictFlag.Value = state
-    end)
+    MainTab:Toggle("Auto Check V2.3", strictRangeOn, "Tự kiểm tra kẻ địch có trong phạm vi không", function(state)  
+        strictRangeOn = state  
+        strictFlag.Value = state  
+    end)  
 
-    MainTab:Slider("Range Check", 5, 50, detectionRange, function(v)
-        detectionRange = v
-        rangeFlag.Value = v
-    end)
+    MainTab:Slider("Range Check", 5, 50, detectionRange, function(v)  
+        detectionRange = v  
+        rangeFlag.Value = v  
+    end)  
 
-    initBlockButton()
-    localPlayer.CharacterAdded:Connect(function()
-        task.wait(0)
-        initBlockButton()
-    end)
+    initBlockButton()  
+    localPlayer.CharacterAdded:Connect(function()  
+        task.wait(0)  
+        initBlockButton()  
+    end)  
 
-    local function cleanupPlayerConns(p)
-        local tbl = playerConns[p]
-        if tbl then
-            for _, c in ipairs(tbl) do if c and c.Disconnect then c:Disconnect() end end
-            playerConns[p] = nil
-        end
-        recentBlocks[p.UserId] = nil
-    end
+    local function cleanupPlayerConns(p)  
+        local tbl = playerConns[p]  
+        if tbl then  
+            for _, c in ipairs(tbl) do if c and c.Disconnect then c:Disconnect() end end  
+            playerConns[p] = nil  
+        end  
+        recentBlocks[p.UserId] = nil  
+    end  
 
+    -- ===== FIX PHẦN BLOCK LIÊN TỤC =====
     local function shouldBlockNow(p, animId, track)
         recentBlocks[p.UserId] = recentBlocks[p.UserId] or {}
-        local last, now = recentBlocks[p.UserId][animId] or 0, tick()
-        if track.TimePosition <= 0 then
-            if now - last >= COOLDOWN_ZERO then recentBlocks[p.UserId][animId] = now return true end
-        else
-            if now - last >= COOLDOWN_MISS then recentBlocks[p.UserId][animId] = now return true end
+        local now = tick()
+        -- block liên tục, mỗi animation tối thiểu 0.05s mới ghi lại lần block trước
+        if not recentBlocks[p.UserId][animId] or now - recentBlocks[p.UserId][animId] >= 0.05 then
+            recentBlocks[p.UserId][animId] = now
+            return true
         end
         return false
     end
+    -- ================================
 
-    local massInfectionIds = {["131430497821198"] = true, ["100592913030351"] = true, ["70447634862911"] = true, ["83685305553364"] = true}
+    local massInfectionIds = {["131430497821198"] = true, ["100592913030351"] = true, ["70447634862911"] = true, ["83685305553364"] = true}  
 
-    local function onAnimationPlayed(player, char, track)
-        if not toggleOn or not (track and track.Animation) then return end
-        local animIdStr, id = track.Animation.AnimationId, track.Animation.AnimationId:match("%d+")
-        if not id or not animationIds[id] then return end
-        if strictRangeOn then
-            local myChar, myRoot = localPlayer.Character, localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart")
-            local root = char and char:FindFirstChild("HumanoidRootPart")
-            if not myRoot or not root or (root.Position - myRoot.Position).Magnitude > detectionRange then return end
-        end
-        if shouldBlockNow(player, id, track) then
-            if massInfectionIds[id] then task.delay(0.5, fastBlock) else fastBlock() end
-            if isKiller(player) and delayedAnimations[id] then teleportDodge(char) end
+    local function onAnimationPlayed(player, char, track)  
+        if not toggleOn or not (track and track.Animation) then return end  
+        local animIdStr, id = track.Animation.AnimationId, track.Animation.AnimationId:match("%d+")  
+        if not id or not animationIds[id] then return end  
+        if strictRangeOn then  
+            local myChar, myRoot = localPlayer.Character, localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart")  
+            local root = char and char:FindFirstChild("HumanoidRootPart")  
+            if not myRoot or not root or (root.Position - myRoot.Position).Magnitude > detectionRange then return end  
+        end  
+        if shouldBlockNow(player, id, track) then  
+            if massInfectionIds[id] then task.delay(0.5, fastBlock) else fastBlock() end  
+            if isKiller(player) and delayedAnimations[id] then teleportDodge(char) end  
+        end  
+    end  
 
-            -- Reset recentBlocks sau khi animation kết thúc
-            task.delay(track.Length, function()
-                if recentBlocks[player.UserId] then
-                    recentBlocks[player.UserId][id] = nil
-                end
-            end)
-        end
-    end
+    local function monitorCharacter(player, char)  
+        if not player or not char then return end  
+        local hum = char:FindFirstChildOfClass("Humanoid") or char:WaitForChild("Humanoid", 5)  
+        if not hum then return end  
+        local con = hum.AnimationPlayed:Connect(function(track) task.spawn(onAnimationPlayed, player, char, track) end)  
+        playerConns[player] = playerConns[player] or {}  
+        table.insert(playerConns[player], con)  
+    end  
 
-    local function monitorCharacter(player, char)
-        if not player or not char then return end
-        local hum = char:FindFirstChildOfClass("Humanoid") or char:WaitForChild("Humanoid", 5)
-        if not hum then return end
-        local con = hum.AnimationPlayed:Connect(function(track) task.spawn(onAnimationPlayed, player, char, track) end)
-        playerConns[player] = playerConns[player] or {}
-        table.insert(playerConns[player], con)
-    end
+    local function onPlayerAdded(player)  
+        if player == localPlayer then return end  
+        if player.Character then monitorCharacter(player, player.Character) end  
+        local conCharAdded = player.CharacterAdded:Connect(function(char)  
+            task.wait(0)  
+            monitorCharacter(player, char)  
+        end)  
+        playerConns[player] = playerConns[player] or {}  
+        table.insert(playerConns[player], conCharAdded)  
+    end  
 
-    local function onPlayerAdded(player)
-        if player == localPlayer then return end
-        if player.Character then monitorCharacter(player, player.Character) end
-        local conCharAdded = player.CharacterAdded:Connect(function(char)
-            task.wait(0)
-            monitorCharacter(player, char)
-        end)
-        playerConns[player] = playerConns[player] or {}
-        table.insert(playerConns[player], conCharAdded)
-    end
+    for _, p in ipairs(Players:GetPlayers()) do onPlayerAdded(p) end  
+    Players.PlayerAdded:Connect(onPlayerAdded)  
+    Players.PlayerRemoving:Connect(cleanupPlayerConns)  
 
-    for _, p in ipairs(Players:GetPlayers()) do onPlayerAdded(p) end
-    Players.PlayerAdded:Connect(onPlayerAdded)
-    Players.PlayerRemoving:Connect(cleanupPlayerConns)
+    local function createCircleFor(player, hrp)  
+        if circles[player] then circles[player]:Destroy() end  
+        local circle = Instance.new("Part")  
+        circle.Anchored, circle.CanCollide, circle.Shape = true, false, Enum.PartType.Cylinder  
+        circle.Size = Vector3.new(0.2, detectionRange * 2, detectionRange * 2)  
+        circle.CFrame = hrp.CFrame * CFrame.Angles(0, 0, math.rad(90))  
+        circle.Material, circle.Transparency = Enum.Material.Neon, 0.5  
+        circle.Color = Color3.fromRGB(255, 0, 0)  
+        circle.Parent = workspace  
+        circles[player] = circle  
+    end  
 
-    local function createCircleFor(player, hrp)
-        if circles[player] then circles[player]:Destroy() end
-        local circle = Instance.new("Part")
-        circle.Anchored, circle.CanCollide, circle.Shape = true, false, Enum.PartType.Cylinder
-        circle.Size = Vector3.new(0.2, detectionRange * 2, detectionRange * 2)
-        circle.CFrame = hrp.CFrame * CFrame.Angles(0, 0, math.rad(90))
-        circle.Material, circle.Transparency = Enum.Material.Neon, 0.5
-        circle.Color = Color3.fromRGB(255, 0, 0)
-        circle.Parent = workspace
-        circles[player] = circle
-    end
+    local function removeCircle(player)  
+        if circles[player] then circles[player]:Destroy() circles[player] = nil end  
+    end  
 
-    local function removeCircle(player)
-        if circles[player] then circles[player]:Destroy() circles[player] = nil end
-    end
-
-    RunService.Heartbeat:Connect(function()
-        if not strictRangeOn then
-            for _, circle in pairs(circles) do if circle then circle.Transparency = 1 end end
-            return
-        end
-        local myChar, myRoot = localPlayer.Character, localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart")
-        if not myRoot then return end
-        for _, player in ipairs(Players:GetPlayers()) do
-            if player ~= localPlayer then
-                local char, hrp, hum = player.Character, player.Character and player.Character:FindFirstChild("HumanoidRootPart"), player.Character and player.Character:FindFirstChildOfClass("Humanoid")
-                if hrp and hum and hum.Health > 0 and isKiller(player) then
-                    if not circles[player] then createCircleFor(player, hrp) end
-                    local circle = circles[player]
-                    circle.Size = Vector3.new(0.2, detectionRange * 2, detectionRange * 2)
-                    circle.CFrame = hrp.CFrame * CFrame.Angles(0, 0, math.rad(90))
-                    local dist = (myRoot.Position - hrp.Position).Magnitude
-                    circle.Color = (dist <= detectionRange) and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 0, 0)
-                    circle.Transparency = 0.5
-                else removeCircle(player) end
-            end
-        end
-    end)
+    RunService.Heartbeat:Connect(function()  
+        if not strictRangeOn then  
+            for _, circle in pairs(circles) do if circle then circle.Transparency = 1 end end  
+            return  
+        end  
+        local myChar, myRoot = localPlayer.Character, localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart")  
+        if not myRoot then return end  
+        for _, player in ipairs(Players:GetPlayers()) do  
+            if player ~= localPlayer then  
+                local char, hrp, hum = player.Character, player.Character and player.Character:FindFirstChild("HumanoidRootPart"), player.Character and player.Character:FindFirstChildOfClass("Humanoid")  
+                if hrp and hum and hum.Health > 0 and isKiller(player) then  
+                    if not circles[player] then createCircleFor(player, hrp) end  
+                    local circle = circles[player]  
+                    circle.Size = Vector3.new(0.2, detectionRange * 2, detectionRange * 2)  
+                    circle.CFrame = hrp.CFrame * CFrame.Angles(0, 0, math.rad(90))  
+                    local dist = (myRoot.Position - hrp.Position).Magnitude  
+                    circle.Color = (dist <= detectionRange) and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 0, 0)  
+                    circle.Transparency = 0.5  
+                else removeCircle(player) end  
+            end  
+        end  
+    end)  
 
     Players.PlayerRemoving:Connect(removeCircle)
 end
