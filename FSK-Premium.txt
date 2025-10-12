@@ -651,6 +651,168 @@ end
 -- Main
 ---------------------------------------------------------------------------------
 
+MainTab:Seperator("Eliot");
+
+do
+	-- 🧩 GUI Toggle + Slider
+	local toggleFlag = Instance.new("BoolValue")
+	toggleFlag.Name = "EliotPizzaAim_ToggleFlag"
+	toggleFlag.Value = false
+
+	local maxDistance = 100
+	local aimOffset = 2 -- lệch phải 2 studs
+
+	MainTab:Toggle("Pizza Aimbot", toggleFlag.Value, "Khi ném pizza nó sẽ aim vào người yếu nhất", function(state)
+		toggleFlag.Value = state
+	end)
+
+	MainTab:Slider("Aim Distance", 10, 300, maxDistance, "Set max distance to lock target", function(value)
+		maxDistance = value
+	end)
+
+	-- ⚔️ Setup
+	local Players = game:GetService("Players")
+	local RunService = game:GetService("RunService")
+	local localPlayer = Players.LocalPlayer
+
+	local dangerousAnimations = {
+		["114155003741146"] = true,
+		["104033348426533"] = true
+	}
+
+	local EliotModels = {["Elliot"] = true}
+	local survivorModels = {
+		["Noob"] = true, ["Guest1337"] = true, ["Elliot"] = true,
+		["Shedletsky"] = true, ["TwoTime"] = true, ["007n7"] = true, ["Veeronica"] = true,
+		["Chance"] = true, ["Builderman"] = true, ["Taph"] = true, ["Dusekkar"] = true
+	}
+
+	-- state
+	local autoRotateDisabledByScript = false
+	local currentTarget, isLockedOn, wasPlayingAnimation = nil, false, false
+
+	-- utils
+	local function isEliot()
+		local char = localPlayer.Character
+		return char and EliotModels[char.Name] or false
+	end
+
+	local function getMyHumanoid()
+		local char = localPlayer.Character
+		return char and char:FindFirstChildWhichIsA("Humanoid")
+	end
+
+	local function restoreAutoRotate()
+		local hum = getMyHumanoid()
+		if hum and autoRotateDisabledByScript then
+			hum.AutoRotate = true
+			autoRotateDisabledByScript = false
+		end
+	end
+
+	local function isPlayingDangerousAnimation()
+		local humanoid = getMyHumanoid()
+		if not humanoid then return false end
+		local animator = humanoid:FindFirstChildOfClass("Animator")
+		if not animator then return false end
+
+		for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
+			local animId = tostring(track.Animation.AnimationId):match("%d+")
+			if animId and dangerousAnimations[animId] then
+				return true
+			end
+		end
+		return false
+	end
+
+	local function getWeakestSurvivor()
+		local weakest, lowestHpPercent = nil, 1
+		local myRoot = localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart")
+		if not myRoot then return nil end
+
+		for _, obj in pairs(workspace:GetDescendants()) do
+			if obj:IsA("Model") and survivorModels[obj.Name] then
+				local hrp = obj:FindFirstChild("HumanoidRootPart")
+				local hum = obj:FindFirstChildWhichIsA("Humanoid")
+				if hrp and hum and hum.Health > 0 then
+					local dist = (hrp.Position - myRoot.Position).Magnitude
+					local hpPercent = hum.Health / hum.MaxHealth
+					if dist <= maxDistance and hpPercent < 1 and hpPercent < lowestHpPercent then
+						weakest = obj
+						lowestHpPercent = hpPercent
+					end
+				end
+			end
+		end
+		return weakest
+	end
+
+	localPlayer.CharacterAdded:Connect(function()
+		task.delay(0.1, function()
+			autoRotateDisabledByScript = false
+		end)
+	end)
+
+	RunService.RenderStepped:Connect(function(dt)
+		if not toggleFlag.Value then
+			restoreAutoRotate()
+			currentTarget, isLockedOn, wasPlayingAnimation = nil, false, false
+			return
+		end
+
+		if not isEliot() then
+			restoreAutoRotate()
+			currentTarget, isLockedOn, wasPlayingAnimation = nil, false, false
+			return
+		end
+
+		local myHumanoid = getMyHumanoid()
+		if not myHumanoid then return end
+		local myRoot = myHumanoid.Parent and myHumanoid.Parent:FindFirstChild("HumanoidRootPart")
+		if not myRoot then return end
+
+		local isPlaying = isPlayingDangerousAnimation()
+
+		if isPlaying and not isLockedOn then
+			currentTarget = getWeakestSurvivor()
+			if currentTarget then isLockedOn = true end
+		end
+
+		if isLockedOn and currentTarget then
+			local tHum, tHrp = currentTarget:FindFirstChildWhichIsA("Humanoid"), currentTarget:FindFirstChild("HumanoidRootPart")
+			if (not tHum) or (tHum and tHum.Health <= 0) or (not tHrp) then
+				currentTarget, isLockedOn = nil, false
+			end
+		end
+
+		if (not isPlaying) and wasPlayingAnimation then
+			currentTarget, isLockedOn = nil, false
+			restoreAutoRotate()
+		end
+		wasPlayingAnimation = isPlaying
+
+		if isPlaying and isLockedOn and currentTarget and currentTarget:FindFirstChild("HumanoidRootPart") then
+			local hrp = currentTarget.HumanoidRootPart
+			local targetPos = hrp.Position
+			if not autoRotateDisabledByScript then
+				myHumanoid.AutoRotate = false
+				autoRotateDisabledByScript = true
+			end
+
+			local vel = hrp.Velocity
+			if vel.Magnitude > 2 then
+				targetPos = targetPos + hrp.CFrame.LookVector * 3
+			end
+
+			local offset = myRoot.CFrame.RightVector * aimOffset
+			local lookAt = Vector3.new(targetPos.X, myRoot.Position.Y, targetPos.Z) + offset
+
+			myRoot.CFrame = myRoot.CFrame:Lerp(CFrame.lookAt(myRoot.Position, lookAt), 0.99)
+		end
+	end)
+end
+
+
 MainTab:Seperator("Shedletky");
 
 do
@@ -2957,7 +3119,153 @@ do
     end)
 end
 
+PlayerTab:Seperator("Fake Skill");
 
+do
+	local Players = game:GetService("Players")
+	local UserInputService = game:GetService("UserInputService")
+	local player = Players.LocalPlayer
+	local playerGui = player:WaitForChild("PlayerGui")
+
+	local BUTTON_SIZE = 48
+	local FramesLocked = true
+	local screenGui
+	local createdFrames = {}
+
+	local buttonsData = {
+		{Name = "Btn1", AnimationId = "135853087227453", PlayMusic = true, MusicId = "81361259756089", ImageId = "134210378382767"},
+		{Name = "Btn2", AnimationId = "99784586201997", PlayMusic = false, ImageId = "134210378382767"},
+		{Name = "Btn3", AnimationId = "121162477402224", PlayMusic = true, MusicId = "120185817748858", ImageId = "85785826985052"},
+		{Name = "Btn4", AnimationId = "101816924844805", PlayMusic = true, MusicId = "88406027536494", ImageId = "85785826985052"},
+	}
+
+	local startPositions = {
+		UDim2.new(0, 80, 0, 200),
+		UDim2.new(0, 140, 0, 200),
+		UDim2.new(0, 200, 0, 200),
+		UDim2.new(0, 260, 0, 200),
+	}
+
+	local function makeDraggable(frame)
+		local dragging, dragStart, startPos
+		frame.InputBegan:Connect(function(input)
+			if not FramesLocked and (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) then
+				dragging = true
+				dragStart = input.Position
+				startPos = frame.Position
+				input.Changed:Connect(function()
+					if input.UserInputState == Enum.UserInputState.End then
+						dragging = false
+					end
+				end)
+			end
+		end)
+		UserInputService.InputChanged:Connect(function(input)
+			if not FramesLocked and dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+				local delta = input.Position - dragStart
+				frame.Position = UDim2.new(
+					startPos.X.Scale, startPos.X.Offset + delta.X,
+					startPos.Y.Scale, startPos.Y.Offset + delta.Y
+				)
+			end
+		end)
+	end
+
+	screenGui = Instance.new("ScreenGui")
+	screenGui.Name = "CircleButtonsGUI"
+	screenGui.ResetOnSpawn = false
+	screenGui.IgnoreGuiInset = true
+	screenGui.Enabled = false
+	screenGui.Parent = playerGui
+
+	local function createFrameWithButton(data, pos)
+		local frame = Instance.new("Frame")
+		frame.Name = data.Name .. "_Frame"
+		frame.Size = UDim2.new(0, BUTTON_SIZE, 0, BUTTON_SIZE)
+		frame.Position = pos
+		frame.BackgroundTransparency = 1
+		frame.ZIndex = 1
+		frame.Parent = screenGui
+		frame.Active = true
+
+		local frameCorner = Instance.new("UICorner")
+		frameCorner.CornerRadius = UDim.new(1, 0)
+		frameCorner.Parent = frame
+
+		local btn = Instance.new("ImageButton")
+		btn.Name = data.Name
+		btn.Size = UDim2.new(1, 0, 1, 0)
+		btn.BackgroundTransparency = 1
+		btn.Image = "rbxassetid://" .. data.ImageId
+		btn.ZIndex = 2
+		btn.Parent = frame
+		btn.ScaleType = Enum.ScaleType.Fit
+
+		local corner = Instance.new("UICorner")
+		corner.CornerRadius = UDim.new(1, 0)
+		corner.Parent = btn
+
+		btn.MouseButton1Click:Connect(function()
+			if FramesLocked then
+				local char = player.Character or player.CharacterAdded:Wait()
+				local humanoid = char:FindFirstChildOfClass("Humanoid")
+				if not humanoid then return end
+				local animator = humanoid:FindFirstChildOfClass("Animator") or Instance.new("Animator", humanoid)
+				local anim = Instance.new("Animation")
+				anim.AnimationId = "rbxassetid://" .. data.AnimationId
+				local track = animator:LoadAnimation(anim)
+				track:Play()
+
+				if data.PlayMusic and data.MusicId then
+					local sound = Instance.new("Sound")
+					sound.SoundId = "rbxassetid://" .. data.MusicId
+					sound.Volume = 1
+					sound.Parent = char:FindFirstChild("Head") or playerGui
+					sound:Play()
+					sound.Ended:Connect(function() sound:Destroy() end)
+				end
+			end
+		end)
+
+		makeDraggable(frame)
+		btn.Visible = FramesLocked
+		frame.BackgroundTransparency = FramesLocked and 1 or 0.3
+
+		table.insert(createdFrames, frame)
+	end
+
+	for i, d in ipairs(buttonsData) do
+		createFrameWithButton(d, startPositions[i])
+	end
+
+	-- === Fluent GUI Buttons ===
+	PlayerTab:Toggle("Unlock Sukuna Skill", screenGui.Enabled, "Dùng để ẩn, hiện các nút", function(state)
+		screenGui.Enabled = state
+	end)
+
+	PlayerTab:Toggle("Lock Buttons", FramesLocked, "Dùng để khóa hoặc mở khóa nút", function(state)
+		FramesLocked = state
+		for _, frame in ipairs(createdFrames) do
+			local btn = frame:FindFirstChildOfClass("ImageButton")
+			if btn then
+				btn.Visible = FramesLocked
+			end
+			frame.BackgroundTransparency = FramesLocked and 1 or 0.3
+		end
+	end)
+
+	-- Slider kiểu SeaTab/Fluent chuẩn để cập nhật trực tiếp
+	PlayerTab:Slider("Button Size", 20, 200, BUTTON_SIZE, function(value)
+		BUTTON_SIZE = value
+		for _, frame in ipairs(createdFrames) do
+			frame.Size = UDim2.new(0, BUTTON_SIZE, 0, BUTTON_SIZE)
+			local btn = frame:FindFirstChildOfClass("ImageButton")
+			if btn then
+				btn.Size = UDim2.new(1, 0, 1, 0)
+			end
+		end
+	end)
+end
 
 
 PlayerTab:Seperator("Hitbox");
