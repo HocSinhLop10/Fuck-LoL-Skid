@@ -2843,6 +2843,333 @@ do
         :OnChanged(function(val) customPunchEnabled = val end)
 end
 
+    Tabs.Main:AddSection("↳ c00lkidd")
+
+do
+    --== ⚙️ Base Globals ==--
+    local Players = game:GetService("Players")
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")
+    local RunService = game:GetService("RunService")
+    local Workspace = game:GetService("Workspace")
+    local Camera = Workspace.CurrentCamera
+    local Player = Players.LocalPlayer
+
+    getgenv().Remote = ReplicatedStorage:WaitForChild("Modules"):WaitForChild("Network"):WaitForChild("RemoteEvent")
+    getgenv().walkSpeed = 100
+    getgenv().connection = nil
+    getgenv().blockFootstepPlayed = false
+
+    --== 🧠 Helpers ==--
+    local function getCharacter()
+        return Player.Character or Player.CharacterAdded:Wait()
+    end
+
+    --== 🏃 Movement Logic ==--
+    local stopMovement = false
+    local validValues = { Timeout = true, Collide = true, Hit = true }
+
+    local function watchResult(result)
+        local function check()
+            if validValues[result.Value] then
+                stopMovement = true
+            end
+        end
+        check()
+        result:GetPropertyChangedSignal("Value"):Connect(check)
+    end
+
+    local function onCharacterAdded(character)
+        local result = character:FindFirstChild("Result")
+        if result and result:IsA("StringValue") then
+            watchResult(result)
+        end
+        character.ChildAdded:Connect(function(child)
+            if child.Name == "Result" and child:IsA("StringValue") then
+                watchResult(child)
+            end
+        end)
+    end
+
+    Player.CharacterAdded:Connect(onCharacterAdded)
+    if Player.Character then
+        onCharacterAdded(Player.Character)
+    end
+
+    local function onHeartbeat()
+        local char = getCharacter()
+        if char.Name ~= "c00lkidd" then return end
+        local root = char:FindFirstChild("HumanoidRootPart")
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        local lv = root and root:FindFirstChild("LinearVelocity")
+        if not root or not hum or not lv then return end
+
+        lv.Enabled = false
+        if not stopMovement then
+            local look = Camera.CFrame.LookVector
+            local dir = Vector3.new(look.X, 0, look.Z)
+            if dir.Magnitude > 0 then
+                dir = dir.Unit
+                root.Velocity = Vector3.new(dir.X * getgenv().walkSpeed, root.Velocity.Y, dir.Z * getgenv().walkSpeed)
+                root.CFrame = CFrame.new(root.Position, root.Position + dir)
+            end
+        end
+    end
+
+    --== 🧩 Hook Helpers ==--
+    getgenv().createHook = function(remoteName)
+        getgenv()["original_" .. remoteName] = hookmetamethod(game, "__namecall", function(self, ...)
+            local method = getnamecallmethod()
+            local args = { ... }
+            if self == getgenv().Remote and method == "FireServer" then
+                if args[1] == Player.Name .. remoteName then
+                    return
+                end
+            end
+            return getgenv()["original_" .. remoteName](self, ...)
+        end)
+        return getgenv()["original_" .. remoteName]
+    end
+
+    getgenv().enableHook = function(remoteName)
+        if not getgenv()["hook_" .. remoteName] then
+            getgenv()["hook_" .. remoteName] = getgenv().createHook(remoteName)
+        end
+        if remoteName == "DusekkarCancel" and not getgenv().isFiringDusekkar then
+            getgenv().isFiringDusekkar = true
+            task.spawn(function()
+                task.wait(4)
+                getgenv().Remote:FireServer({ Player.Name .. "DusekkarCancel" })
+                getgenv().isFiringDusekkar = false
+            end)
+        end
+    end
+
+    getgenv().disableHook = function(remoteName)
+        if getgenv()["hook_" .. remoteName] then
+            hookmetamethod(game, "__namecall", getgenv()["hook_" .. remoteName])
+            getgenv()["hook_" .. remoteName] = nil
+            getgenv()["original_" .. remoteName] = nil
+        end
+    end
+
+    --== 👣 Footstep Hook ==--
+    getgenv().HookFootstepPlayed = function(enable)
+        if enable then
+            if not getgenv().originalFootstepHook then
+                getgenv().originalFootstepHook = hookmetamethod(game, "__namecall", function(self, ...)
+                    local method = getnamecallmethod()
+                    local args = { ... }
+                    if method == "FireServer" and self.Name == "UnreliableRemoteEvent" then
+                        if args[1] == "FootstepPlayed" and getgenv().blockFootstepPlayed then
+                            return
+                        end
+                    end
+                    return getgenv().originalFootstepHook(self, ...)
+                end)
+            end
+            getgenv().blockFootstepPlayed = true
+        else
+            getgenv().blockFootstepPlayed = false
+        end
+    end
+
+    --== ⚔️ Combat GUI (Fluent style) ==--
+
+    Tabs.Main:AddToggle("WalkspeedOverride", {
+        Title = "Walkspeed Override Controller",
+        Default = false
+    }):OnChanged(function(value)
+        if value then
+            getgenv().connection = RunService.Heartbeat:Connect(onHeartbeat)
+        else
+            if getgenv().connection then
+                getgenv().connection:Disconnect()
+                getgenv().connection = nil
+            end
+        end
+    end)
+
+    Tabs.Main:AddToggle("IgnoreC00lkidd", {
+        Title = "Walkspeed Override Ignore Objectables",
+        Default = false
+    }):OnChanged(function(value)
+        if value then
+            getgenv().enableHook("C00lkiddCollision")
+        else
+            getgenv().disableHook("C00lkiddCollision")
+        end
+    end)
+
+    Tabs.Main:AddToggle("IgnoreFootstep", {
+        Title = "Block Footstep Played",
+        Default = false
+    }):OnChanged(function(value)
+        getgenv().HookFootstepPlayed(value)
+    end)
+end
+
+
+
+
+
+    Tabs.Main:AddSection("↳ Noli")
+
+do
+    local RunService = game:GetService("RunService")
+    local Players = game:GetService("Players")
+    local LocalPlayer = Players.LocalPlayer
+
+    -- ====== CONFIG ======
+    local voidrushcontrol = false
+    local DASH_SPEED = 80
+    local ATTACK_RANGE = 6
+    local ATTACK_INTERVAL = 0.2
+    local PRIORITY_NAMES = {
+        ["Noob"] = true, ["Guest1337"] = true, ["Elliot"] = true,
+        ["Shedletsky"] = true, ["TwoTime"] = true, ["007n7"] = true, ["Veeronica"] = true,
+        ["Chance"] = true, ["Builderman"] = true, ["Taph"] = true, ["Dusekkar"] = true
+    }
+
+    -- ====== STATE ======
+    local isOverrideActive = false
+    local connection
+    local Humanoid, RootPart
+    local lastState = nil
+    local attackingLoop = nil
+
+    -- setup character
+    local function setupCharacter(character)
+        Humanoid = character:WaitForChild("Humanoid")
+        RootPart = character:WaitForChild("HumanoidRootPart")
+
+        Humanoid.Died:Connect(function()
+            stopOverride()
+        end)
+    end
+
+    if LocalPlayer.Character then
+        setupCharacter(LocalPlayer.Character)
+    end
+    LocalPlayer.CharacterAdded:Connect(setupCharacter)
+
+    -- tìm mục tiêu hợp lệ
+    local function validTarget(p)
+        if p == LocalPlayer then return false end
+        local c = p.Character
+        if not c then return false end
+        local hrp = c:FindFirstChild("HumanoidRootPart")
+        local hum = c:FindFirstChild("Humanoid")
+        return hrp and hum and hum.Health > 0
+    end
+
+    -- tìm player gần nhất (ưu tiên whitelist)
+    local function getClosestTarget()
+        if not RootPart then return nil end
+
+        local closestW, distW = nil, math.huge
+        local closestA, distA = nil, math.huge
+
+        for _, p in ipairs(Players:GetPlayers()) do
+            if validTarget(p) then
+                local hrp = p.Character.HumanoidRootPart
+                local d = (hrp.Position - RootPart.Position).Magnitude
+
+                if PRIORITY_NAMES[p.Name] and d < distW then
+                    distW = d
+                    closestW = p
+                end
+                if d < distA then
+                    distA = d
+                    closestA = p
+                end
+            end
+        end
+
+        return closestW or closestA, distW < math.huge and distW or distA
+    end
+
+    -- cố gắng tấn công (tool:Activate())
+    local function attemptAttack()
+        local char = LocalPlayer.Character
+        if not char then return end
+        local tool = char:FindFirstChildOfClass("Tool")
+        if tool and tool.Parent == char then
+            pcall(function() tool:Activate() end)
+        end
+    end
+
+    -- điều khiển Void Rush
+    local function startOverride()
+        if isOverrideActive or not Humanoid or not RootPart then return end
+        isOverrideActive = true
+
+        connection = RunService.RenderStepped:Connect(function()
+            if not Humanoid or not RootPart or Humanoid.Health <= 0 then return end
+            local target, dist = getClosestTarget()
+
+            if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
+                local hrp = target.Character.HumanoidRootPart
+                local dir = hrp.Position - RootPart.Position
+                local horizontal = Vector3.new(dir.X, 0, dir.Z)
+
+                if horizontal.Magnitude > 0.1 then
+                    RootPart.CFrame = CFrame.new(RootPart.Position, Vector3.new(hrp.Position.X, RootPart.Position.Y, hrp.Position.Z))
+                    RootPart.AssemblyLinearVelocity = horizontal.Unit * DASH_SPEED
+                else
+                    RootPart.AssemblyLinearVelocity = Vector3.zero
+                end
+            else
+                RootPart.AssemblyLinearVelocity = Vector3.zero
+            end
+        end)
+
+        attackingLoop = task.spawn(function()
+            while isOverrideActive do
+                local target, dist = getClosestTarget()
+                if target and dist and dist <= ATTACK_RANGE then
+                    attemptAttack()
+                end
+                task.wait(ATTACK_INTERVAL)
+            end
+        end)
+    end
+
+    function stopOverride()
+        if not isOverrideActive then return end
+        isOverrideActive = false
+
+        if connection then
+            connection:Disconnect()
+            connection = nil
+        end
+        if RootPart then
+            RootPart.AssemblyLinearVelocity = Vector3.zero
+        end
+    end
+
+    -- kiểm tra trạng thái void rush
+    RunService.RenderStepped:Connect(function()
+        if not voidrushcontrol or not Humanoid then return end
+        local state = Humanoid.Parent and Humanoid.Parent:GetAttribute("VoidRushState")
+        if state ~= lastState then
+            lastState = state
+            if state == "Dashing" then
+                startOverride()
+            else
+                stopOverride()
+            end
+        end
+    end)
+
+    -- toggle GUI
+    Tabs.Main:AddToggle("VoidRushControl", {
+        Title = "Void Rush Aimbot",
+        Default = false
+    }):OnChanged(function(v)
+        voidrushcontrol = v
+        if not v then stopOverride() end
+    end)
+end
 
 
 
@@ -3046,170 +3373,6 @@ RunService.RenderStepped:Connect(function(dt)
     end
 end)
 end
-
-
-
-    Tabs.Main:AddSection("↳ Noli")
-
-do
-    local RunService = game:GetService("RunService")
-    local Players = game:GetService("Players")
-    local LocalPlayer = Players.LocalPlayer
-
-    -- ====== CONFIG ======
-    local voidrushcontrol = false
-    local DASH_SPEED = 80
-    local ATTACK_RANGE = 6
-    local ATTACK_INTERVAL = 0.2
-    local PRIORITY_NAMES = {
-        ["Noob"] = true, ["Guest1337"] = true, ["Elliot"] = true,
-        ["Shedletsky"] = true, ["TwoTime"] = true, ["007n7"] = true, ["Veeronica"] = true,
-        ["Chance"] = true, ["Builderman"] = true, ["Taph"] = true, ["Dusekkar"] = true
-    }
-
-    -- ====== STATE ======
-    local isOverrideActive = false
-    local connection
-    local Humanoid, RootPart
-    local lastState = nil
-    local attackingLoop = nil
-
-    -- setup character
-    local function setupCharacter(character)
-        Humanoid = character:WaitForChild("Humanoid")
-        RootPart = character:WaitForChild("HumanoidRootPart")
-
-        Humanoid.Died:Connect(function()
-            stopOverride()
-        end)
-    end
-
-    if LocalPlayer.Character then
-        setupCharacter(LocalPlayer.Character)
-    end
-    LocalPlayer.CharacterAdded:Connect(setupCharacter)
-
-    -- tìm mục tiêu hợp lệ
-    local function validTarget(p)
-        if p == LocalPlayer then return false end
-        local c = p.Character
-        if not c then return false end
-        local hrp = c:FindFirstChild("HumanoidRootPart")
-        local hum = c:FindFirstChild("Humanoid")
-        return hrp and hum and hum.Health > 0
-    end
-
-    -- tìm player gần nhất (ưu tiên whitelist)
-    local function getClosestTarget()
-        if not RootPart then return nil end
-
-        local closestW, distW = nil, math.huge
-        local closestA, distA = nil, math.huge
-
-        for _, p in ipairs(Players:GetPlayers()) do
-            if validTarget(p) then
-                local hrp = p.Character.HumanoidRootPart
-                local d = (hrp.Position - RootPart.Position).Magnitude
-
-                if PRIORITY_NAMES[p.Name] and d < distW then
-                    distW = d
-                    closestW = p
-                end
-                if d < distA then
-                    distA = d
-                    closestA = p
-                end
-            end
-        end
-
-        return closestW or closestA, distW < math.huge and distW or distA
-    end
-
-    -- cố gắng tấn công (tool:Activate())
-    local function attemptAttack()
-        local char = LocalPlayer.Character
-        if not char then return end
-        local tool = char:FindFirstChildOfClass("Tool")
-        if tool and tool.Parent == char then
-            pcall(function() tool:Activate() end)
-        end
-    end
-
-    -- điều khiển Void Rush
-    local function startOverride()
-        if isOverrideActive or not Humanoid or not RootPart then return end
-        isOverrideActive = true
-
-        connection = RunService.RenderStepped:Connect(function()
-            if not Humanoid or not RootPart or Humanoid.Health <= 0 then return end
-            local target, dist = getClosestTarget()
-
-            if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
-                local hrp = target.Character.HumanoidRootPart
-                local dir = hrp.Position - RootPart.Position
-                local horizontal = Vector3.new(dir.X, 0, dir.Z)
-
-                if horizontal.Magnitude > 0.1 then
-                    RootPart.CFrame = CFrame.new(RootPart.Position, Vector3.new(hrp.Position.X, RootPart.Position.Y, hrp.Position.Z))
-                    RootPart.AssemblyLinearVelocity = horizontal.Unit * DASH_SPEED
-                else
-                    RootPart.AssemblyLinearVelocity = Vector3.zero
-                end
-            else
-                RootPart.AssemblyLinearVelocity = Vector3.zero
-            end
-        end)
-
-        attackingLoop = task.spawn(function()
-            while isOverrideActive do
-                local target, dist = getClosestTarget()
-                if target and dist and dist <= ATTACK_RANGE then
-                    attemptAttack()
-                end
-                task.wait(ATTACK_INTERVAL)
-            end
-        end)
-    end
-
-    function stopOverride()
-        if not isOverrideActive then return end
-        isOverrideActive = false
-
-        if connection then
-            connection:Disconnect()
-            connection = nil
-        end
-        if RootPart then
-            RootPart.AssemblyLinearVelocity = Vector3.zero
-        end
-    end
-
-    -- kiểm tra trạng thái void rush
-    RunService.RenderStepped:Connect(function()
-        if not voidrushcontrol or not Humanoid then return end
-        local state = Humanoid.Parent and Humanoid.Parent:GetAttribute("VoidRushState")
-        if state ~= lastState then
-            lastState = state
-            if state == "Dashing" then
-                startOverride()
-            else
-                stopOverride()
-            end
-        end
-    end)
-
-    -- toggle GUI
-    Tabs.Main:AddToggle("VoidRushControl", {
-        Title = "Void Rush Aimbot",
-        Default = false
-    }):OnChanged(function(v)
-        voidrushcontrol = v
-        if not v then stopOverride() end
-    end)
-end
-
-
-
 
 -- Tabs.Player
 
