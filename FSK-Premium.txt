@@ -6073,7 +6073,7 @@ local function ServerHop()
     if success then
         if Fluent and Fluent.Notify then
             Fluent:Notify({
-                Title = "Rejoin",
+                Title = "Rejoin Starting",
                 Content = "Bắt Đầu Vào Máy Chủ Đã Fix Lag",
                 Duration = 3
             })
@@ -6107,7 +6107,7 @@ Tabs.Misc:AddButton({
         -- Hiện thông báo chuẩn bị
         if Fluent and Fluent.Notify then
             Fluent:Notify({
-                Title = "Rejoin Start",
+                Title = "Rejoin Settings",
                 Content = "Đang Giảm Lag Cho Các Máy Chủ...",
                 Duration = 2
             })
