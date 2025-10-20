@@ -6051,9 +6051,78 @@ Tabs.Misc:AddToggle("RemoveAllBadStuff", {
     Tabs.Misc:AddSection("↳ Server")
 
 
+------------------------------------------------------------
+-- ⚡ SERVER HOP (Mobile-friendly + Fluent Button)
+------------------------------------------------------------
+
+local TeleportService = game:GetService("TeleportService")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+-- 🌀 Hàm thực hiện teleport sang server mới
+local function ServerHop()
+    local placeId = game.PlaceId
+    local jobId = game.JobId
+    print("[ServerHop] Đang rời server hiện tại...")
+
+    -- pcall để tránh lỗi Teleport crash
+    local success, err = pcall(function()
+        TeleportService:Teleport(placeId, LocalPlayer)
+    end)
+
+    if success then
+        if Fluent and Fluent.Notify then
+            Fluent:Notify({
+                Title = "Rejoin",
+                Content = "Đang chuyển sang server khác...",
+                Duration = 3
+            })
+        else
+            print("[ServerHop] Đang chuyển server...")
+        end
+    else
+        warn("[ServerHop] Lỗi khi Teleport:", err)
+        if Fluent and Fluent.Notify then
+            Fluent:Notify({
+                Title = "Lỗi Teleport",
+                Content = tostring(err),
+                Duration = 4
+            })
+        end
+    end
+end
+
+
+------------------------------------------------------------
+-- 🧩 THÊM NÚT TRONG FLUENT UI
+------------------------------------------------------------
+
+-- Giả sử bạn có tab Dev sẵn, tương tự ví dụ của bạn:
+-- Tabs.Dev:AddButton(...)
+
+Tabs.Misc:AddButton({
+    Title = "Rejoin To Fix Lag",
+    Description = "Tham Gia Lại Máy Chủ Để Giảm Lag",
+    Callback = function()
+        -- Hiện thông báo chuẩn bị
+        if Fluent and Fluent.Notify then
+            Fluent:Notify({
+                Title = "Rejoin Start",
+                Content = "Đang Giảm Lag Cho Các Máy Chủ",
+                Duration = 2
+            })
+        end
+
+        task.wait(0.3)
+        ServerHop()
+    end
+})
+
+
+
 -- 🌐 Server Hop Button
 Tabs.Misc:AddButton({
-    Title = "Server Hop",
+    Title = "Server Hop To Low Player",
     Description = "Dùng Để Đổi Server Có Thể Vào Server Ít Player",
     Callback = function()
         local PlaceID = game.PlaceId
