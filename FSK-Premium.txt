@@ -65,6 +65,7 @@ local Tabs = {
     Dev = Window:AddTab({ Title = "About", Icon = "info"}),
     Farm = Window:AddTab({ Title = "Farm", Icon = "box"}),
     Main = Window:AddTab({ Title = "Main", Icon = "home" }),
+    Custom = Window:AddTab({ Title = "Custom", Icon = "brush" }),
     Player = Window:AddTab({ Title = "Player", Icon = "user" }),
     Visual = Window:AddTab({ Title = "Visual", Icon = "eye" }),
     Misc = Window:AddTab({ Title = "Misc", Icon = "menu" }),
@@ -3496,6 +3497,748 @@ RunService.RenderStepped:Connect(function(dt)
 end)
 end
 
+
+
+-- Tabs.Custom
+
+
+
+
+    Tabs.Custom:AddSection("↳ Animation")
+
+--// Fake Killers Anim System (hardened)
+do
+    local Players = game:GetService("Players")
+    local RunService = game:GetService("RunService")
+    local UserInputService = game:GetService("UserInputService")
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+    local player = Players.LocalPlayer
+
+    -- thử require sprint module (nếu có)
+    local sprintModule
+    pcall(function()
+        sprintModule = require(ReplicatedStorage:WaitForChild("Systems").Character.Game.Sprinting)
+    end)
+
+    -- ==============================
+    -- 🟢 DỮ LIỆU KILLERS + SKINS (chỉ sửa ở đây)
+    -- ==============================
+    local KillersData = {
+        ["Shasher"] = {
+            ["Default"] = {
+                Idle = "rbxassetid://116050994905421",
+                Walk = "rbxassetid://93622022596108",
+                Run  = "rbxassetid://93054787145505",
+            },
+            ["Pursuer"] = {
+                Idle = "rbxassetid://94895464960972",
+                Walk = "rbxassetid://100206079439305",
+                Run  = "rbxassetid://138660433982140",
+            },
+            ["subject_0"] = {
+                Idle = "rbxassetid://14301056458",
+                Walk = "rbxassetid://122325883800612",
+                Run  = "rbxassetid://97248175252805",
+            }
+        },
+        ["Coolkidd"] = {
+            ["Default"] = {
+                Idle = "rbxassetid://18885903667",
+                Walk = "rbxassetid://18885906143",
+                Run  = "rbxassetid://96571077893813",
+            }
+        },
+        ["John Doe"] = {
+            ["Default"] = {
+                Idle = "rbxassetid://105880087711722",
+                Walk = "rbxassetid://81193817424328",
+                Run  = "rbxassetid://132653655520682",
+            },
+            ["Shadow"] = {
+                Idle = "rbxassetid://00000000001",
+                Walk = "rbxassetid://00000000002",
+                Run  = "rbxassetid://00000000003",
+            }
+        },
+        ["Noli"] = {
+            ["Default"] = {
+                Idle = "rbxassetid://93841120533318",
+                Walk = "rbxassetid://109700476007435",
+                Run  = "rbxassetid://117451341682452",
+            }
+        },
+        ["1x1x1x1"] = {
+            ["Default"] = {
+                Idle = "rbxassetid://138754221537146",
+                Walk = "rbxassetid://131235528875091",
+                Run  = "rbxassetid://106485518413331",
+            },
+            ["Hacklord [Old]"] = {
+                Idle = "rbxassetid://82241652784826",
+                Walk = "rbxassetid://119242164490314",
+                Run  = "rbxassetid://92430101129682",
+            },
+            ["Hacklord [New]"] = {
+                Idle = "rbxassetid://106131211773069",
+                Walk = "rbxassetid://119112338263474",
+                Run  = "rbxassetid://85339002634979",
+            }
+        },
+        ["Herobrine"] = {
+            ["Default"] = {
+                Idle = "rbxassetid://107799240559806",
+                Walk = "rbxassetid://89380107485006",
+                Run  = "rbxassetid://134157363854022",
+            }
+        },
+        ["Gubby"] = {
+            ["Default"] = {
+                Idle = "rbxassetid://88333702239259",
+                Walk = "rbxassetid://115244584291581",
+                Run  = "rbxassetid://115244584291581",
+            }
+        },
+        ["Sancho"] = {
+            ["Default"] = {
+                Idle = "rbxassetid://115073581864188",
+                Walk = "rbxassetid://95213748170889",
+                Run  = "rbxassetid://75409814098993",
+            }
+        },
+        ["Erlking"] = {
+            ["Default"] = {
+                Idle = "rbxassetid://93727662665079",
+                Walk = "rbxassetid://97625643261790",
+                Run  = "rbxassetid://119357938208454",
+            }
+        },
+        ["Sukuna"] = {
+            ["Default"] = {
+                Idle = "rbxassetid://115268929362938",
+                Walk = "rbxassetid://123678890237669",
+                Run  = "rbxassetid://132086389849889",
+                Music = "rbxassetid://73595818073606" -- 🆕 nhạc đặc biệt
+            }
+        }
+    }
+    -- ==============================
+
+    -- state
+    local enabled = false
+    local selectedKiller = "Shasher"
+    local selectedSkin = "Default"
+    local character, humanoid, animator
+    local idleAnim, walkAnim, runAnim
+    local idleTrack, walkTrack, runTrack
+    local _isSprinting = false
+    local musicSound -- 🆕 biến giữ Sound object
+
+    -- conn
+    local runningConn, heartbeatConn, characterRemovingConn, inputBeganConn, inputEndedConn = nil, nil, nil, nil, nil
+    local heartbeatAccumulator = 0
+    local HEARTBEAT_CHECK_INTERVAL = 0.12
+
+    -- utility
+    local function stopAndClearTracks()
+        for _, track in ipairs({idleTrack, walkTrack, runTrack}) do
+            if track then pcall(function() track:Stop() end) end
+        end
+        idleTrack, walkTrack, runTrack = nil, nil, nil
+    end
+
+    local function stopMusic()
+        if musicSound then
+            pcall(function()
+                musicSound:Stop()
+                musicSound:Destroy()
+            end)
+            musicSound = nil
+        end
+    end
+
+    local function playMusicIfSukuna(set)
+        stopMusic()
+        if selectedKiller == "Sukuna" and set and set.Music then
+            local sound = Instance.new("Sound")
+            sound.SoundId = set.Music
+            sound.Looped = true
+            sound.Volume = 2
+            sound.Parent = workspace
+            sound:Play()
+            musicSound = sound
+        end
+    end
+
+    local function disconnectListeners()
+        for _, c in ipairs({runningConn, heartbeatConn, characterRemovingConn, inputBeganConn, inputEndedConn}) do
+            if c then pcall(function() c:Disconnect() end) end
+        end
+        runningConn, heartbeatConn, characterRemovingConn, inputBeganConn, inputEndedConn = nil, nil, nil, nil, nil
+    end
+
+    local function cleanupCurrentCharacter()
+        stopAndClearTracks()
+        stopMusic()
+        disconnectListeners()
+        animator, humanoid, character = nil, nil, nil
+    end
+
+    -- load anim objects theo killer + skin
+    local function loadAnimObjects(killer, skin)
+        local killerTable = KillersData[killer]
+        if not killerTable then
+            warn("loadAnimObjects: killer không tồn tại:", tostring(killer))
+            return
+        end
+        local set = killerTable[skin or "Default"] or killerTable["Default"]
+        if not set then return end
+
+        idleAnim, walkAnim, runAnim = Instance.new("Animation"), Instance.new("Animation"), Instance.new("Animation")
+        idleAnim.Name, walkAnim.Name, runAnim.Name = "IdleAnim", "WalkAnim", "RunAnim"
+        idleAnim.AnimationId, walkAnim.AnimationId, runAnim.AnimationId = set.Idle, set.Walk, set.Run
+
+        playMusicIfSukuna(set) -- 🆕 check phát nhạc nếu là Sukuna
+    end
+
+    -- play anim
+    local function playAnim(animObj, trackType)
+        if not animator then return end
+
+        if trackType ~= "Idle" and idleTrack then pcall(function() idleTrack:Stop() end) idleTrack=nil end
+        if trackType ~= "Walk" and walkTrack then pcall(function() walkTrack:Stop() end) walkTrack=nil end
+        if trackType ~= "Run" and runTrack then pcall(function() runTrack:Stop() end) runTrack=nil end
+
+        local track
+        if trackType=="Idle" and not idleTrack then idleTrack = animator:LoadAnimation(idleAnim) track=idleTrack
+        elseif trackType=="Walk" and not walkTrack then walkTrack = animator:LoadAnimation(walkAnim) track=walkTrack
+        elseif trackType=="Run" and not runTrack then runTrack = animator:LoadAnimation(runAnim) track=runTrack
+        else track = (trackType=="Idle" and idleTrack) or (trackType=="Walk" and walkTrack) or runTrack end
+
+        if track and not track.IsPlaying then pcall(function() track:Play() end) end
+    end
+
+    local function playIdle() playAnim(idleAnim,"Idle") end
+    local function playWalk() playAnim(walkAnim,"Walk") end
+    local function playRun() playAnim(runAnim,"Run") end
+
+    -- update state
+    local function updateMovementState()
+        if not enabled or not character then return end
+        local moving=false
+        if humanoid and humanoid.MoveDirection then
+            moving = humanoid.MoveDirection.Magnitude>0
+            if not moving then
+                local root = character:FindFirstChild("HumanoidRootPart") or character.PrimaryPart
+                if root and root.Velocity.Magnitude>1 then moving=true end
+            end
+        end
+        if moving then
+            local sprintingNow = (sprintModule and sprintModule.IsSprinting) or _isSprinting
+            if sprintingNow then playRun() else playWalk() end
+        else
+            playIdle()
+        end
+    end
+
+    -- listeners
+    local function setupMovementListeners()
+        disconnectListeners()
+        inputBeganConn = UserInputService.InputBegan:Connect(function(input,gp) if gp then return end if input.KeyCode==Enum.KeyCode.LeftShift then _isSprinting=true end end)
+        inputEndedConn = UserInputService.InputEnded:Connect(function(input,gp) if gp then return end if input.KeyCode==Enum.KeyCode.LeftShift then _isSprinting=false end end)
+
+        if humanoid and humanoid.Running then
+            runningConn = humanoid.Running:Connect(function(speed) if not enabled then return end if speed>0 then updateMovementState() else playIdle() end end)
+        else
+            heartbeatAccumulator=0
+            heartbeatConn = RunService.Heartbeat:Connect(function(dt)
+                if not enabled or not character then return end
+                heartbeatAccumulator+=dt
+                if heartbeatAccumulator>=HEARTBEAT_CHECK_INTERVAL then
+                    heartbeatAccumulator=0
+                    updateMovementState()
+                end
+            end)
+        end
+    end
+
+    -- bind character
+    local function onCharacterBound(char)
+        cleanupCurrentCharacter()
+        character=char
+        humanoid=char:FindFirstChildOfClass("Humanoid") or char:FindFirstChildOfClass("AnimationController")
+        if humanoid then
+            animator = humanoid:FindFirstChildOfClass("Animator") or Instance.new("Animator", humanoid)
+        end
+        characterRemovingConn = char.AncestryChanged:Connect(function(_,parent) if not parent then cleanupCurrentCharacter() end end)
+        if enabled then
+            loadAnimObjects(selectedKiller, selectedSkin)
+            setupMovementListeners()
+            updateMovementState()
+        end
+    end
+
+    player.CharacterAdded:Connect(onCharacterBound)
+    if player.Character then onCharacterBound(player.Character) end
+
+    -- ===== UI =====
+    local killerNames = {}
+    for name,_ in pairs(KillersData) do table.insert(killerNames, name) end
+    table.sort(killerNames)
+
+    local SkinDropdown -- khai báo trước
+
+    -- dropdown chính (Killers)
+    local killerDropdown = Tabs.Custom:AddDropdown("ChooseKillersDropdown", {
+        Title = "Choose Killers",
+        Values = killerNames,
+        Default = selectedKiller,
+        Multi = false,
+        Callback = function(value)
+            local ok, err = pcall(function()
+                selectedKiller = value
+                selectedSkin = "Default"
+
+                local skins = {}
+                local t = KillersData[selectedKiller] or {}
+                for sName,_ in pairs(t) do table.insert(skins, sName) end
+                if #skins == 0 then skins = {"Default"} end
+                table.sort(skins)
+
+                if SkinDropdown and type(SkinDropdown.SetValues)=="function" and type(SkinDropdown.SetValue)=="function" then
+                    SkinDropdown:SetValues(skins)
+                    pcall(function() SkinDropdown:SetValue(skins[1] or "Default") end)
+                end
+
+                if enabled and player.Character then
+                    loadAnimObjects(selectedKiller, selectedSkin)
+                    stopAndClearTracks()
+                    updateMovementState()
+                else
+                    stopMusic()
+                end
+            end)
+            if not ok then warn("ChooseKillersDropdown callback error:", err) end
+        end
+    })
+
+    -- dropdown Skin (nằm dưới Killer)
+    SkinDropdown = Tabs.Custom:AddDropdown("ChooseSkinDropdown", {
+        Title = "Choose Skin",
+        Values = {"Default"},
+        Default = "Default",
+        Multi = false,
+        Callback = function(value)
+            local ok, err = pcall(function()
+                selectedSkin = value
+                if enabled and player.Character then
+                    loadAnimObjects(selectedKiller, selectedSkin)
+                    stopAndClearTracks()
+                    updateMovementState()
+                else
+                    stopMusic()
+                end
+            end)
+            if not ok then warn("SkinDropdown callback error:", err) end
+        end
+    })
+
+    -- toggle fake killers
+    Tabs.Custom:AddToggle("FakeKillersToggle", {
+        Title = "Fake Killers",
+        Default = false,
+        Callback = function(state)
+            local ok, err = pcall(function()
+                enabled = state
+                if enabled then
+                    if player.Character then
+                        loadAnimObjects(selectedKiller, selectedSkin)
+                        onCharacterBound(player.Character)
+                    end
+                else
+                    stopAndClearTracks()
+                    disconnectListeners()
+                    stopMusic()
+                end
+            end)
+            if not ok then warn("FakeKillersToggle callback error:", err) end
+        end
+    })
+end
+
+
+
+    Tabs.Custom:AddSection("↳ Skill")
+
+
+do
+-- LocalScript (StarterPlayerScripts)
+
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+-- ⚡ Config
+local BUTTON_SIZE = 48
+local FramesLocked = true
+local screenGui
+local createdFrames = {}
+
+-- dữ liệu các nút
+local buttonsData = {
+    {Name = "Btn1", AnimationId = "135853087227453", PlayMusic = true, MusicId = "81361259756089", ImageId = "134210378382767"},
+    {Name = "Btn2", AnimationId = "99784586201997", PlayMusic = false, ImageId = "134210378382767"},
+    {Name = "Btn3", AnimationId = "121162477402224", PlayMusic = true, MusicId = "120185817748858", ImageId = "85785826985052"},
+    {Name = "Btn4", AnimationId = "101816924844805", PlayMusic = true, MusicId = "88406027536494", ImageId = "85785826985052"},
+}
+
+-- vị trí ban đầu
+local startPositions = {
+    UDim2.new(0, 80, 0, 200),
+    UDim2.new(0, 140, 0, 200),
+    UDim2.new(0, 200, 0, 200),
+    UDim2.new(0, 260, 0, 200),
+}
+
+-- 🌟 Drag Module
+local function makeDraggable(frame)
+    local dragging, dragStart, startPos
+
+    frame.InputBegan:Connect(function(input)
+        if not FramesLocked and (input.UserInputType == Enum.UserInputType.MouseButton1 
+            or input.UserInputType == Enum.UserInputType.Touch) then
+            dragging = true
+            dragStart = input.Position
+            startPos = frame.Position
+
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
+        end
+    end)
+
+    UserInputService.InputChanged:Connect(function(input)
+        if not FramesLocked and dragging and 
+            (input.UserInputType == Enum.UserInputType.MouseMovement 
+            or input.UserInputType == Enum.UserInputType.Touch) then
+            local delta = input.Position - dragStart
+            frame.Position = UDim2.new(
+                startPos.X.Scale,
+                startPos.X.Offset + delta.X,
+                startPos.Y.Scale,
+                startPos.Y.Offset + delta.Y
+            )
+        end
+    end)
+end
+
+-- 🔹 GUI container
+screenGui = Instance.new("ScreenGui")
+screenGui.Name = "CircleButtonsGUI"
+screenGui.ResetOnSpawn = false
+screenGui.IgnoreGuiInset = true
+screenGui.Enabled = false
+screenGui.Parent = playerGui
+
+-- 🔹 Hàm tạo frame + button
+local function createFrameWithButton(data, pos)
+    local frame = Instance.new("Frame")
+    frame.Name = data.Name .. "_Frame"
+    frame.Size = UDim2.new(0, BUTTON_SIZE, 0, BUTTON_SIZE)
+    frame.Position = pos
+    frame.BackgroundTransparency = 1
+    frame.ZIndex = 1
+    frame.Parent = screenGui
+    frame.Active = true
+
+    -- bo tròn frame
+    local frameCorner = Instance.new("UICorner")
+    frameCorner.CornerRadius = UDim.new(1, 0)
+    frameCorner.Parent = frame
+
+    local btn = Instance.new("ImageButton")
+    btn.Name = data.Name
+    btn.Size = UDim2.new(1, 0, 1, 0)
+    btn.BackgroundTransparency = 1
+    btn.Image = "rbxassetid://" .. data.ImageId
+    btn.ZIndex = 2
+    btn.Parent = frame
+    btn.ScaleType = Enum.ScaleType.Fit -- giữ tỉ lệ ảnh
+
+    -- bo tròn nút
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(1, 0)
+    corner.Parent = btn
+
+    -- click chạy animation/nhạc
+    btn.MouseButton1Click:Connect(function()
+        if FramesLocked then
+            local char = player.Character or player.CharacterAdded:Wait()
+            local humanoid = char:FindFirstChildOfClass("Humanoid")
+            if not humanoid then return end
+
+            local animator = humanoid:FindFirstChildOfClass("Animator") or Instance.new("Animator", humanoid)
+            local anim = Instance.new("Animation")
+            anim.AnimationId = "rbxassetid://" .. data.AnimationId
+            local track = animator:LoadAnimation(anim)
+            track:Play()
+
+            if data.PlayMusic and data.MusicId then
+                local sound = Instance.new("Sound")
+                sound.SoundId = "rbxassetid://" .. data.MusicId
+                sound.Volume = 1
+                sound.Parent = char:FindFirstChild("Head") or playerGui
+                sound:Play()
+                sound.Ended:Connect(function() sound:Destroy() end)
+            end
+        end
+    end)
+
+    makeDraggable(frame)
+
+    btn.Visible = FramesLocked
+    frame.BackgroundTransparency = FramesLocked and 1 or 0.3
+
+    table.insert(createdFrames, frame)
+end
+
+-- tạo nút
+for i, d in ipairs(buttonsData) do
+    createFrameWithButton(d, startPositions[i])
+end
+
+-- 🌟 Tích hợp Toggle + Input
+Tabs.Custom:AddToggle("UnlockSukunaSkill", {
+    Title = "Unlock Sukuna Skill",
+    Default = false
+}):OnChanged(function(state)
+    screenGui.Enabled = state
+end)
+
+Tabs.Custom:AddToggle("LockFrames", {
+    Title = "Lock Buttons",
+    Default = true
+}):OnChanged(function(state)
+    FramesLocked = state
+    for _, frame in ipairs(createdFrames) do
+        local btn = frame:FindFirstChildOfClass("ImageButton")
+        if btn then
+            btn.Visible = FramesLocked
+        end
+        frame.BackgroundTransparency = FramesLocked and 1 or 0.3
+    end
+end)
+
+Tabs.Custom:AddInput("ButtonSizeInput", {
+    Title = "Button Size",
+    Default = tostring(BUTTON_SIZE),
+    Placeholder = "Nhập số px",
+    Numeric = true,
+    Finished = true
+}):OnChanged(function(value)
+    local num = tonumber(value)
+    if num and num > 0 then
+        BUTTON_SIZE = num
+        for _, frame in ipairs(createdFrames) do
+            frame.Size = UDim2.new(0, BUTTON_SIZE, 0, BUTTON_SIZE)
+            local btn = frame:FindFirstChildOfClass("ImageButton")
+            if btn then
+                btn.Size = UDim2.new(1, 0, 1, 0)
+            end
+        end
+    end
+end)
+end
+
+
+
+
+
+
+
+-- 🧠 Services
+getgenv().SoundService = game:GetService("SoundService")
+getgenv().RunService = game:GetService("RunService")
+
+-- 📁 Ensure folders exist
+local folderPath = "HutaoHub/Assets"
+if not isfolder("HutaoHub") then makefolder("HutaoHub") end
+if not isfolder(folderPath) then makefolder(folderPath) end
+
+-- 🎵 Track list (FULL)
+getgenv().tracks = {
+    ["None"] = "",
+    ["----------- UST -----------"] = nil,
+    ["A BRAVE SOUL (MS 4 Killer VS MS 4 Survivor)"] = "https://github.com/NyansakenHub/NyansakenHub/raw/refs/heads/main/A%20BRAVE%20SOUL%20(MS%204%20Killer%20VS%20MS%204%20Survivor).mp3",
+    ["BEGGED (MS 4 Coolkidd vs MS 4 007n7)"] = "https://github.com/NyansakenHub/NyansakenHub/raw/refs/heads/main/BEGGED%20(MS%204%20Coolkidd%20vs%20MS%204%20007n7).mp3",
+    ["DOOMSPIRE (HairyTwinkle VS Pedro.EXE)"] = "https://github.com/NyansakenHub/NyansakenHub/raw/refs/heads/main/DOOMSPIRE%20-%20(HairyTwinkle%20VS%20Pedro.EXE).mp3",
+    ["ECLIPSE (xX4ce0fSpadesXx vs dragondudes3)"] = "https://github.com/NyansakenHub/NyansakenHub/raw/refs/heads/main/ECLIPSE%20(xX4ce0fSpadesXx%20vs%20dragondudes3).mp3",
+    ["ERROR 264 (Noob Cosplay VS Yourself)"] = "https://github.com/NyansakenHub/NyansakenHub/raw/refs/heads/main/ERROR%20264%20-%20(Noob%20Cosplay%20VS%20Yourself).mp3",
+    ["GODS SECOND COMING (NOLI VS. 007n7)"] = "https://github.com/NyansakenHub/NyansakenHub/raw/refs/heads/main/GODS%20SECOND%20COMING%20(NOLI%20VS.%20007n7).mp3",
+    ["Entreat (Bluudude Vs 118o8)"] = "https://github.com/NyansakenHub/NyansakenHub/raw/refs/heads/main/Entreat%20(Bluudude%20Vs%20118o8).mp3",
+    ["Implore (Comic vs Savior)"] = "https://github.com/NyansakenHub/NyansakenHub/raw/refs/heads/main/Implore%20(Comic%20vs%20Savior)%20-%20YouTube.mp3",
+    ["Leftovers (Remix Vanity Jason Vs All)"] = "https://github.com/NyansakenHub/NyansakenHub/raw/refs/heads/main/Leftovers%20(Remix%20Vanity%20Jason%20Vs%20All).mp3",
+    ["ORDER UP (Elliot VS c00lkidd)"] = "https://github.com/NyansakenHub/NyansakenHub/raw/refs/heads/main/ORDER%20UP%20-%20(Elliot%20VS%20c00lkidd).mp3",
+    ["PARADOX (Guest 666 Vs Guest 1337)"] = "https://github.com/NyansakenHub/NyansakenHub/raw/refs/heads/main/PARADOX%20(Guest%20666%20Vs%20Guest%201337).mp3",
+    ["TRUE BEAUTY (PRETTYPRINCESS vs 226w6)"] = "https://github.com/NyansakenHub/NyansakenHub/raw/refs/heads/main/TRUE%20BEAUTY%20(PRETTYPRINCESS%20vs%20226w6).mp3",
+    ["Fall of a Hero (SLASHER vs GUEST 1337)"] = "https://github.com/NyansakenHub/NyansakenHub/raw/refs/heads/main/%5BSLASHER%20vs%20GUEST%201337%20-%20LAST%20MAN%20STANDING%5D%20Fall%20of%20a%20Hero%20-%20Forsaken%20UST.mp3",
+    ["21ST CENTURY HUMOR (MLG Chance vs Hood Irony Whistle Occurrence)"] = "https://github.com/NyansakenHub/NyansakenHub/raw/refs/heads/main/21ST%20CENTURY%20HUMOR%20-%20Last%20Man%20Standing%20(MLG%20Chance%20vs%20Hood%20Irony%20Whistle%20Occurrence)%20%20Forsaken%20UST.mp3",
+    ["SHATTERED GRACE (GR1MX 1x1x1x1 vs. ANGEL SHEDLETSKY)"] = "https://github.com/NyansakenHub/NyansakenHub/raw/refs/heads/main/SHATTERED%20GRACE%20%5BGR1MX%201x1x1x1%20vs.%20ANGEL%20SHEDLETSKY%20LAST%20MAN%20STANDING%5D%20(Roblox%20Forsaken%20UST).mp3",
+    ["----------- Scrapped LMS -----------"] = nil,
+    ["THE DARKNESS IN YOUR HEART (Old 1x4 Vs Shedletsky)"] = "https://github.com/NyansakenHub/NyansakenHub/raw/refs/heads/main/THE%20DARKNESS%20IN%20YOUR%20HEART%20(Old%201x4%20Vs%20Shedletsky).mp3",
+    ["MEET YOUR MAKING (c00lkidd ~ 1x4 Vs 007n7 ~ Shedletsky)"] = "https://github.com/NyansakenHub/NyansakenHub/raw/refs/heads/main/MEET%20YOUR%20MAKING%20(c00lkidd%20~%201x4%20Vs%20007n7%20~%20Shedletsky).mp3",
+    ["A Creation Of Sorrow (Hacklord vs The Heartbroken)"] = "https://github.com/NyansakenHub/NyansakenHub/raw/refs/heads/main/A%20Creation%20Of%20Sorrow%20(Hacklord%20vs%20The%20Heartbroken).mp3",
+    ["Debth (Natrasha Vs Mafioso)"] = "https://github.com/NyansakenHub/NyansakenHub/raw/refs/heads/main/Debth%20(Natrasha%20Vs%20Mafioso).mp3",
+    ["ETERNAL HOPE, ETERNAL FIGHT (Old LMS)"] = "https://github.com/NyansakenHub/NyansakenHub/raw/refs/heads/main/ETERNAL%20HOPE,%20ETERNAL%20FIGHT%20(Old%20LMS).mp3",
+    ["Receading Lifespan (Barber Jason Vs Bald Two Time)"] = "https://github.com/NyansakenHub/NyansakenHub/raw/refs/heads/main/Receading%20Lifespan%20(Barber%20Jason%20Vs%20Bald%20Two%20Time).mp3",
+    ["VIP Jason LMS (VIP Jason Vs All)"] = "https://github.com/NyansakenHub/NyansakenHub/raw/refs/heads/main/VIP%20Jason%20LMS%20(VIP%20Jason%20Vs%20All).mp3",
+    ["Jason Hate This Song"] = "https://github.com/NyansakenHub/NyansakenHub/raw/refs/heads/main/California%20Gurls%20%20Audio%20Edit%20-%20Neonick.mp3",
+    ["----------- Official LMS -----------"] = nil,
+    ["A GRAVE SOUL (NOW, RUN) [All Killers Vs All Survivors]"] = "https://github.com/NyansakenHub/NyansakenHub/raw/refs/heads/main/A%20GRAVE%20SOUL%20(NOW,%20RUN)%20%5BAll%20Killers%20Vs%20All%20Survivors%5D.mp3",
+    ["Plead (c00lkidd Vs 007n7)"] = "https://github.com/NyansakenHub/NyansakenHub/raw/refs/heads/main/Plead%20(c00lkidd%20Vs%20007n7).mp3",
+    ["SMILE (Cupcakes Vs All)"] = "https://github.com/NyansakenHub/NyansakenHub/raw/refs/heads/main/SMILE%20(Cupcakes%20Vs%20All)%20.mp3",
+    ["Vanity (Vanity Jason Vs All)"] = "https://github.com/NyansakenHub/NyansakenHub/raw/refs/heads/main/Vanity%20(Vanity%20Jason%20Vs%20All).mp3",
+    ["Obsession (Gasharpoon Vs All)"] = "https://github.com/NyansakenHub/NyansakenHub/raw/refs/heads/main/Obsession%20(Gasharpoon%20Vs%20All).MP3",
+    ["Burnout (Diva Vs Ghoul)"] = "https://github.com/NyansakenHub/NyansakenHub/raw/refs/heads/main/Burnout%20(Diva%20Vs%20Ghoul).mp3",
+    ["Close To Me (Annihilation Vs Friend)"] = "https://github.com/NyansakenHub/NyansakenHub/raw/refs/heads/main/Close%20To%20Me%20(Annihilation%20Vs%20Friend).mp3",
+    ["Creation Of Hatred (1X4 Vs Shedletsky)"] = "https://github.com/NyansakenHub/NyansakenHub/raw/refs/heads/main/Creation%20Of%20Hatred%20(1X4%20Vs%20Shedletsky).mp3",
+    ["Through Patches of Violet (Hacklord vs The Heartbroken)"] = "https://github.com/NyansakenHub/NyansakenHub/raw/refs/heads/main/Through%20Patches%20of%20Violet%20(Hacklord%20vs%20The%20Heartbroken).mp3"
+}
+
+-- 🔽 Dropdown options
+local options = {}
+for k, _ in pairs(getgenv().tracks) do
+    table.insert(options, k)
+end
+
+-- 🌐 Globals
+getgenv().selectedSong = "None"
+getgenv().customSongUrl = nil
+getgenv().originalSongId = nil
+getgenv().isPlaying = false
+getgenv().isToggleOn = false
+
+-- 💾 Download song (only one at a time)
+local function downloadTrack(name, url)
+    if not url or url == "" then return nil end
+    local path = folderPath .. "/" .. name:gsub("[^%w]", "_") .. ".mp3"
+    if not isfile(path) then
+        local req = http_request or syn.request or request
+        local res = req({Url = url, Method = "GET"})
+        local data = res.Body or res.BodyRaw
+        if data and #data > 0 then writefile(path, data) end
+    end
+    return path
+end
+
+-- 🔍 Find LastSurvivor
+local function getLastSurvivor()
+    local t = workspace:FindFirstChild("Themes")
+    if t then return t:FindFirstChild("LastSurvivor") end
+    return nil
+end
+
+-- ▶️ Set & play track
+local function setLastSurvivorSong(songName)
+    local ls = getLastSurvivor()
+    if not ls then return end
+    local url = getgenv().tracks[songName]
+    if not url or url == "" then return end
+    local path = downloadTrack(songName, url)
+    if not path then return end
+    local sound = getcustomasset(path)
+    if not getgenv().originalSongId then
+        getgenv().originalSongId = ls.SoundId
+    end
+    ls.SoundId = sound
+    ls:Play()
+    getgenv().isPlaying = true
+end
+
+-- 🎛️ GUI Section
+Tabs.Custom:AddSection("↳ Last Man Standing")
+
+Tabs.Custom:AddToggle("LMSReplacerSong", {
+    Title = "LMS Replacer Song",
+    Default = false,
+    Callback = function(Value)
+        getgenv().isToggleOn = Value
+        local ls = getLastSurvivor()
+        if not Value then
+            if ls and getgenv().originalSongId then
+                ls.SoundId = getgenv().originalSongId
+                ls:Play()
+            end
+            getgenv().isPlaying = false
+            getgenv().originalSongId = nil
+        else
+            if getgenv().selectedSong ~= "None" then
+                setLastSurvivorSong(getgenv().selectedSong)
+            elseif getgenv().customSongUrl then
+                local path = downloadTrack("Custom_LMS_Song", getgenv().customSongUrl)
+                if path then
+                    local sound = getcustomasset(path)
+                    if ls then
+                        getgenv().originalSongId = ls.SoundId
+                        ls.SoundId = sound
+                        ls:Play()
+                    end
+                end
+            end
+        end
+    end
+})
+
+local dropdown = Tabs.Custom:AddDropdown("CustomLMSSong", {
+    Title = "Seclect LMS Song",
+    Values = options,
+    Multi = false,
+    Default = "None",
+    Callback = function(Value)
+        getgenv().selectedSong = Value
+        -- ❌ Gỡ bỏ dòng gây lỗi
+        -- dropdown:SetValue(Value)
+    end
+})
+
+Tabs.Custom:AddInput("CustomLMSSongURL", {
+    Title = "Custom LMS",
+    Default = "",
+    Placeholder = "Enter raw MP3 URL",
+    Callback = function(input)
+        if input and input ~= "" then
+            getgenv().customSongUrl = input
+            if getgenv().isToggleOn then
+                local ls = getLastSurvivor()
+                if ls then
+                    local path = downloadTrack("Custom_LMS_Song", input)
+                    local sound = getcustomasset(path)
+                    if not getgenv().originalSongId then
+                        getgenv().originalSongId = ls.SoundId
+                    end
+                    ls.SoundId = sound
+                    ls:Play()
+                    getgenv().isPlaying = true
+                end
+            end
+        end
+    end
+})
+
+-- ♻️ Maintain playback
+RunService.Heartbeat:Connect(function()
+    if getgenv().isToggleOn and not getgenv().isPlaying and getLastSurvivor() then
+        setLastSurvivorSong(getgenv().selectedSong)
+    elseif not getLastSurvivor() and getgenv().isPlaying then
+        getgenv().isPlaying = false
+    end
+end)
+
+
+
 -- Tabs.Player
 
 
@@ -4162,556 +4905,6 @@ end
 
 
 
-
-
-    Tabs.Player:AddSection("↳ Animation")
-
---// Fake Killers Anim System (hardened)
-do
-    local Players = game:GetService("Players")
-    local RunService = game:GetService("RunService")
-    local UserInputService = game:GetService("UserInputService")
-    local ReplicatedStorage = game:GetService("ReplicatedStorage")
-
-    local player = Players.LocalPlayer
-
-    -- thử require sprint module (nếu có)
-    local sprintModule
-    pcall(function()
-        sprintModule = require(ReplicatedStorage:WaitForChild("Systems").Character.Game.Sprinting)
-    end)
-
-    -- ==============================
-    -- 🟢 DỮ LIỆU KILLERS + SKINS (chỉ sửa ở đây)
-    -- ==============================
-    local KillersData = {
-        ["Shasher"] = {
-            ["Default"] = {
-                Idle = "rbxassetid://116050994905421",
-                Walk = "rbxassetid://93622022596108",
-                Run  = "rbxassetid://93054787145505",
-            },
-            ["Pursuer"] = {
-                Idle = "rbxassetid://94895464960972",
-                Walk = "rbxassetid://100206079439305",
-                Run  = "rbxassetid://138660433982140",
-            },
-            ["subject_0"] = {
-                Idle = "rbxassetid://14301056458",
-                Walk = "rbxassetid://122325883800612",
-                Run  = "rbxassetid://97248175252805",
-            }
-        },
-        ["Coolkidd"] = {
-            ["Default"] = {
-                Idle = "rbxassetid://18885903667",
-                Walk = "rbxassetid://18885906143",
-                Run  = "rbxassetid://96571077893813",
-            }
-        },
-        ["John Doe"] = {
-            ["Default"] = {
-                Idle = "rbxassetid://105880087711722",
-                Walk = "rbxassetid://81193817424328",
-                Run  = "rbxassetid://132653655520682",
-            },
-            ["Shadow"] = {
-                Idle = "rbxassetid://00000000001",
-                Walk = "rbxassetid://00000000002",
-                Run  = "rbxassetid://00000000003",
-            }
-        },
-        ["Noli"] = {
-            ["Default"] = {
-                Idle = "rbxassetid://93841120533318",
-                Walk = "rbxassetid://109700476007435",
-                Run  = "rbxassetid://117451341682452",
-            }
-        },
-        ["1x1x1x1"] = {
-            ["Default"] = {
-                Idle = "rbxassetid://138754221537146",
-                Walk = "rbxassetid://131235528875091",
-                Run  = "rbxassetid://106485518413331",
-            },
-            ["Hacklord [Old]"] = {
-                Idle = "rbxassetid://82241652784826",
-                Walk = "rbxassetid://119242164490314",
-                Run  = "rbxassetid://92430101129682",
-            },
-            ["Hacklord [New]"] = {
-                Idle = "rbxassetid://106131211773069",
-                Walk = "rbxassetid://119112338263474",
-                Run  = "rbxassetid://85339002634979",
-            }
-        },
-        ["Herobrine"] = {
-            ["Default"] = {
-                Idle = "rbxassetid://107799240559806",
-                Walk = "rbxassetid://89380107485006",
-                Run  = "rbxassetid://134157363854022",
-            }
-        },
-        ["Gubby"] = {
-            ["Default"] = {
-                Idle = "rbxassetid://88333702239259",
-                Walk = "rbxassetid://115244584291581",
-                Run  = "rbxassetid://115244584291581",
-            }
-        },
-        ["Sancho"] = {
-            ["Default"] = {
-                Idle = "rbxassetid://115073581864188",
-                Walk = "rbxassetid://95213748170889",
-                Run  = "rbxassetid://75409814098993",
-            }
-        },
-        ["Erlking"] = {
-            ["Default"] = {
-                Idle = "rbxassetid://93727662665079",
-                Walk = "rbxassetid://97625643261790",
-                Run  = "rbxassetid://119357938208454",
-            }
-        },
-        ["Sukuna"] = {
-            ["Default"] = {
-                Idle = "rbxassetid://115268929362938",
-                Walk = "rbxassetid://123678890237669",
-                Run  = "rbxassetid://132086389849889",
-                Music = "rbxassetid://73595818073606" -- 🆕 nhạc đặc biệt
-            }
-        }
-    }
-    -- ==============================
-
-    -- state
-    local enabled = false
-    local selectedKiller = "Shasher"
-    local selectedSkin = "Default"
-    local character, humanoid, animator
-    local idleAnim, walkAnim, runAnim
-    local idleTrack, walkTrack, runTrack
-    local _isSprinting = false
-    local musicSound -- 🆕 biến giữ Sound object
-
-    -- conn
-    local runningConn, heartbeatConn, characterRemovingConn, inputBeganConn, inputEndedConn = nil, nil, nil, nil, nil
-    local heartbeatAccumulator = 0
-    local HEARTBEAT_CHECK_INTERVAL = 0.12
-
-    -- utility
-    local function stopAndClearTracks()
-        for _, track in ipairs({idleTrack, walkTrack, runTrack}) do
-            if track then pcall(function() track:Stop() end) end
-        end
-        idleTrack, walkTrack, runTrack = nil, nil, nil
-    end
-
-    local function stopMusic()
-        if musicSound then
-            pcall(function()
-                musicSound:Stop()
-                musicSound:Destroy()
-            end)
-            musicSound = nil
-        end
-    end
-
-    local function playMusicIfSukuna(set)
-        stopMusic()
-        if selectedKiller == "Sukuna" and set and set.Music then
-            local sound = Instance.new("Sound")
-            sound.SoundId = set.Music
-            sound.Looped = true
-            sound.Volume = 2
-            sound.Parent = workspace
-            sound:Play()
-            musicSound = sound
-        end
-    end
-
-    local function disconnectListeners()
-        for _, c in ipairs({runningConn, heartbeatConn, characterRemovingConn, inputBeganConn, inputEndedConn}) do
-            if c then pcall(function() c:Disconnect() end) end
-        end
-        runningConn, heartbeatConn, characterRemovingConn, inputBeganConn, inputEndedConn = nil, nil, nil, nil, nil
-    end
-
-    local function cleanupCurrentCharacter()
-        stopAndClearTracks()
-        stopMusic()
-        disconnectListeners()
-        animator, humanoid, character = nil, nil, nil
-    end
-
-    -- load anim objects theo killer + skin
-    local function loadAnimObjects(killer, skin)
-        local killerTable = KillersData[killer]
-        if not killerTable then
-            warn("loadAnimObjects: killer không tồn tại:", tostring(killer))
-            return
-        end
-        local set = killerTable[skin or "Default"] or killerTable["Default"]
-        if not set then return end
-
-        idleAnim, walkAnim, runAnim = Instance.new("Animation"), Instance.new("Animation"), Instance.new("Animation")
-        idleAnim.Name, walkAnim.Name, runAnim.Name = "IdleAnim", "WalkAnim", "RunAnim"
-        idleAnim.AnimationId, walkAnim.AnimationId, runAnim.AnimationId = set.Idle, set.Walk, set.Run
-
-        playMusicIfSukuna(set) -- 🆕 check phát nhạc nếu là Sukuna
-    end
-
-    -- play anim
-    local function playAnim(animObj, trackType)
-        if not animator then return end
-
-        if trackType ~= "Idle" and idleTrack then pcall(function() idleTrack:Stop() end) idleTrack=nil end
-        if trackType ~= "Walk" and walkTrack then pcall(function() walkTrack:Stop() end) walkTrack=nil end
-        if trackType ~= "Run" and runTrack then pcall(function() runTrack:Stop() end) runTrack=nil end
-
-        local track
-        if trackType=="Idle" and not idleTrack then idleTrack = animator:LoadAnimation(idleAnim) track=idleTrack
-        elseif trackType=="Walk" and not walkTrack then walkTrack = animator:LoadAnimation(walkAnim) track=walkTrack
-        elseif trackType=="Run" and not runTrack then runTrack = animator:LoadAnimation(runAnim) track=runTrack
-        else track = (trackType=="Idle" and idleTrack) or (trackType=="Walk" and walkTrack) or runTrack end
-
-        if track and not track.IsPlaying then pcall(function() track:Play() end) end
-    end
-
-    local function playIdle() playAnim(idleAnim,"Idle") end
-    local function playWalk() playAnim(walkAnim,"Walk") end
-    local function playRun() playAnim(runAnim,"Run") end
-
-    -- update state
-    local function updateMovementState()
-        if not enabled or not character then return end
-        local moving=false
-        if humanoid and humanoid.MoveDirection then
-            moving = humanoid.MoveDirection.Magnitude>0
-            if not moving then
-                local root = character:FindFirstChild("HumanoidRootPart") or character.PrimaryPart
-                if root and root.Velocity.Magnitude>1 then moving=true end
-            end
-        end
-        if moving then
-            local sprintingNow = (sprintModule and sprintModule.IsSprinting) or _isSprinting
-            if sprintingNow then playRun() else playWalk() end
-        else
-            playIdle()
-        end
-    end
-
-    -- listeners
-    local function setupMovementListeners()
-        disconnectListeners()
-        inputBeganConn = UserInputService.InputBegan:Connect(function(input,gp) if gp then return end if input.KeyCode==Enum.KeyCode.LeftShift then _isSprinting=true end end)
-        inputEndedConn = UserInputService.InputEnded:Connect(function(input,gp) if gp then return end if input.KeyCode==Enum.KeyCode.LeftShift then _isSprinting=false end end)
-
-        if humanoid and humanoid.Running then
-            runningConn = humanoid.Running:Connect(function(speed) if not enabled then return end if speed>0 then updateMovementState() else playIdle() end end)
-        else
-            heartbeatAccumulator=0
-            heartbeatConn = RunService.Heartbeat:Connect(function(dt)
-                if not enabled or not character then return end
-                heartbeatAccumulator+=dt
-                if heartbeatAccumulator>=HEARTBEAT_CHECK_INTERVAL then
-                    heartbeatAccumulator=0
-                    updateMovementState()
-                end
-            end)
-        end
-    end
-
-    -- bind character
-    local function onCharacterBound(char)
-        cleanupCurrentCharacter()
-        character=char
-        humanoid=char:FindFirstChildOfClass("Humanoid") or char:FindFirstChildOfClass("AnimationController")
-        if humanoid then
-            animator = humanoid:FindFirstChildOfClass("Animator") or Instance.new("Animator", humanoid)
-        end
-        characterRemovingConn = char.AncestryChanged:Connect(function(_,parent) if not parent then cleanupCurrentCharacter() end end)
-        if enabled then
-            loadAnimObjects(selectedKiller, selectedSkin)
-            setupMovementListeners()
-            updateMovementState()
-        end
-    end
-
-    player.CharacterAdded:Connect(onCharacterBound)
-    if player.Character then onCharacterBound(player.Character) end
-
-    -- ===== UI =====
-    local killerNames = {}
-    for name,_ in pairs(KillersData) do table.insert(killerNames, name) end
-    table.sort(killerNames)
-
-    local SkinDropdown -- khai báo trước
-
-    -- dropdown chính (Killers)
-    local killerDropdown = Tabs.Player:AddDropdown("ChooseKillersDropdown", {
-        Title = "Choose Killers",
-        Values = killerNames,
-        Default = selectedKiller,
-        Multi = false,
-        Callback = function(value)
-            local ok, err = pcall(function()
-                selectedKiller = value
-                selectedSkin = "Default"
-
-                local skins = {}
-                local t = KillersData[selectedKiller] or {}
-                for sName,_ in pairs(t) do table.insert(skins, sName) end
-                if #skins == 0 then skins = {"Default"} end
-                table.sort(skins)
-
-                if SkinDropdown and type(SkinDropdown.SetValues)=="function" and type(SkinDropdown.SetValue)=="function" then
-                    SkinDropdown:SetValues(skins)
-                    pcall(function() SkinDropdown:SetValue(skins[1] or "Default") end)
-                end
-
-                if enabled and player.Character then
-                    loadAnimObjects(selectedKiller, selectedSkin)
-                    stopAndClearTracks()
-                    updateMovementState()
-                else
-                    stopMusic()
-                end
-            end)
-            if not ok then warn("ChooseKillersDropdown callback error:", err) end
-        end
-    })
-
-    -- dropdown Skin (nằm dưới Killer)
-    SkinDropdown = Tabs.Player:AddDropdown("ChooseSkinDropdown", {
-        Title = "Choose Skin",
-        Values = {"Default"},
-        Default = "Default",
-        Multi = false,
-        Callback = function(value)
-            local ok, err = pcall(function()
-                selectedSkin = value
-                if enabled and player.Character then
-                    loadAnimObjects(selectedKiller, selectedSkin)
-                    stopAndClearTracks()
-                    updateMovementState()
-                else
-                    stopMusic()
-                end
-            end)
-            if not ok then warn("SkinDropdown callback error:", err) end
-        end
-    })
-
-    -- toggle fake killers
-    Tabs.Player:AddToggle("FakeKillersToggle", {
-        Title = "Fake Killers",
-        Default = false,
-        Callback = function(state)
-            local ok, err = pcall(function()
-                enabled = state
-                if enabled then
-                    if player.Character then
-                        loadAnimObjects(selectedKiller, selectedSkin)
-                        onCharacterBound(player.Character)
-                    end
-                else
-                    stopAndClearTracks()
-                    disconnectListeners()
-                    stopMusic()
-                end
-            end)
-            if not ok then warn("FakeKillersToggle callback error:", err) end
-        end
-    })
-end
-
-
-
-    Tabs.Player:AddSection("↳ Skill")
-
-
-do
--- LocalScript (StarterPlayerScripts)
-
-local Players = game:GetService("Players")
-local UserInputService = game:GetService("UserInputService")
-local player = Players.LocalPlayer
-local playerGui = player:WaitForChild("PlayerGui")
-
--- ⚡ Config
-local BUTTON_SIZE = 48
-local FramesLocked = true
-local screenGui
-local createdFrames = {}
-
--- dữ liệu các nút
-local buttonsData = {
-    {Name = "Btn1", AnimationId = "135853087227453", PlayMusic = true, MusicId = "81361259756089", ImageId = "134210378382767"},
-    {Name = "Btn2", AnimationId = "99784586201997", PlayMusic = false, ImageId = "134210378382767"},
-    {Name = "Btn3", AnimationId = "121162477402224", PlayMusic = true, MusicId = "120185817748858", ImageId = "85785826985052"},
-    {Name = "Btn4", AnimationId = "101816924844805", PlayMusic = true, MusicId = "88406027536494", ImageId = "85785826985052"},
-}
-
--- vị trí ban đầu
-local startPositions = {
-    UDim2.new(0, 80, 0, 200),
-    UDim2.new(0, 140, 0, 200),
-    UDim2.new(0, 200, 0, 200),
-    UDim2.new(0, 260, 0, 200),
-}
-
--- 🌟 Drag Module
-local function makeDraggable(frame)
-    local dragging, dragStart, startPos
-
-    frame.InputBegan:Connect(function(input)
-        if not FramesLocked and (input.UserInputType == Enum.UserInputType.MouseButton1 
-            or input.UserInputType == Enum.UserInputType.Touch) then
-            dragging = true
-            dragStart = input.Position
-            startPos = frame.Position
-
-            input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then
-                    dragging = false
-                end
-            end)
-        end
-    end)
-
-    UserInputService.InputChanged:Connect(function(input)
-        if not FramesLocked and dragging and 
-            (input.UserInputType == Enum.UserInputType.MouseMovement 
-            or input.UserInputType == Enum.UserInputType.Touch) then
-            local delta = input.Position - dragStart
-            frame.Position = UDim2.new(
-                startPos.X.Scale,
-                startPos.X.Offset + delta.X,
-                startPos.Y.Scale,
-                startPos.Y.Offset + delta.Y
-            )
-        end
-    end)
-end
-
--- 🔹 GUI container
-screenGui = Instance.new("ScreenGui")
-screenGui.Name = "CircleButtonsGUI"
-screenGui.ResetOnSpawn = false
-screenGui.IgnoreGuiInset = true
-screenGui.Enabled = false
-screenGui.Parent = playerGui
-
--- 🔹 Hàm tạo frame + button
-local function createFrameWithButton(data, pos)
-    local frame = Instance.new("Frame")
-    frame.Name = data.Name .. "_Frame"
-    frame.Size = UDim2.new(0, BUTTON_SIZE, 0, BUTTON_SIZE)
-    frame.Position = pos
-    frame.BackgroundTransparency = 1
-    frame.ZIndex = 1
-    frame.Parent = screenGui
-    frame.Active = true
-
-    -- bo tròn frame
-    local frameCorner = Instance.new("UICorner")
-    frameCorner.CornerRadius = UDim.new(1, 0)
-    frameCorner.Parent = frame
-
-    local btn = Instance.new("ImageButton")
-    btn.Name = data.Name
-    btn.Size = UDim2.new(1, 0, 1, 0)
-    btn.BackgroundTransparency = 1
-    btn.Image = "rbxassetid://" .. data.ImageId
-    btn.ZIndex = 2
-    btn.Parent = frame
-    btn.ScaleType = Enum.ScaleType.Fit -- giữ tỉ lệ ảnh
-
-    -- bo tròn nút
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(1, 0)
-    corner.Parent = btn
-
-    -- click chạy animation/nhạc
-    btn.MouseButton1Click:Connect(function()
-        if FramesLocked then
-            local char = player.Character or player.CharacterAdded:Wait()
-            local humanoid = char:FindFirstChildOfClass("Humanoid")
-            if not humanoid then return end
-
-            local animator = humanoid:FindFirstChildOfClass("Animator") or Instance.new("Animator", humanoid)
-            local anim = Instance.new("Animation")
-            anim.AnimationId = "rbxassetid://" .. data.AnimationId
-            local track = animator:LoadAnimation(anim)
-            track:Play()
-
-            if data.PlayMusic and data.MusicId then
-                local sound = Instance.new("Sound")
-                sound.SoundId = "rbxassetid://" .. data.MusicId
-                sound.Volume = 1
-                sound.Parent = char:FindFirstChild("Head") or playerGui
-                sound:Play()
-                sound.Ended:Connect(function() sound:Destroy() end)
-            end
-        end
-    end)
-
-    makeDraggable(frame)
-
-    btn.Visible = FramesLocked
-    frame.BackgroundTransparency = FramesLocked and 1 or 0.3
-
-    table.insert(createdFrames, frame)
-end
-
--- tạo nút
-for i, d in ipairs(buttonsData) do
-    createFrameWithButton(d, startPositions[i])
-end
-
--- 🌟 Tích hợp Toggle + Input
-Tabs.Player:AddToggle("UnlockSukunaSkill", {
-    Title = "Unlock Sukuna Skill",
-    Default = false
-}):OnChanged(function(state)
-    screenGui.Enabled = state
-end)
-
-Tabs.Player:AddToggle("LockFrames", {
-    Title = "Lock Buttons",
-    Default = true
-}):OnChanged(function(state)
-    FramesLocked = state
-    for _, frame in ipairs(createdFrames) do
-        local btn = frame:FindFirstChildOfClass("ImageButton")
-        if btn then
-            btn.Visible = FramesLocked
-        end
-        frame.BackgroundTransparency = FramesLocked and 1 or 0.3
-    end
-end)
-
-Tabs.Player:AddInput("ButtonSizeInput", {
-    Title = "Button Size",
-    Default = tostring(BUTTON_SIZE),
-    Placeholder = "Nhập số px",
-    Numeric = true,
-    Finished = true
-}):OnChanged(function(value)
-    local num = tonumber(value)
-    if num and num > 0 then
-        BUTTON_SIZE = num
-        for _, frame in ipairs(createdFrames) do
-            frame.Size = UDim2.new(0, BUTTON_SIZE, 0, BUTTON_SIZE)
-            local btn = frame:FindFirstChildOfClass("ImageButton")
-            if btn then
-                btn.Size = UDim2.new(1, 0, 1, 0)
-            end
-        end
-    end
-end)
-end
 
 
     Tabs.Player:AddSection("↳ Hitbox")
