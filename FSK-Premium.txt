@@ -4230,9 +4230,16 @@ Tabs.Custom:AddInput("CustomLMSSongURL", {
 
 -- ♻️ Maintain playback
 RunService.Heartbeat:Connect(function()
-    if getgenv().isToggleOn and not getgenv().isPlaying and getLastSurvivor() then
-        setLastSurvivorSong(getgenv().selectedSong)
-    elseif not getLastSurvivor() and getgenv().isPlaying then
+    local ls = getLastSurvivor()
+    if getgenv().isToggleOn and ls then
+        -- chỉ phát lại nếu chưa phát hoặc đã dừng
+        if not ls.IsPlaying then
+            setLastSurvivorSong(getgenv().selectedSong)
+        end
+    elseif not getgenv().isToggleOn and ls and getgenv().originalSongId and ls.SoundId ~= getgenv().originalSongId then
+        -- khi tắt toggle, khôi phục nhạc gốc
+        ls.SoundId = getgenv().originalSongId
+        ls:Play()
         getgenv().isPlaying = false
     end
 end)
