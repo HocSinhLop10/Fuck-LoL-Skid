@@ -2845,167 +2845,289 @@ end
 
     Tabs.Main:AddSection("↳ c00lkidd")
 
+
 do
-    --== ⚙️ Base Globals ==--
-    local Players = game:GetService("Players")
-    local ReplicatedStorage = game:GetService("ReplicatedStorage")
-    local RunService = game:GetService("RunService")
-    local Workspace = game:GetService("Workspace")
-    local Camera = Workspace.CurrentCamera
-    local Player = Players.LocalPlayer
+--== ⚙️ Base Globals ==--
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+local Camera = Workspace.CurrentCamera
+local Player = Players.LocalPlayer
 
-    getgenv().Remote = ReplicatedStorage:WaitForChild("Modules"):WaitForChild("Network"):WaitForChild("RemoteEvent")
-    getgenv().walkSpeed = 100
-    getgenv().connection = nil
-    getgenv().blockFootstepPlayed = false
+-- remote (giữ nguyên cách bạn đặt trước)  
+getgenv().Remote = ReplicatedStorage:WaitForChild("Modules"):WaitForChild("Network"):WaitForChild("RemoteEvent")  
+local Remote = getgenv().Remote  
 
-    --== 🧠 Helpers ==--
-    local function getCharacter()
-        return Player.Character or Player.CharacterAdded:Wait()
-    end
+local walkSpeed = 100  
+local connection = nil  
 
-    --== 🏃 Movement Logic ==--
-    local stopMovement = false
-    local validValues = { Timeout = true, Collide = true, Hit = true }
+--== 🎯 Target List ==--  
+local targetNames = {  
+    ["Noob"] = true, ["Guest1337"] = true, ["Elliot"] = true,  
+    ["Shedletsky"] = true, ["TwoTime"] = true, ["007n7"] = true,  
+    ["Veeronica"] = true, ["Chance"] = true, ["Builderman"] = true,  
+    ["Taph"] = true, ["Dusekkar"] = true  
+}  
 
-    local function watchResult(result)
-        local function check()
-            if validValues[result.Value] then
-                stopMovement = true
-            end
-        end
-        check()
-        result:GetPropertyChangedSignal("Value"):Connect(check)
-    end
+--== ⚙️ Internal Vars ==--  
+local currentTarget = nil  
+local stopMovement = false  
+local validValues = { Timeout = true, Collide = true, Hit = true }  
 
-    local function onCharacterAdded(character)
-        local result = character:FindFirstChild("Result")
-        if result and result:IsA("StringValue") then
-            watchResult(result)
-        end
-        character.ChildAdded:Connect(function(child)
-            if child.Name == "Result" and child:IsA("StringValue") then
-                watchResult(child)
-            end
-        end)
-    end
+-- hook storage  
+getgenv().hook_store = getgenv().hook_store or {}  
+getgenv().original_store = getgenv().original_store or {}  
 
-    Player.CharacterAdded:Connect(onCharacterAdded)
-    if Player.Character then
-        onCharacterAdded(Player.Character)
-    end
+--== 🧠 Helpers ==--  
+local function getCharacter()  
+    return Player.Character or Player.CharacterAdded:Wait()  
+end  
 
-    local function onHeartbeat()
-        local char = getCharacter()
-        if char.Name ~= "c00lkidd" then return end
-        local root = char:FindFirstChild("HumanoidRootPart")
-        local hum = char:FindFirstChildOfClass("Humanoid")
-        local lv = root and root:FindFirstChild("LinearVelocity")
-        if not root or not hum or not lv then return end
+local function getRoot(char)  
+    if not char then return nil end  
+    return char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Torso") or char:FindFirstChild("UpperTorso")  
+end  
 
-        lv.Enabled = false
-        if not stopMovement then
-            local look = Camera.CFrame.LookVector
-            local dir = Vector3.new(look.X, 0, look.Z)
-            if dir.Magnitude > 0 then
-                dir = dir.Unit
-                root.Velocity = Vector3.new(dir.X * getgenv().walkSpeed, root.Velocity.Y, dir.Z * getgenv().walkSpeed)
-                root.CFrame = CFrame.new(root.Position, root.Position + dir)
-            end
-        end
-    end
+--== ⛑ Result watcher: reset stopMovement safely ==--  
+local function watchResult(result)  
+    if not result then return end  
+    local conn  
+    local function check()  
+        local ok, val = pcall(function() return result.Value end)  
+        if ok and validValues[val] then  
+            stopMovement = true  
+            -- fallback auto-reset sau 5s phòng trường hợp signal lỗi  
+            task.spawn(function()  
+                task.wait(5)  
+                stopMovement = false  
+            end)  
+        else  
+            stopMovement = false  
+        end  
+    end  
+    pcall(check)  
+    conn = result:GetPropertyChangedSignal("Value"):Connect(function()  
+        pcall(check)  
+    end)  
+    result.AncestryChanged:Connect(function(_, parent)  
+        if not parent then  
+            stopMovement = false  
+            if conn then conn:Disconnect() end  
+        end  
+    end)  
+end  
 
-    --== 🧩 Hook Helpers ==--
-    getgenv().createHook = function(remoteName)
-        getgenv()["original_" .. remoteName] = hookmetamethod(game, "__namecall", function(self, ...)
-            local method = getnamecallmethod()
-            local args = { ... }
-            if self == getgenv().Remote and method == "FireServer" then
-                if args[1] == Player.Name .. remoteName then
-                    return
-                end
-            end
-            return getgenv()["original_" .. remoteName](self, ...)
-        end)
-        return getgenv()["original_" .. remoteName]
-    end
+local function onCharacterAdded(character)  
+    local result = character:FindFirstChild("Result")  
+    if result and result:IsA("StringValue") then  
+        watchResult(result)  
+    end  
+    character.ChildAdded:Connect(function(child)  
+        if child.Name == "Result" and child:IsA("StringValue") then  
+            watchResult(child)  
+        end  
+    end)  
+    character.ChildRemoved:Connect(function(child)  
+        if child.Name == "Result" then  
+            stopMovement = false  
+        end  
+    end)  
+end  
 
-    getgenv().enableHook = function(remoteName)
-        if not getgenv()["hook_" .. remoteName] then
-            getgenv()["hook_" .. remoteName] = getgenv().createHook(remoteName)
-        end
-        if remoteName == "DusekkarCancel" and not getgenv().isFiringDusekkar then
-            getgenv().isFiringDusekkar = true
-            task.spawn(function()
-                task.wait(4)
-                getgenv().Remote:FireServer({ Player.Name .. "DusekkarCancel" })
-                getgenv().isFiringDusekkar = false
-            end)
-        end
-    end
+Player.CharacterAdded:Connect(onCharacterAdded)  
+if Player.Character then  
+    onCharacterAdded(Player.Character)  
+end  
 
-    getgenv().disableHook = function(remoteName)
-        if getgenv()["hook_" .. remoteName] then
-            hookmetamethod(game, "__namecall", getgenv()["hook_" .. remoteName])
-            getgenv()["hook_" .. remoteName] = nil
-            getgenv()["original_" .. remoteName] = nil
-        end
-    end
+--== 🎯 Target Finder ==--  
+local function findTarget()  
+    local closest, dist = nil, math.huge  
+    local myChar = getCharacter()  
+    local myRoot = getRoot(myChar)  
+    if not myRoot then return nil end  
 
-    --== 👣 Footstep Hook ==--
-    getgenv().HookFootstepPlayed = function(enable)
-        if enable then
-            if not getgenv().originalFootstepHook then
-                getgenv().originalFootstepHook = hookmetamethod(game, "__namecall", function(self, ...)
-                    local method = getnamecallmethod()
-                    local args = { ... }
-                    if method == "FireServer" and self.Name == "UnreliableRemoteEvent" then
-                        if args[1] == "FootstepPlayed" and getgenv().blockFootstepPlayed then
-                            return
-                        end
-                    end
-                    return getgenv().originalFootstepHook(self, ...)
-                end)
-            end
-            getgenv().blockFootstepPlayed = true
-        else
-            getgenv().blockFootstepPlayed = false
-        end
-    end
+    for _, plr in ipairs(Players:GetPlayers()) do  
+        if plr ~= Player and targetNames[plr.Name] and plr.Character and plr.Character.Parent then  
+            local root = getRoot(plr.Character)  
+            if root then  
+                local d = (root.Position - myRoot.Position).Magnitude  
+                if d < dist then  
+                    dist = d  
+                    closest = plr  
+                end  
+            end  
+        end  
+    end  
 
-    --== ⚔️ Combat GUI (Fluent style) ==--
+    return closest  
+end  
 
-    Tabs.Main:AddToggle("WalkspeedOverride", {
-        Title = "Walkspeed Override Controller",
-        Default = false
-    }):OnChanged(function(value)
-        if value then
-            getgenv().connection = RunService.Heartbeat:Connect(onHeartbeat)
-        else
-            if getgenv().connection then
-                getgenv().connection:Disconnect()
-                getgenv().connection = nil
-            end
-        end
-    end)
+--== 🏃 Movement Logic ==--  
+local function validateCurrentTarget()  
+    if not currentTarget then return false end  
+    if not currentTarget.Character or not currentTarget.Character.Parent then return false end  
+    if not getRoot(currentTarget.Character) then return false end  
+    return true  
+end  
 
-    Tabs.Main:AddToggle("IgnoreC00lkidd", {
-        Title = "Walkspeed Override Ignore Objectables",
-        Default = false
-    }):OnChanged(function(value)
-        if value then
-            getgenv().enableHook("C00lkiddCollision")
-        else
-            getgenv().disableHook("C00lkiddCollision")
-        end
-    end)
+local function moveToTarget()  
+    local char = getCharacter()  
+    local root = getRoot(char)  
+    local hum = char and char:FindFirstChildOfClass("Humanoid")  
+    if not char or not root or not hum then return end  
 
-    Tabs.Main:AddToggle("IgnoreFootstep", {
-        Title = "Block Footstep Played",
-        Default = false
-    }):OnChanged(function(value)
-        getgenv().HookFootstepPlayed(value)
-    end)
+    -- nếu đang bị stop movement thì không override  
+    if stopMovement then return end  
+
+    -- đảm bảo có target hợp lệ  
+    if not validateCurrentTarget() then  
+        currentTarget = findTarget()  
+        return  
+    end  
+
+    local targetRoot = getRoot(currentTarget.Character)  
+    if not targetRoot then  
+        currentTarget = nil  
+        return  
+    end  
+
+    local offsetToTarget = targetRoot.Position - root.Position  
+    local distance = offsetToTarget.Magnitude  
+
+    -- khi quá gần (<=5) thì giữ vị trí, không văng velocity sang 0 hoàn toàn để tránh physics glitch  
+    if distance > 5 then  
+        local dir = Vector3.new(offsetToTarget.X, 0, offsetToTarget.Z).Unit  
+        root.Velocity = Vector3.new(dir.X * walkSpeed, root.Velocity.Y, dir.Z * walkSpeed)  
+        root.CFrame = CFrame.new(root.Position, root.Position + dir)  
+    else  
+        -- nhẹ nhàng giữ, không set Velocity = Vector3.zero vì có thể gây glitch  
+        root.Velocity = Vector3.new(0, root.Velocity.Y, 0)  
+    end  
+end  
+
+local function onHeartbeat()  
+    pcall(function()  
+        -- chỉ chạy khi toggle bật (connection tồn tại)  
+        moveToTarget()  
+    end)  
+end  
+
+--== 🧩 Hook helpers (IgnoreC00lkidd) ==--  
+getgenv().createHook = function(remoteName)  
+    if getgenv().hook_store[remoteName] then  
+        return getgenv().original_store[remoteName]  
+    end  
+    local orig = hookmetamethod(game, "__namecall", function(self, ...)  
+        local method = getnamecallmethod()  
+        local args = { ... }  
+        if self == getgenv().Remote and method == "FireServer" then  
+            if args[1] == Player.Name .. remoteName then  
+                return  
+            end  
+        end  
+        return orig(self, ...)  
+    end)  
+    getgenv().hook_store[remoteName] = true  
+    getgenv().original_store[remoteName] = orig  
+    return orig  
+end  
+
+getgenv().enableHook = function(remoteName)  
+    if not getgenv().hook_store[remoteName] then  
+        getgenv().createHook(remoteName)  
+    end  
+    if remoteName == "DusekkarCancel" and not getgenv().isFiringDusekkar then  
+        getgenv().isFiringDusekkar = true  
+        task.spawn(function()  
+            task.wait(4)  
+            pcall(function()  
+                getgenv().Remote:FireServer({ Player.Name .. "DusekkarCancel" })  
+            end)  
+            getgenv().isFiringDusekkar = false  
+            stopMovement = false  
+        end)  
+    end  
+end  
+
+getgenv().disableHook = function(remoteName)  
+    if getgenv().hook_store[remoteName] then  
+        -- restore original by re-hooking with original function reference  
+        if getgenv().original_store[remoteName] then  
+            hookmetamethod(game, "__namecall", getgenv().original_store[remoteName])  
+        end  
+        getgenv().hook_store[remoteName] = nil  
+        getgenv().original_store[remoteName] = nil  
+    end  
+end  
+
+--== 👣 Footstep Hook ==--  
+getgenv().HookFootstepPlayed = function(enable)  
+    if enable then  
+        if not getgenv().originalFootstepHook then  
+            getgenv().originalFootstepHook = hookmetamethod(game, "__namecall", function(self, ...)  
+                local method = getnamecallmethod()  
+                local args = { ... }  
+                if method == "FireServer" and self.Name == "UnreliableRemoteEvent" then  
+                    if args[1] == "FootstepPlayed" and getgenv().blockFootstepPlayed then  
+                        return  
+                    end  
+                end  
+                return getgenv().originalFootstepHook and getgenv().originalFootstepHook(self, ...) or nil  
+            end)  
+        end  
+        getgenv().blockFootstepPlayed = true  
+    else  
+        getgenv().blockFootstepPlayed = false  
+    end  
+end  
+
+--== ⚔️ GUI Toggles ==--  
+-- WalkspeedOverride: bật/tắt điều khiển thông minh (connect/disconnect heartbeat)  
+Tabs.Main:AddToggle("WalkspeedOverride", {  
+    Title = "Walkspeed Override Controller",  
+    Default = false  
+}):OnChanged(function(value)  
+    if value then  
+        stopMovement = false  
+        if not connection then  
+            connection = RunService.Heartbeat:Connect(onHeartbeat)  
+        end  
+    else  
+        if connection then  
+            connection:Disconnect()  
+            connection = nil  
+        end  
+        currentTarget = nil  
+        stopMovement = false  
+    end  
+end)  
+
+-- IgnoreC00lkidd: enable/disable hook theo remote name "C00lkiddCollision"  
+Tabs.Main:AddToggle("IgnoreC00lkidd", {  
+    Title = "Walkspeed Override Ignore Objectables",  
+    Default = false  
+}):OnChanged(function(value)  
+    if value then  
+        getgenv().enableHook("C00lkiddCollision")  
+    else  
+        getgenv().disableHook("C00lkiddCollision")  
+    end  
+end)  
+
+-- IgnoreFootstep: chặn event footstep  
+Tabs.Main:AddToggle("IgnoreFootstep", {  
+    Title = "Block Footstep Played",  
+    Default = false  
+}):OnChanged(function(value)  
+    getgenv().HookFootstepPlayed(value)  
+end)  
+
+-- ensure players added later are handled (target lookup reads Players table live)  
+Players.PlayerAdded:Connect(function(pl)  
+    pl.CharacterAdded:Connect(function() end)  
+end)
+
 end
 
 
