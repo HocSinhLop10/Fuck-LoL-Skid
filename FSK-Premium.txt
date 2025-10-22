@@ -989,10 +989,7 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local localPlayer = Players.LocalPlayer
 
-local dangerousAnimations = {
-    ["114155003741146"] = true,
-    ["104033348426533"] = true
-}
+local dangerousAnimations = {}
 
 local EliotModels = {["Elliot"] = true}
 local survivorModels = {
@@ -1006,7 +1003,7 @@ local autoRotateDisabledByScript = false
 local currentTarget, isLockedOn, wasPlayingAnimation = nil, false, false
 local aimOffset = 2 -- lệch phải 2 studs
 
--- utils
+-- 🧠 utils
 local function isEliot()
     local char = localPlayer.Character
     return char and EliotModels[char.Name] or false
@@ -1030,37 +1027,53 @@ local function isPlayingDangerousAnimation()
     if not humanoid then return false end
     local animator = humanoid:FindFirstChildOfClass("Animator")
     if not animator then return false end
-
     for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
-        local animId = tostring(track.Animation.AnimationId):match("%d+")
-        if animId and dangerousAnimations[animId] then
-            return true
+        if track and track.Animation and track.Animation.AnimationId then
+            local animId = tostring(track.Animation.AnimationId):match("%d+")
+            if animId and dangerousAnimations[animId] then
+                return true
+            end
         end
     end
     return false
 end
 
--- 🎯 tìm survivor yếu máu nhất (trong khoảng cách + HP < MaxHealth)
+-- 🎯 tìm survivor yếu máu nhất (bỏ qua bản thân)
 local function getWeakestSurvivor()
-    local weakest, lowestHpPercent = nil, 1
-    local myRoot = localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart")
-    if not myRoot then return nil end
+    local list = {}
+    local myChar = localPlayer.Character
+    local myHum = getMyHumanoid()
+    local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    if not myRoot or not myHum or not myHum.MaxHealth or myHum.MaxHealth <= 0 then return nil end
+
+    local myHpPercent = myHum.Health / myHum.MaxHealth
 
     for _, obj in pairs(workspace:GetDescendants()) do
-        if obj:IsA("Model") and survivorModels[obj.Name] then
-            local hrp = obj:FindFirstChild("HumanoidRootPart")
+        if obj:IsA("Model") and survivorModels[obj.Name] and obj ~= myChar then
             local hum = obj:FindFirstChildWhichIsA("Humanoid")
-            if hrp and hum and hum.Health > 0 then
+            local hrp = obj:FindFirstChild("HumanoidRootPart")
+            if hum and hrp and hum.Health > 0 and hum.MaxHealth > 0 then
                 local dist = (hrp.Position - myRoot.Position).Magnitude
                 local hpPercent = hum.Health / hum.MaxHealth
-                if dist <= maxDistance and hpPercent < 1 and hpPercent < lowestHpPercent then
-                    weakest = obj
-                    lowestHpPercent = hpPercent
+                if dist <= maxDistance and hpPercent < 1 then
+                    table.insert(list, {model = obj, hp = hpPercent})
                 end
             end
         end
     end
-    return weakest
+
+    -- sắp xếp theo % máu tăng dần
+    table.sort(list, function(a, b)
+        return a.hp < b.hp
+    end)
+
+    -- nếu mình là yếu nhất, chọn người yếu thứ 2
+    if #list == 0 then return nil end
+    if myHpPercent <= list[1].hp and #list > 1 then
+        return list[2].model
+    else
+        return list[1].model
+    end
 end
 
 -- reset khi respawn
@@ -1071,7 +1084,7 @@ localPlayer.CharacterAdded:Connect(function()
 end)
 
 -- 🔁 Main loop
-RunService.RenderStepped:Connect(function(dt)
+RunService.RenderStepped:Connect(function()
     if not toggleFlag.Value then
         restoreAutoRotate()
         currentTarget, isLockedOn, wasPlayingAnimation = nil, false, false
@@ -1091,28 +1104,29 @@ RunService.RenderStepped:Connect(function(dt)
 
     local isPlaying = isPlayingDangerousAnimation()
 
-    -- Lock target (chỉ chọn khi bắt đầu animation)
+    -- 🧲 Lock target (chỉ chọn khi bắt đầu animation)
     if isPlaying and not isLockedOn then
         currentTarget = getWeakestSurvivor()
         if currentTarget then isLockedOn = true end
     end
 
-    -- Validate target
+    -- ⚙️ Validate target
     if isLockedOn and currentTarget then
-        local tHum, tHrp = currentTarget:FindFirstChildWhichIsA("Humanoid"), currentTarget:FindFirstChild("HumanoidRootPart")
-        if (not tHum) or (tHum and tHum.Health <= 0) or (not tHrp) then
+        local tHum = currentTarget:FindFirstChildWhichIsA("Humanoid")
+        local tHrp = currentTarget:FindFirstChild("HumanoidRootPart")
+        if (not tHum) or (tHum.Health <= 0) or (not tHrp) then
             currentTarget, isLockedOn = nil, false
         end
     end
 
-    -- End animation -> reset
+    -- ⏹️ End animation -> reset
     if (not isPlaying) and wasPlayingAnimation then
         currentTarget, isLockedOn = nil, false
         restoreAutoRotate()
     end
     wasPlayingAnimation = isPlaying
 
-    -- Aim logic
+    -- 🎯 Aim logic
     if isPlaying and isLockedOn and currentTarget and currentTarget:FindFirstChild("HumanoidRootPart") then
         local hrp = currentTarget.HumanoidRootPart
         local targetPos = hrp.Position
@@ -1121,13 +1135,13 @@ RunService.RenderStepped:Connect(function(dt)
             autoRotateDisabledByScript = true
         end
 
-        -- Predict movement (mặc định bật)
+        -- dự đoán hướng di chuyển nhẹ
         local vel = hrp.Velocity
-        if vel.Magnitude > 2 then
+        if vel and vel.Magnitude > 2 then
             targetPos = targetPos + hrp.CFrame.LookVector * 3
         end
 
-        -- Aim lệch sang phải
+        -- lệch phải
         local offset = myRoot.CFrame.RightVector * aimOffset
         local lookAt = Vector3.new(targetPos.X, myRoot.Position.Y, targetPos.Z) + offset
 
@@ -1135,7 +1149,6 @@ RunService.RenderStepped:Connect(function(dt)
     end
 end)
 end
-
 
 
     Tabs.Main:AddSection("↳ Shedletsky")
