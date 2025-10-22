@@ -2353,6 +2353,183 @@ do
 end
 
 
+
+
+    Tabs.Main:AddSection("↳ Dusekkar")
+
+
+--// Dusk Aim Assist (Fluent Dropdown trên Toggle) - Locked Target Version
+do
+-- 🧠 Services
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+
+-- 📍 References
+local LocalPlayer = Players.LocalPlayer
+local Camera = Workspace.CurrentCamera
+
+-- ⚙️ Config
+local TargetAnimationID = "rbxassetid://77894750279891"
+local Enabled = false
+local Smoothness = 0.2
+
+-- Thời gian tối đa khóa target (giây) sau khi chọn target
+local LOCK_DURATION = 0.7
+
+-- 🎛️ Fluent UI Controls
+local toggleFlag = Instance.new("BoolValue")
+toggleFlag.Name = "DuskAim_ToggleFlag"
+toggleFlag.Value = false
+
+-- Dropdown ở TRÊN
+Tabs.Main:AddDropdown("DuskSmooth", {
+    Title = "Smoothness",
+    Values = {"Low", "Medium", "High"},
+    Default = "Medium",
+}):OnChanged(function(value)
+    if value == "Low" then
+        Smoothness = 0.1
+    elseif value == "Medium" then
+        Smoothness = 0.2
+    elseif value == "High" then
+        Smoothness = 0.4
+    end
+end)
+
+-- Toggle ở DƯỚI
+Tabs.Main:AddToggle("DuskAim", {
+    Title = "Dusk Aim Assist",
+    Default = false,
+}):OnChanged(function(state)
+    Enabled = state
+    toggleFlag.Value = state
+    -- reset any locked target when toggling off
+    if not state then
+        currentTarget = nil
+        lockExpires = nil
+    end
+end)
+
+-- 🎯 Find nearest player (returns HumanoidRootPart or nil)
+local function getNearestPlayerRoot()
+    if not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        return nil
+    end
+
+    local nearest, distance = nil, math.huge
+    local myPos = LocalPlayer.Character.HumanoidRootPart.Position
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            local root = player.Character.HumanoidRootPart
+            local dist = (root.Position - myPos).Magnitude
+            if dist < distance then
+                distance = dist
+                nearest = root
+            end
+        end
+    end
+    return nearest
+end
+
+-- Helper: check if a humanoid is currently playing the target animation
+local function humanoidIsPlayingTargetAnimation(humanoid)
+    if not humanoid then return false end
+    for _, track in pairs(humanoid:GetPlayingAnimationTracks()) do
+        if track.Animation and track.Animation.AnimationId == TargetAnimationID then
+            return true
+        end
+    end
+    return false
+end
+
+-- State for locked target
+local currentTarget = nil          -- HumanoidRootPart (locked)
+local currentTargetHumanoid = nil  -- Humanoid of the locked target's character
+local lockExpires = nil            -- timestamp when lock can be released at earliest
+
+-- 🔥 Aimbot logic (RenderStepped)
+RunService.RenderStepped:Connect(function()
+    if not Enabled then
+        return
+    end
+
+    -- safety: require local character and camera
+    if not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") or not Camera then
+        currentTarget = nil
+        currentTargetHumanoid = nil
+        lockExpires = nil
+        return
+    end
+
+    -- First: detect if ANY player is playing the target animation
+    local anyAnimPlaying = false
+    for _, player in pairs(Players:GetPlayers()) do
+        if player.Character and player.Character:FindFirstChildOfClass("Humanoid") then
+            local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
+            if humanoidIsPlayingTargetAnimation(humanoid) then
+                anyAnimPlaying = true
+                -- If we don't have a locked target yet, lock to the nearest player NOW
+                if not currentTarget then
+                    local chosen = getNearestPlayerRoot()
+                    if chosen then
+                        currentTarget = chosen
+                        currentTargetHumanoid = chosen.Parent and chosen.Parent:FindFirstChildOfClass("Humanoid") or nil
+                        lockExpires = tick() + LOCK_DURATION
+                    end
+                end
+                -- We break here optionally (we only need to know that an animation is playing).
+                -- But do not break if we want to check other players' animations as well; either is fine.
+                -- We'll not break so we keep checking; but one detection is enough to keep anyAnimPlaying = true.
+            end
+        end
+    end
+
+    -- If there is a locked target, aim at it while animation(s) are playing OR until lockExpires
+    if currentTarget and currentTarget.Parent and currentTargetHumanoid then
+        -- validate target: still has HumanoidRootPart and is alive
+        if not currentTarget or not currentTarget.Parent or not currentTarget.Parent:FindFirstChild("HumanoidRootPart") then
+            -- invalid target, release
+            currentTarget = nil
+            currentTargetHumanoid = nil
+            lockExpires = nil
+            return
+        end
+
+        -- Determine whether we should continue aiming:
+        -- continue if either (a) any player is currently playing the target animation OR
+        -- (b) we haven't reached lockExpires yet (ensures a short guaranteed aiming window)
+        local continueAiming = anyAnimPlaying or (lockExpires and tick() < lockExpires)
+
+        if continueAiming then
+            local aimPos = currentTarget.Position
+            local camCFrame = Camera.CFrame
+            -- avoid zero-length direction
+            local dirVec = aimPos - camCFrame.Position
+            if dirVec.Magnitude > 0 then
+                local direction = dirVec.Unit
+                Camera.CFrame = Camera.CFrame:Lerp(
+                    CFrame.new(camCFrame.Position, camCFrame.Position + direction),
+                    Smoothness
+                )
+            end
+            return
+        else
+            -- no animation playing and lock expired -> release target, allow new selection next detection
+            currentTarget = nil
+            currentTargetHumanoid = nil
+            lockExpires = nil
+            return
+        end
+    end
+
+    -- If we get here: no locked target, but if an animation is playing we already set one above.
+    -- Nothing to do otherwise.
+end)
+end
+
+
+
     Tabs.Main:AddSection("↳ Guest1337")
 
 
