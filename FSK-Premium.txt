@@ -2790,13 +2790,13 @@ do
     strictRangeOn = strictFlag.Value
     detectionRange = rangeFlag.Value
 
-    Tabs.Main:AddToggle("AutoBlockV2", {Title = "Auto Block V2.3", Default = toggleOn})
+    Tabs.Main:AddToggle("AutoBlockV2", {Title = "Auto Block V3", Default = toggleOn})
         :OnChanged(function(state)
             toggleOn = state
             toggleFlag.Value = state
         end)
 
-    Tabs.Main:AddToggle("StrictRangeCheck", {Title = "Auto Check V2.3", Default = strictRangeOn})
+    Tabs.Main:AddToggle("StrictRangeCheck", {Title = "Auto Check V3", Default = strictRangeOn})
         :OnChanged(function(state)
             strictRangeOn = state
             strictFlag.Value = state
