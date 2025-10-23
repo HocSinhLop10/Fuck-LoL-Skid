@@ -2605,6 +2605,8 @@ end
 
 
 
+
+
 do
     local Players = game:GetService("Players")
     local RunService = game:GetService("RunService")
@@ -2627,7 +2629,7 @@ do
 
     local animationIds = {
         ["83829782357897"]  = true, -- Slash, 1x1x1x1
---        ["126830014841198"] = true, -- Slash, Jason
+        ["126830014841198"] = true, -- Slash, Jason
         ["126355327951215"] = true, -- Behead, Jason
         ["121086746534252"] = true, -- GashingWoundStart, Jason
         ["105458270463374"] = true, -- Slash, JohnDoe
@@ -2638,16 +2640,16 @@ do
         ["121293883585738"] = true, -- Slash, 1x1x1x1
         ["92173139187970"]  = true, -- Slash, Skin: Hacklord1x1x1x1
         ["106847695270773"] = true, -- GashingWoundStart, Jason, Skin: Subject0Jason
---        ["125403313786645"] = true, -- Slash, Jason, Skin: Subject0Jason
+        ["125403313786645"] = true, -- Slash, Jason, Skin: Subject0Jason
         ["81639435858902"]  = true, -- Behead, Jason, Skin: WhitePumpkinJason
         ["137314737492715"] = true, -- GashingWoundStart, Jason, Skin: WhitePumpkinJason
---        ["120112897026015"] = true, -- Slash, Jason, Skin: WhitePumpkinJason
+        ["120112897026015"] = true, -- Slash, Jason, Skin: WhitePumpkinJason
         ["82113744478546"]  = true, -- Behead, Jason (nhiều skin)
---        ["118298475669935"] = true, -- Slash, Jason (nhiều skin)
+        ["118298475669935"] = true, -- Slash, Jason (nhiều skin)
         ["126681776859538"] = true, -- Behead, Jason, Skin: PursuerJason
         ["129976080405072"] = true, -- GashingWoundStart, Jason, Skin: PursuerJason
---        ["109667959938617"] = true, -- Slash, Jason, Skin: PursuerJason
---        ["74707328554358"]  = true, -- Slash, Jason, Skin: #DeadRabbitsJason
+        ["109667959938617"] = true, -- Slash, Jason, Skin: PursuerJason
+        ["74707328554358"]  = true, -- Slash, Jason, Skin: #DeadRabbitsJason
         ["133336594357903"] = true, -- Behead, Jason, Skin: #DeadRabbitsJason
         ["86204001129974"]  = true, -- GashingWoundStart, Jason, Skin: #DeadRabbitsJason
         ["70371667919898"]  = true, -- Attack, c00lkidd, Skin: MafiosoC00l
@@ -2959,6 +2961,97 @@ do
 
     Players.PlayerRemoving:Connect(removeCircle)
 end
+
+
+
+
+
+do
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local lp = Players.LocalPlayer
+
+local lolz = {}
+if getgenv().emergency_stop == nil or not getgenv().emergency_stop then
+    getgenv().emergency_stop = false
+end
+
+-- 🔧 Chuyển studs thành độ tăng kích thước
+function StudsIntoSize(studs)
+    return studs * 0.5 -- hệ số tăng nhẹ
+end
+
+-- ⚙️ Hàm tăng hitbox người khác
+function lolz:ExtendOthersHitbox(studs, time)
+    local size_increase = StudsIntoSize(studs)
+    local start = tick()
+
+    if getgenv().emergency_stop == true then
+        getgenv().emergency_stop = false
+    end
+
+    repeat
+        task.wait(0.05)
+        for _, plr in pairs(Players:GetPlayers()) do
+            if plr ~= lp and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+                for _, part in pairs(plr.Character:GetChildren()) do
+                    if part:IsA("BasePart") then
+                        local originalSize = part.Size
+                        part.Size = Vector3.new(
+                            originalSize.X + size_increase,
+                            originalSize.Y,
+                            originalSize.Z + size_increase
+                        )
+                        part.Massless = true
+                        part.CanCollide = false
+                    end
+                end
+            end
+        end
+    until tick() - start > tonumber(time) or getgenv().emergency_stop == true
+
+    -- 🔄 Trả lại kích thước cũ
+    if getgenv().emergency_stop == true then
+        getgenv().emergency_stop = false
+    end
+
+    for _, plr in pairs(Players:GetPlayers()) do
+        if plr ~= lp and plr.Character then
+            for _, part in pairs(plr.Character:GetChildren()) do
+                if part:IsA("BasePart") then
+                    part.Size = Vector3.new(2, 2, 1) -- mặc định (tuỳ game)
+                end
+            end
+        end
+    end
+end
+
+function lolz:StopExtendingHitbox()
+    getgenv().emergency_stop = true
+end
+
+-- 🟢 Nút bật/tắt hitbox extender
+Tabs.Main:AddToggle("ExtendHitboxOthers", {
+    Title = "Block Hitbox",
+    Default = false,
+    Callback = function(Value)
+        if Value then
+            -- Bật: bắt đầu tăng hitbox
+            task.spawn(function()
+                while Value and not getgenv().emergency_stop do
+                    lolz:ExtendOthersHitbox(1.5, 2) -- tăng nhẹ mỗi 2s
+                    task.wait(2)
+                end
+            end)
+        else
+            -- Tắt: dừng lại và trả hitbox
+            lolz:StopExtendingHitbox()
+        end
+    end
+})
+end
+
+return lolz
 
 
 
