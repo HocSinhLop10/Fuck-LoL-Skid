@@ -1151,6 +1151,105 @@ end)
 end
 
 
+
+--// 🍕 Auto Eat Pizza Instantly (Fluent Toggle Style)
+--// ======================================
+
+do
+    -- 🌍 Global Vars
+    local Players = game:GetService("Players")
+    local Workspace = game:GetService("Workspace")
+    local LocalPlayer = Players.LocalPlayer
+
+    getgenv().BlinkToPizzaToggle = false
+    getgenv().HPThreshold = 30
+
+    -- 🧩 Helper Functions
+    local function getHRP()
+        local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+        return char:WaitForChild("HumanoidRootPart")
+    end
+
+    local function getHP()
+        local char = LocalPlayer.Character
+        if char then
+            local hum = char:FindFirstChildOfClass("Humanoid")
+            if hum then return hum.Health end
+        end
+        return 0
+    end
+
+    local function getPizzaCF()
+        local map = Workspace:FindFirstChild("Map")
+        local ingame = map and map:FindFirstChild("Ingame")
+        if not ingame then return nil end
+
+        local pizza = ingame:FindFirstChild("Pizza")
+        if not pizza then return nil end
+
+        if pizza:IsA("BasePart") or pizza:IsA("MeshPart") or pizza:IsA("UnionOperation") then
+            return pizza.CFrame
+        elseif pizza:IsA("Model") then
+            local pp = pizza.PrimaryPart or pizza:FindFirstChildWhichIsA("BasePart")
+            if pp then
+                if not pizza.PrimaryPart then pizza.PrimaryPart = pp end
+                return pp.CFrame
+            end
+        elseif pizza:IsA("CFrameValue") then
+            return pizza.Value
+        end
+    end
+
+    -- ?? Fluent UI Section
+
+    -- 🍕 Toggle tự ăn pizza
+    Tabs.Main:AddToggle("BlinkPizza_Toggle", {
+        Title = "Auto Eat Pizza",
+        Default = false,
+    }):OnChanged(function(state)
+        getgenv().BlinkToPizzaToggle = state
+    end)
+
+    -- ❤️ Input HP Threshold
+    Tabs.Main:AddInput("PizzaHPThreshold", {
+        Title = "HP Threshold",
+        Default = tostring(getgenv().HPThreshold),
+        Placeholder = "30",
+    }):OnChanged(function(value)
+        local num = tonumber(value)
+        if num then
+            getgenv().HPThreshold = num
+        end
+    end)
+
+    -- 🔁 Auto Loop
+    task.spawn(function()
+        while task.wait(0.9) do
+            if getgenv().BlinkToPizzaToggle then
+                local hrp = getHRP()
+                local pizzaCF = getPizzaCF()
+                if pizzaCF and getHP() <= getgenv().HPThreshold then
+                    local oldCF = hrp.CFrame
+                    hrp.CFrame = pizzaCF * CFrame.new(0, 1, 0)
+
+                    if getgenv().activateRemoteHook then
+                        getgenv().activateRemoteHook("UnreliableRemoteEvent", "UpdCF")
+                    end
+
+                    task.delay(0.2, function()
+                        hrp.CFrame = oldCF
+                        task.wait(0.3)
+                        if getgenv().deactivateRemoteHook then
+                            getgenv().deactivateRemoteHook("UnreliableRemoteEvent", "UpdCF")
+                        end
+                    end)
+                end
+            end
+        end
+    end)
+end
+
+
     Tabs.Main:AddSection("↳ Shedletsky")
 
 
