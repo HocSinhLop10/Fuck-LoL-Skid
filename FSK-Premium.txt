@@ -5770,7 +5770,7 @@ end)
 
 
 
-
+    Tabs.Visual:AddSection("↳ Player")
 
 
 do
@@ -6168,7 +6168,7 @@ end)
 end
 
 
-
+    Tabs.Visual:AddSection("↳ Other")
 
 -- === ESP Generator (Highlight) ===
 local highlights, progressConns = {}, {}
@@ -6429,7 +6429,228 @@ Tabs.Visual:AddToggle("ESPItemsToggle", {
 end)
 end
 
+--// ✨ Glow ESP + Distance Display (Player-Style Logic, Filtered + Auto Repair)
+--// ======================================
 
+do
+    local ingame = workspace:WaitForChild("Map"):WaitForChild("Ingame")
+    local Players = game:GetService("Players")
+    local RunService = game:GetService("RunService")
+    local Camera = workspace.CurrentCamera
+    local LocalPlayer = Players.LocalPlayer
+
+    local ESPConfigs = {
+        Dispenser = Color3.fromRGB(0, 162, 255),
+        Sentry = Color3.fromRGB(128, 128, 128),
+        Tripwire = Color3.fromRGB(255, 85, 0),
+        Subspace = Color3.fromRGB(160, 32, 240),
+    }
+
+    local IGNORE_NAMES = {
+        ["BuildermanSentryEffectRange"] = true,
+        ["BuildermanDispenserEffectRange"] = true,
+    }
+
+    local espObjects = {}
+    local connections = {}
+
+    -- 🧩 Tạo hoặc sửa ESP
+    local function createOrRepairESP(model, color)
+        if not model or not model:IsA("Model") then return end
+        if IGNORE_NAMES[model.Name] then return end
+
+        local primary = model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart")
+        if not primary or IGNORE_NAMES[primary.Name] then return end
+
+        local data = espObjects[model]
+
+        -- ✅ Nếu chưa có thì tạo mới hoàn toàn
+        if not data then
+            local text = Drawing.new("Text")
+            text.Size = 14
+            text.Center = true
+            text.Outline = true
+            text.Visible = false
+            text.Color = color
+
+            local highlight = Instance.new("Highlight")
+            highlight.Name = "BuilderESP"
+            highlight.Adornee = model
+            highlight.FillColor = color
+            highlight.OutlineColor = color
+            highlight.FillTransparency = 0.7
+            highlight.OutlineTransparency = 0
+            highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+            highlight.Enabled = true
+            highlight.Parent = model
+
+            espObjects[model] = { text = text, highlight = highlight, color = color }
+            return
+        end
+
+        -- ✅ Nếu text hoặc highlight bị mất, tái tạo lại
+        if not data.text then
+            local text = Drawing.new("Text")
+            text.Size = 14
+            text.Center = true
+            text.Outline = true
+            text.Visible = false
+            text.Color = color
+            data.text = text
+        end
+
+        if (not data.highlight) or (not data.highlight.Parent) then
+            pcall(function() if data.highlight then data.highlight:Destroy() end end)
+            local highlight = Instance.new("Highlight")
+            highlight.Name = "BuilderESP"
+            highlight.Adornee = model
+            highlight.FillColor = color
+            highlight.OutlineColor = color
+            highlight.FillTransparency = 0.7
+            highlight.OutlineTransparency = 0
+            highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+            highlight.Enabled = true
+            highlight.Parent = model
+            data.highlight = highlight
+        end
+
+        -- ✅ Bảo đảm highlight luôn trỏ đúng model
+        data.highlight.Adornee = model
+        data.highlight.Enabled = true
+    end
+
+    local function removeESP(model)
+        local data = espObjects[model]
+        if data then
+            pcall(function() if data.text then data.text:Remove() end end)
+            pcall(function() if data.highlight then data.highlight:Destroy() end end)
+        end
+        espObjects[model] = nil
+    end
+
+    local function isDispenser(model)
+        return model:IsA("Model") and model.Name:lower():find("dispenser") and not IGNORE_NAMES[model.Name]
+    end
+    local function isSentry(model)
+        return model:IsA("Model") and model.Name:lower():find("sentry") and not IGNORE_NAMES[model.Name]
+    end
+    local function isTripwire(model)
+        return model:IsA("Model") and model.Name:find("TaphTripwire") and not IGNORE_NAMES[model.Name]
+    end
+    local function isSubspace(model)
+        return model:IsA("Model") and model.Name == "SubspaceTripmine" and not IGNORE_NAMES[model.Name]
+    end
+
+    -- 🎯 Tick Render (Auto Repair + Draw)
+    local function updateLoop()
+        for model, data in pairs(espObjects) do
+            if IGNORE_NAMES[model.Name] then
+                removeESP(model)
+                continue
+            end
+
+            local part = model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart")
+            if part and not IGNORE_NAMES[part.Name] and model.Parent then
+                -- ✅ Tự tái tạo ESP nếu bị mất
+                createOrRepairESP(model, data.color)
+
+                local pos, onScreen = Camera:WorldToViewportPoint(part.Position + Vector3.new(0, 2.5, 0))
+                local dist = 0
+                if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                    dist = (part.Position - LocalPlayer.Character.HumanoidRootPart.Position).Magnitude
+                end
+                data.text.Text = string.format("%s [%.0fm]", model.Name, dist)
+                data.text.Position = Vector2.new(pos.X, pos.Y)
+                data.text.Visible = onScreen
+                data.highlight.Enabled = true
+            else
+                if data.text then data.text.Visible = false end
+                if data.highlight then data.highlight.Enabled = false end
+            end
+        end
+
+        -- ✅ Quét lại Ingame để thêm các model mới mà chưa có ESP
+        for _, model in ipairs(ingame:GetChildren()) do
+            for typeName, cfg in pairs({
+                Dispenser = { check = isDispenser, color = ESPConfigs.Dispenser },
+                Sentry = { check = isSentry, color = ESPConfigs.Sentry },
+                Tripwire = { check = isTripwire, color = ESPConfigs.Tripwire },
+                Subspace = { check = isSubspace, color = ESPConfigs.Subspace },
+            }) do
+                if cfg.check(model) and not espObjects[model] then
+                    createOrRepairESP(model, cfg.color)
+                end
+            end
+        end
+    end
+
+    -- 🧩 Kích hoạt loại ESP cụ thể
+    local function enableTypeESP(typeCheck, color)
+        for _, model in ipairs(ingame:GetChildren()) do
+            if typeCheck(model) then
+                createOrRepairESP(model, color)
+            end
+        end
+
+        connections[#connections + 1] = ingame.DescendantAdded:Connect(function(obj)
+            local model = obj:IsA("Model") and obj or obj.Parent
+            if model and model:IsA("Model") and not IGNORE_NAMES[model.Name] and typeCheck(model) then
+                createOrRepairESP(model, color)
+            end
+        end)
+
+        -- ✅ RenderStepped luôn chạy để kiểm tra mất ESP
+        connections[#connections + 1] = RunService.RenderStepped:Connect(updateLoop)
+    end
+
+    local function disableTypeESP(typeCheck)
+        for model, _ in pairs(espObjects) do
+            if typeCheck(model) then
+                removeESP(model)
+            end
+        end
+    end
+
+    for _, c in ipairs(connections) do c:Disconnect() end
+    table.clear(connections)
+
+    -- 🟢 Fluent UI
+        Tabs.Visual:AddSection("↳ Buildman")
+
+    Tabs.Visual:AddToggle("DispenserESP_Toggle", {
+        Title = "ESP Dispenser",
+        Default = false,
+    }):OnChanged(function(state)
+        if state then enableTypeESP(isDispenser, ESPConfigs.Dispenser)
+        else disableTypeESP(isDispenser) end
+    end)
+
+    Tabs.Visual:AddToggle("SentryESP_Toggle", {
+        Title = "ESP Sentry",
+        Default = false,
+    }):OnChanged(function(state)
+        if state then enableTypeESP(isSentry, ESPConfigs.Sentry)
+        else disableTypeESP(isSentry) end
+    end)
+
+     Tabs.Visual:AddSection("↳ Tapt/Trap")
+
+    Tabs.Visual:AddToggle("TripwireESP_Toggle", {
+        Title = "ESP Trip Wire",
+        Default = false,
+    }):OnChanged(function(state)
+        if state then enableTypeESP(isTripwire, ESPConfigs.Tripwire)
+        else disableTypeESP(isTripwire) end
+    end)
+
+    Tabs.Visual:AddToggle("SubspaceESP_Toggle", {
+        Title = "ESP Bomb Trap",
+        Default = false,
+    }):OnChanged(function(state)
+        if state then enableTypeESP(isSubspace, ESPConfigs.Subspace)
+        else disableTypeESP(isSubspace) end
+    end)
+end
 
 -- Tabs.Misc
 
