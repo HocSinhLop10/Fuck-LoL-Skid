@@ -1159,16 +1159,30 @@ do
     local RunService = game:GetService("RunService")
     local lp = Players.LocalPlayer
 
-    -- Vars
+    -- ⚙️ Variables
     local enabled = false
+    local mode = "AI Aimbot"
     local cooldown = false
     local lastTarget = nil
     local maxDistance = 5
+    local sliderInitialized = false
+
+    local TELEPORT_DURATION = 0.8
+    local AI_DELAY = 15 -- ⏳ Delay 15s giữa mỗi lần teleport AI
 
     local killerNames = { "Slasher", "c00lkidd", "JohnDoe", "1x1x1x1", "Noli", "Quest666" }
     local killersFolder = workspace:WaitForChild("Players"):WaitForChild("Killers")
 
-    -- Slash button + remote
+    -- 🎵 Animation IDs
+    local monitoredAnimations = {
+        'rbxassetid://116618003477002', 'rbxassetid://121255898612475',
+        'rbxassetid://98031287364865',  'rbxassetid://119462383658044',
+        'rbxassetid://77448521277146',  'rbxassetid://103741352379819',
+        'rbxassetid://131696603025265', 'rbxassetid://122503338277352',
+        'rbxassetid://97648548303678'
+    }
+
+    -- 🔧 Slash button + remote
     local slashButton, slashRemote, slashConnections = nil, nil, {}
 
     local function findSlashRemote()
@@ -1223,34 +1237,89 @@ do
         end
     end
 
-    -- Toggle
+    -- 🧭 UI
+    local ModeDropdown = Tabs.Main:AddDropdown("SlashMode", {
+        Title = "Slash Mode",
+        Values = { "AI Aimbot", "Player Aimbot" },
+        Default = "AI Aimbot"
+    })
+    ModeDropdown:OnChanged(function(Value)
+        mode = Value
+    end)
+
     local SlashToggle = Tabs.Main:AddToggle("SlashToggle", {
         Title = "Auto Slash",
         Default = false
     })
-    SlashToggle:OnChanged(function(Value) enabled = Value end)
+    SlashToggle:OnChanged(function(Value)
+        enabled = Value
+    end)
 
-    -- Slider
     local DistanceSlider = Tabs.Main:AddSlider("DistanceSlider", {
         Title = "Distance",
         Min = 1, Max = 50, Default = 5,
         Rounding = 1, ValueName = "studs"
     })
-    DistanceSlider:OnChanged(function(Value) maxDistance = Value end)
+    DistanceSlider:OnChanged(function(Value)
+        if not sliderInitialized then
+            sliderInitialized = true
+            return
+        end
+        maxDistance = Value
+    end)
 
-    -- Helper
-    local function isBehindTarget(hrp, targetHRP)
-        local direction = targetHRP.CFrame.LookVector
-        local toPlayer = (hrp.Position - targetHRP.Position)
-        local distance = toPlayer.Magnitude
-        local isBehind = toPlayer:Dot(direction) < -0.5
-        return distance <= maxDistance and isBehind
+    -- ⚡ Helpers
+    local function getRelativeTeleportPosition(hrp, targetHRP)
+        -- Lấy hướng tương đối giữa mình và mục tiêu
+        local toTarget = (hrp.Position - targetHRP.Position).Unit
+        -- teleport tới vị trí tương đối đó (2 studs khoảng cách)
+        local teleportPos = targetHRP.Position + (toTarget * 2)
+        return teleportPos
     end
 
-    -- Main loop
-    RunService.Heartbeat:Connect(function()
-        if not enabled or cooldown then return end
+    local function teleportAndSlash(target, spam)
+        if cooldown then return end
+        local hrp = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
+        local kHRP = target:FindFirstChild("HumanoidRootPart")
+        if not hrp or not kHRP then return end
 
+        cooldown = true
+        lastTarget = target
+
+        local start = tick()
+        local conn
+        conn = RunService.Heartbeat:Connect(function()
+            if not (lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") and kHRP and kHRP.Parent) then
+                if conn then conn:Disconnect() end
+                cooldown = false
+                lastTarget = nil
+                return
+            end
+
+            if tick() - start >= TELEPORT_DURATION then
+                if conn then conn:Disconnect() end
+                -- Nếu là AI Aimbot thì delay 15s, còn Player Aimbot delay = TELEPORT_DURATION
+                local delayTime = (mode == "AI Aimbot") and AI_DELAY or TELEPORT_DURATION
+                task.delay(delayTime, function()
+                    cooldown = false
+                    lastTarget = nil
+                end)
+                return
+            end
+
+            -- ⚙️ Teleport theo hướng của mình so với mục tiêu
+            local newPos = getRelativeTeleportPosition(hrp, kHRP)
+            hrp.CFrame = CFrame.new(newPos, kHRP.Position)
+
+            if spam then
+                useSlash()
+            end
+        end)
+    end
+
+    -- ⚔️ AI Aimbot Mode
+    RunService.Heartbeat:Connect(function()
+        if not enabled or cooldown or mode ~= "AI Aimbot" then return end
         local char = lp.Character
         if not (char and char:FindFirstChild("HumanoidRootPart")) then return end
         local hrp = char.HumanoidRootPart
@@ -1259,44 +1328,46 @@ do
             local killer = killersFolder:FindFirstChild(name)
             if killer and killer:FindFirstChild("HumanoidRootPart") then
                 local kHRP = killer.HumanoidRootPart
-
-                if isBehindTarget(hrp, kHRP) and killer ~= lastTarget then
-                    cooldown = true
-                    lastTarget = killer
-
-                    -- Teleport ra sau lưng
-                    local backPos = kHRP.Position - (kHRP.CFrame.LookVector * 2)
-                    hrp.CFrame = CFrame.new(backPos, kHRP.Position)
-
-                    -- Giữ vị trí + spam Slash 1 giây
-                    local start = tick()
-                    local connection
-                    connection = RunService.Heartbeat:Connect(function()
-                        if not (char and char.Parent and kHRP and kHRP.Parent) then
-                            if connection then connection:Disconnect() end
-                            return
-                        end
-                        if tick() - start >= 1 then
-                            if connection then connection:Disconnect() end
-                            task.delay(2, function()
-                                cooldown = false
-                                lastTarget = nil
-                            end)
-                            return
-                        end
-
-                        local back = kHRP.Position - (kHRP.CFrame.LookVector * 2)
-                        hrp.CFrame = CFrame.new(back, kHRP.Position)
-
-                        -- Gọi skill Slash qua UI Remote
-                        useSlash()
-                    end)
-
+                local dist = (hrp.Position - kHRP.Position).Magnitude
+                if dist <= maxDistance and killer ~= lastTarget then
+                    teleportAndSlash(killer, true)
                     break
                 end
             end
         end
     end)
+
+    -- 👁️ Player Aimbot Mode
+    local function attachAnimMonitor(character)
+        local humanoid = character:WaitForChild("Humanoid", 5)
+        if not humanoid then return end
+
+        humanoid.AnimationPlayed:Connect(function(animTrack)
+            if not enabled or mode ~= "Player Aimbot" or cooldown then return end
+            local animId = animTrack.Animation and animTrack.Animation.AnimationId
+            if animId and table.find(monitoredAnimations, animId) then
+                for _, name in ipairs(killerNames) do
+                    local killer = killersFolder:FindFirstChild(name)
+                    if killer and killer:FindFirstChild("HumanoidRootPart") then
+                        local hrpLocal = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
+                        local kHRP = killer:FindFirstChild("HumanoidRootPart")
+                        if hrpLocal and kHRP then
+                            local dist = (kHRP.Position - hrpLocal.Position).Magnitude
+                            if dist <= maxDistance * 5 then
+                                teleportAndSlash(killer, false)
+                                break
+                            end
+                        end
+                    end
+                end
+            end
+        end)
+    end
+
+    if lp.Character then
+        attachAnimMonitor(lp.Character)
+    end
+    lp.CharacterAdded:Connect(attachAnimMonitor)
 end
 
 
