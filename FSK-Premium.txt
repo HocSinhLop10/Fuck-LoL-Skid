@@ -6616,6 +6616,10 @@ Tabs.Visual:AddToggle("ESPItemsToggle", {
 end)
 end
 
+
+
+
+
 --// ✨ Glow ESP + Distance Display (Player-Style Logic, Filtered + Auto Repair)
 --// ======================================
 
@@ -6640,6 +6644,7 @@ do
 
     local espObjects = {}
     local connections = {}
+    local activeTypes = {} -- ✅ Track loại ESP đang bật
 
     -- 🧩 Tạo hoặc sửa ESP
     local function createOrRepairESP(model, color)
@@ -6650,8 +6655,6 @@ do
         if not primary or IGNORE_NAMES[primary.Name] then return end
 
         local data = espObjects[model]
-
-        -- ✅ Nếu chưa có thì tạo mới hoàn toàn
         if not data then
             local text = Drawing.new("Text")
             text.Size = 14
@@ -6701,7 +6704,6 @@ do
             data.highlight = highlight
         end
 
-        -- ✅ Bảo đảm highlight luôn trỏ đúng model
         data.highlight.Adornee = model
         data.highlight.Enabled = true
     end
@@ -6709,38 +6711,45 @@ do
     local function removeESP(model)
         local data = espObjects[model]
         if data then
-            pcall(function() if data.text then data.text:Remove() end end)
+            pcall(function()
+                if data.text then
+                    data.text.Visible = false
+                    task.wait()
+                    data.text:Remove()
+                end
+            end)
             pcall(function() if data.highlight then data.highlight:Destroy() end end)
+            espObjects[model] = nil
         end
-        espObjects[model] = nil
     end
 
-    local function isDispenser(model)
-        return model:IsA("Model") and model.Name:lower():find("dispenser") and not IGNORE_NAMES[model.Name]
-    end
-    local function isSentry(model)
-        return model:IsA("Model") and model.Name:lower():find("sentry") and not IGNORE_NAMES[model.Name]
-    end
-    local function isTripwire(model)
-        return model:IsA("Model") and model.Name:find("TaphTripwire") and not IGNORE_NAMES[model.Name]
-    end
-    local function isSubspace(model)
-        return model:IsA("Model") and model.Name == "SubspaceTripmine" and not IGNORE_NAMES[model.Name]
+    local function clearTypeESP(typeCheck)
+        for model, _ in pairs(espObjects) do
+            if typeCheck(model) then
+                removeESP(model)
+            end
+        end
     end
 
     -- 🎯 Tick Render (Auto Repair + Draw)
     local function updateLoop()
         for model, data in pairs(espObjects) do
-            if IGNORE_NAMES[model.Name] then
+            local stillActive = false
+            for tName, _ in pairs(activeTypes) do
+                if tName == "Dispenser" and model.Name:lower():find("dispenser") then stillActive = true break end
+                if tName == "Sentry" and model.Name:lower():find("sentry") then stillActive = true break end
+                if tName == "Tripwire" and model.Name:find("TaphTripwire") then stillActive = true break end
+                if tName == "Subspace" and model.Name == "SubspaceTripmine" then stillActive = true break end
+            end
+
+            if not stillActive then
                 removeESP(model)
                 continue
             end
 
             local part = model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart")
-            if part and not IGNORE_NAMES[part.Name] and model.Parent then
-                -- ✅ Tự tái tạo ESP nếu bị mất
+            if part and model.Parent then
                 createOrRepairESP(model, data.color)
-
                 local pos, onScreen = Camera:WorldToViewportPoint(part.Position + Vector3.new(0, 2.5, 0))
                 local dist = 0
                 if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
@@ -6756,86 +6765,57 @@ do
             end
         end
 
-        -- ✅ Quét lại Ingame để thêm các model mới mà chưa có ESP
+        -- ✅ Quét lại Ingame để thêm model mới
         for _, model in ipairs(ingame:GetChildren()) do
-            for typeName, cfg in pairs({
-                Dispenser = { check = isDispenser, color = ESPConfigs.Dispenser },
-                Sentry = { check = isSentry, color = ESPConfigs.Sentry },
-                Tripwire = { check = isTripwire, color = ESPConfigs.Tripwire },
-                Subspace = { check = isSubspace, color = ESPConfigs.Subspace },
-            }) do
-                if cfg.check(model) and not espObjects[model] then
-                    createOrRepairESP(model, cfg.color)
-                end
+            if activeTypes.Dispenser and model:IsA("Model") and model.Name:lower():find("dispenser") then
+                if not espObjects[model] then createOrRepairESP(model, ESPConfigs.Dispenser) end
+            elseif activeTypes.Sentry and model:IsA("Model") and model.Name:lower():find("sentry") then
+                if not espObjects[model] then createOrRepairESP(model, ESPConfigs.Sentry) end
+            elseif activeTypes.Tripwire and model:IsA("Model") and model.Name:find("TaphTripwire") then
+                if not espObjects[model] then createOrRepairESP(model, ESPConfigs.Tripwire) end
+            elseif activeTypes.Subspace and model:IsA("Model") and model.Name == "SubspaceTripmine" then
+                if not espObjects[model] then createOrRepairESP(model, ESPConfigs.Subspace) end
             end
         end
     end
 
-    -- 🧩 Kích hoạt loại ESP cụ thể
-    local function enableTypeESP(typeCheck, color)
-        for _, model in ipairs(ingame:GetChildren()) do
-            if typeCheck(model) then
-                createOrRepairESP(model, color)
-            end
-        end
-
-        connections[#connections + 1] = ingame.DescendantAdded:Connect(function(obj)
-            local model = obj:IsA("Model") and obj or obj.Parent
-            if model and model:IsA("Model") and not IGNORE_NAMES[model.Name] and typeCheck(model) then
-                createOrRepairESP(model, color)
-            end
-        end)
-
-        -- ✅ RenderStepped luôn chạy để kiểm tra mất ESP
-        connections[#connections + 1] = RunService.RenderStepped:Connect(updateLoop)
-    end
-
-    local function disableTypeESP(typeCheck)
-        for model, _ in pairs(espObjects) do
-            if typeCheck(model) then
-                removeESP(model)
-            end
-        end
-    end
-
-    for _, c in ipairs(connections) do c:Disconnect() end
-    table.clear(connections)
+    connections[#connections + 1] = RunService.RenderStepped:Connect(updateLoop)
 
     -- 🟢 Fluent UI
-        Tabs.Visual:AddSection("↳ Buildman")
+    Tabs.Visual:AddSection("↳ Buildman")
 
     Tabs.Visual:AddToggle("DispenserESP_Toggle", {
         Title = "ESP Dispenser",
         Default = false,
     }):OnChanged(function(state)
-        if state then enableTypeESP(isDispenser, ESPConfigs.Dispenser)
-        else disableTypeESP(isDispenser) end
+        activeTypes.Dispenser = state
+        if not state then clearTypeESP(function(m) return m.Name:lower():find("dispenser") end) end
     end)
 
     Tabs.Visual:AddToggle("SentryESP_Toggle", {
         Title = "ESP Sentry",
         Default = false,
     }):OnChanged(function(state)
-        if state then enableTypeESP(isSentry, ESPConfigs.Sentry)
-        else disableTypeESP(isSentry) end
+        activeTypes.Sentry = state
+        if not state then clearTypeESP(function(m) return m.Name:lower():find("sentry") end) end
     end)
 
-     Tabs.Visual:AddSection("↳ Tapt/Trap")
+    Tabs.Visual:AddSection("↳ Tapt/Trap")
 
     Tabs.Visual:AddToggle("TripwireESP_Toggle", {
         Title = "ESP Trip Wire",
         Default = false,
     }):OnChanged(function(state)
-        if state then enableTypeESP(isTripwire, ESPConfigs.Tripwire)
-        else disableTypeESP(isTripwire) end
+        activeTypes.Tripwire = state
+        if not state then clearTypeESP(function(m) return m.Name:find("TaphTripwire") end) end
     end)
 
     Tabs.Visual:AddToggle("SubspaceESP_Toggle", {
         Title = "ESP Bomb Trap",
         Default = false,
     }):OnChanged(function(state)
-        if state then enableTypeESP(isSubspace, ESPConfigs.Subspace)
-        else disableTypeESP(isSubspace) end
+        activeTypes.Subspace = state
+        if not state then clearTypeESP(function(m) return m.Name == "SubspaceTripmine" end) end
     end)
 end
 
