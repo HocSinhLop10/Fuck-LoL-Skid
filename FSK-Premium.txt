@@ -8042,13 +8042,27 @@ end)
 
     Tabs.Misc:AddSection("↳ Show")
 
--- FPS + Ping Drawing Setup
+--// 🧩 FPS + Ping Display + Fluent UI Toggles (fixed full version)
+-------------------------------------------------------------
+
+do
+-- ⚙️ Services
+local RunService = game:GetService("RunService")
+local Stats = game:GetService("Stats")
+local Workspace = game:GetService("Workspace")
+
+-- 🕒 Đợi camera sẵn sàng
+repeat task.wait() until Workspace.CurrentCamera
+local Camera = Workspace.CurrentCamera
+
+-- 🌈 Config toggle trạng thái
 local showFPS = true
 local showPing = true
 
+-- ✏️ Drawing setup
 local fpsText = Drawing.new("Text")
 fpsText.Size = 16
-fpsText.Position = Vector2.new(workspace.CurrentCamera.ViewportSize.X - 100, 10)
+fpsText.Position = Vector2.new(Camera.ViewportSize.X - 100, 10)
 fpsText.Color = Color3.fromRGB(0, 255, 0)
 fpsText.Center = false
 fpsText.Outline = true
@@ -8056,68 +8070,79 @@ fpsText.Visible = showFPS
 
 local msText = Drawing.new("Text")
 msText.Size = 16
-msText.Position = Vector2.new(workspace.CurrentCamera.ViewportSize.X - 100, 30)
+msText.Position = Vector2.new(Camera.ViewportSize.X - 100, 30)
 msText.Color = Color3.fromRGB(0, 255, 0)
 msText.Center = false
 msText.Outline = true
 msText.Visible = showPing
 
-local fpsCounter = 0
-local fpsLastUpdate = tick()
+-- 🔄 FPS + Ping update loop (tách riêng để không bị GUI ngăn)
+task.spawn(function()
+    local fpsCounter = 0
+    local lastUpdate = tick()
 
-RunService.RenderStepped:Connect(function()
-    fpsCounter += 1
-    if tick() - fpsLastUpdate >= 1 then
-        -- Update FPS
-        if showFPS then
-            fpsText.Text = "FPS: " .. tostring(fpsCounter)
-            fpsText.Visible = true
-        else
-            fpsText.Visible = false
-        end
-
-        -- Update Ping
-        if showPing then
-            local pingStat = game:GetService("Stats").Network.ServerStatsItem["Data Ping"]
-            local ping = pingStat and math.floor(pingStat:GetValue()) or 0
-            msText.Text = "Ping: " .. ping .. " ms"
-
-            if ping <= 60 then
-                msText.Color = Color3.fromRGB(0, 255, 0)
-            elseif ping <= 120 then
-                msText.Color = Color3.fromRGB(255, 165, 0)
+    RunService.RenderStepped:Connect(function()
+        fpsCounter += 1
+        if tick() - lastUpdate >= 1 then
+            -- 🟢 Update FPS
+            if showFPS then
+                fpsText.Text = "FPS: " .. tostring(fpsCounter)
+                fpsText.Visible = true
             else
-                msText.Color = Color3.fromRGB(255, 0, 0)
+                fpsText.Visible = false
             end
 
-            msText.Visible = true
-        else
-            msText.Visible = false
+            -- 🟡 Update Ping
+            if showPing then
+                local pingStat = Stats.Network.ServerStatsItem["Data Ping"]
+                local ping = pingStat and math.floor(pingStat:GetValue()) or 0
+                msText.Text = "Ping: " .. ping .. " ms"
+
+                if ping <= 60 then
+                    msText.Color = Color3.fromRGB(0, 255, 0)
+                elseif ping <= 120 then
+                    msText.Color = Color3.fromRGB(255, 165, 0)
+                else
+                    msText.Color = Color3.fromRGB(255, 0, 0)
+                end
+
+                msText.Visible = true
+            else
+                msText.Visible = false
+            end
+
+            fpsCounter = 0
+            lastUpdate = tick()
         end
-
-        fpsCounter = 0
-        fpsLastUpdate = tick()
-    end
+    end)
 end)
 
--- ✅ Fluent GUI Toggles chuẩn
-local fpsToggle = Tabs.Misc:AddToggle("ShowFPSToggle", {
-    Title = "Show FPS",
-    Default = true
-})
-fpsToggle:OnChanged(function(val)
-    showFPS = val
-    fpsText.Visible = val
-end)
+-- ✅ Đợi Fluent GUI sẵn rồi mới thêm nút
+task.spawn(function()
+    repeat task.wait() until Tabs and Tabs.Misc
+    task.wait(0.2) -- delay nhẹ để Fluent render xong
 
-local pingToggle = Tabs.Misc:AddToggle("ShowPingToggle", {
-    Title = "Show Ping",
-    Default = true
-})
-pingToggle:OnChanged(function(val)
-    showPing = val
-    msText.Visible = val
+    -- 🔘 Toggle: Show FPS
+    local fpsToggle = Tabs.Misc:AddToggle("ShowFPSToggle", {
+        Title = "Show FPS",
+        Default = true,
+        Callback = function(val)
+            showFPS = val
+            fpsText.Visible = val
+        end
+    })
+
+    -- 🔘 Toggle: Show Ping
+    local pingToggle = Tabs.Misc:AddToggle("ShowPingToggle", {
+        Title = "Show Ping",
+        Default = true,
+        Callback = function(val)
+            showPing = val
+            msText.Visible = val
+        end
+    })
 end)
+end
 
 
 
