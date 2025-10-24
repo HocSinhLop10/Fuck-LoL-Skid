@@ -989,7 +989,10 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local localPlayer = Players.LocalPlayer
 
-local dangerousAnimations = {}
+local dangerousAnimations = {
+    ["114155003741146"] = true,
+    ["104033348426533"] = true
+}
 
 local EliotModels = {["Elliot"] = true}
 local survivorModels = {
