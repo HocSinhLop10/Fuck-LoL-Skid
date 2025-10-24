@@ -8042,20 +8042,19 @@ end)
 
     Tabs.Misc:AddSection("↳ Show")
 
---// 🧩 FPS + Ping Display + Fluent UI Toggles (fixed full version)
+--// 🧩 Fluent UI: FPS + Ping Monitor (Fixed for 2025 Roblox Update)
 -------------------------------------------------------------
 
-do
 -- ⚙️ Services
 local RunService = game:GetService("RunService")
 local Stats = game:GetService("Stats")
 local Workspace = game:GetService("Workspace")
 
--- 🕒 Đợi camera sẵn sàng
+-- 🕒 Chờ camera sẵn sàng (để tránh lỗi ViewportSize)
 repeat task.wait() until Workspace.CurrentCamera
 local Camera = Workspace.CurrentCamera
 
--- 🌈 Config toggle trạng thái
+-- 🌈 Biến toàn cục
 local showFPS = true
 local showPing = true
 
@@ -8076,15 +8075,44 @@ msText.Center = false
 msText.Outline = true
 msText.Visible = showPing
 
--- 🔄 FPS + Ping update loop (tách riêng để không bị GUI ngăn)
+-- ⚡ Safe ping getter (fix cho Roblox update mới)
+local function getPing()
+    local network = Stats and Stats.Network
+    if not network then return 0 end
+
+    local pingStat = network:FindFirstChild("ServerStatsItem")
+    if pingStat and pingStat:FindFirstChild("Data Ping") then
+        return math.floor(pingStat["Data Ping"]:GetValue())
+    end
+
+    -- fallback mới của Roblox update
+    local newPingStat = network:FindFirstChild("ServerStatsItem") or network:FindFirstChild("ServerStats")
+    if newPingStat then
+        for _, item in ipairs(newPingStat:GetChildren()) do
+            if string.find(item.Name:lower(), "ping") then
+                local success, val = pcall(function()
+                    return item:GetValue()
+                end)
+                if success and typeof(val) == "number" then
+                    return math.floor(val)
+                end
+            end
+        end
+    end
+
+    return 0
+end
+
+-- 🔁 FPS + Ping update loop (ổn định, tránh crash GUI)
 task.spawn(function()
     local fpsCounter = 0
     local lastUpdate = tick()
 
     RunService.RenderStepped:Connect(function()
         fpsCounter += 1
+
         if tick() - lastUpdate >= 1 then
-            -- 🟢 Update FPS
+            -- 🟢 FPS update
             if showFPS then
                 fpsText.Text = "FPS: " .. tostring(fpsCounter)
                 fpsText.Visible = true
@@ -8092,10 +8120,9 @@ task.spawn(function()
                 fpsText.Visible = false
             end
 
-            -- 🟡 Update Ping
+            -- 🟡 Ping update
             if showPing then
-                local pingStat = Stats.Network.ServerStatsItem["Data Ping"]
-                local ping = pingStat and math.floor(pingStat:GetValue()) or 0
+                local ping = getPing()
                 msText.Text = "Ping: " .. ping .. " ms"
 
                 if ping <= 60 then
@@ -8117,32 +8144,31 @@ task.spawn(function()
     end)
 end)
 
--- ✅ Đợi Fluent GUI sẵn rồi mới thêm nút
+-- ✅ Đợi Fluent GUI sẵn sàng rồi thêm nút
 task.spawn(function()
     repeat task.wait() until Tabs and Tabs.Misc
-    task.wait(0.2) -- delay nhẹ để Fluent render xong
+    task.wait(0.2) -- để Fluent render xong UI
 
-    -- 🔘 Toggle: Show FPS
-    local fpsToggle = Tabs.Misc:AddToggle("ShowFPSToggle", {
+    -- 🧩 Nút bật/tắt FPS
+    Tabs.Misc:AddToggle("ShowFPSToggle", {
         Title = "Show FPS",
         Default = true,
-        Callback = function(val)
-            showFPS = val
-            fpsText.Visible = val
+        Callback = function(Value)
+            showFPS = Value
+            fpsText.Visible = Value
         end
     })
 
-    -- 🔘 Toggle: Show Ping
-    local pingToggle = Tabs.Misc:AddToggle("ShowPingToggle", {
+    -- 🧩 Nút bật/tắt Ping
+    Tabs.Misc:AddToggle("ShowPingToggle", {
         Title = "Show Ping",
         Default = true,
-        Callback = function(val)
-            showPing = val
-            msText.Visible = val
+        Callback = function(Value)
+            showPing = Value
+            msText.Visible = Value
         end
     })
 end)
-end
 
 
 
