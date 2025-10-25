@@ -5783,180 +5783,198 @@ end)
 
 -- Tabs.Visual
 
-local RunService = game:GetService("RunService")
-local Camera = workspace.CurrentCamera
+do
+    local RunService = game:GetService("RunService")
+    local Camera = workspace.CurrentCamera
 
--- ?? Danh sách model Clone
-local allowedModelsClone = {
-    ["1x1x1x1Zombie"] = true,
-    ["PizzaDeliveryRig"] = true,
-    ["Mafia1"] = true,
-    ["Mafia2"] = true,
-    ["Mafia3"] = true,
-    ["Mafia4"] = true,
-}
+    -- ✅ Danh sách model Clone cần ESP
+    local allowedModelsClone = {
+        ["1x1x1x1Zombie"] = true,
+        ["PizzaDeliveryRig"] = true,
+        ["Mafia1"] = true,
+        ["Mafia2"] = true,
+        ["Mafia3"] = true,
+        ["Mafia4"] = true,
+    }
 
--- Internal containers
-local drawingsClone = {}
-local espConnectionClone
-local addedConnClone, removedConnClone
+    -- Containers
+    local espClone = {}
+    local conCloneLoop, conCloneAdded, conCloneRemoved
 
--- Tạo/khôi phục ESP + Highlight (tự hồi phục nếu mất)
-local function createOrRepairESP(model, drawings, color)
-    if not model then return end
+    -- ⚙️ Tạo hoặc khôi phục ESP (Billboard + Highlight)
+    local function createOrRepairESP(model, espTable, color)
+        if not model then return end
+        local data = espTable[model]
 
-    local data = drawings[model]
-    if not data then
-        -- Chỉ khởi tạo khi có HRP
-        local hrp = model:FindFirstChild("HumanoidRootPart")
-        if not hrp then return end
+        if not data then
+            local hrp = model:FindFirstChild("HumanoidRootPart")
+            if not hrp then return end
 
-        local text = Drawing.new("Text")
-        text.Size = 14
-        text.Center = true
-        text.Outline = true
-        text.Visible = false
-        text.Color = color
+            -- Billboard hiển thị tên
+            local billboard = Instance.new("BillboardGui")
+            billboard.Name = "ESP_Name"
+            billboard.Size = UDim2.new(0, 180, 0, 35)
+            billboard.AlwaysOnTop = true
+            billboard.StudsOffset = Vector3.new(0, 3, 0)
+            billboard.MaxDistance = 500
+            billboard.Parent = hrp
 
-        local highlight = Instance.new("Highlight")
-        highlight.Adornee = model
-        highlight.FillColor = color
-        highlight.OutlineColor = color
-        highlight.FillTransparency = 0.7
-        highlight.OutlineTransparency = 0
-        highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-        highlight.Enabled = true
-        highlight.Parent = model
+            local label = Instance.new("TextLabel")
+            label.Size = UDim2.new(1, 0, 1, 0)
+            label.BackgroundTransparency = 1
+            label.TextColor3 = color
+            label.TextStrokeTransparency = 0.3
+            label.Font = Enum.Font.GothamBold
+            label.TextSize = 16
+            label.Text = model.Name
+            label.Parent = billboard
 
-        drawings[model] = { text = text, highlight = highlight }
-        return
-    end
+            -- Highlight
+            local highlight = Instance.new("Highlight")
+            highlight.Adornee = model
+            highlight.FillColor = color
+            highlight.OutlineColor = color
+            highlight.FillTransparency = 0.7
+            highlight.OutlineTransparency = 0
+            highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+            highlight.Enabled = true
+            highlight.Parent = model
 
-    -- Hồi phục nếu mất thành phần
-    if not data.text then
-        local text = Drawing.new("Text")
-        text.Size = 14
-        text.Center = true
-        text.Outline = true
-        text.Visible = false
-        text.Color = color
-        data.text = text
-    end
-    if (not data.highlight) or (not data.highlight.Parent) then
-        pcall(function() if data.highlight then data.highlight:Destroy() end end)
-        local highlight = Instance.new("Highlight")
-        highlight.Adornee = model
-        highlight.FillColor = color
-        highlight.OutlineColor = color
-        highlight.FillTransparency = 0.7
-        highlight.OutlineTransparency = 0
-        highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-        highlight.Enabled = true
-        highlight.Parent = model
-        data.highlight = highlight
-    else
-        -- Đảm bảo luôn bám đúng model
-        data.highlight.Adornee = model
-        data.highlight.Enabled = true
-        data.highlight.FillColor = color
-        data.highlight.OutlineColor = color
-    end
-end
+            espTable[model] = { gui = billboard, text = label, highlight = highlight }
+            return
+        end
 
--- Xoá ESP
-local function removeESP(model, drawings)
-    local data = drawings[model]
-    if data then
-        pcall(function() if data.text then data.text:Remove() end end)
-        pcall(function() if data.highlight then data.highlight:Destroy() end end)
-    end
-    drawings[model] = nil
-end
+        -- Hồi phục nếu mất Billboard hoặc Highlight
+        if not data.gui or not data.gui.Parent then
+            pcall(function() if data.gui then data.gui:Destroy() end end)
+            local hrp = model:FindFirstChild("HumanoidRootPart")
+            if hrp then
+                local billboard = Instance.new("BillboardGui")
+                billboard.Name = "ESP_Name"
+                billboard.Size = UDim2.new(0, 180, 0, 35)
+                billboard.AlwaysOnTop = true
+                billboard.StudsOffset = Vector3.new(0, 3, 0)
+                billboard.MaxDistance = 500
+                billboard.Parent = hrp
 
--- Quét workspace và tạo ESP
-local function scanWorkspaceForAllowed(allowedList, drawings, color)
-    for _, obj in ipairs(workspace:GetDescendants()) do
-        if obj:IsA("Model") and allowedList[obj.Name] and obj:FindFirstChild("HumanoidRootPart") then
-            createOrRepairESP(obj, drawings, color)
+                local label = Instance.new("TextLabel")
+                label.Size = UDim2.new(1, 0, 1, 0)
+                label.BackgroundTransparency = 1
+                label.TextColor3 = color
+                label.TextStrokeTransparency = 0.3
+                label.Font = Enum.Font.GothamBold
+                label.TextSize = 16
+                label.Text = model.Name
+                label.Parent = billboard
+
+                data.gui, data.text = billboard, label
+            end
+        end
+
+        if not data.highlight or not data.highlight.Parent then
+            pcall(function() if data.highlight then data.highlight:Destroy() end end)
+            local highlight = Instance.new("Highlight")
+            highlight.Adornee = model
+            highlight.FillColor = color
+            highlight.OutlineColor = color
+            highlight.FillTransparency = 0.7
+            highlight.OutlineTransparency = 0
+            highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+            highlight.Enabled = true
+            highlight.Parent = model
+            data.highlight = highlight
         end
     end
-end
 
--- 🔥 Bắt đầu ESP Clone
-function startESPClone()
-    if espConnectionClone then return end
+    -- ❌ Xoá ESP
+    local function removeESP(model, espTable)
+        local data = espTable[model]
+        if data then
+            pcall(function() if data.gui then data.gui:Destroy() end end)
+            pcall(function() if data.highlight then data.highlight:Destroy() end end)
+        end
+        espTable[model] = nil
+    end
 
-    local COLOR = Color3.fromRGB(0, 255, 0) -- xanh lá
-    scanWorkspaceForAllowed(allowedModelsClone, drawingsClone, COLOR)
-
-    espConnectionClone = RunService.RenderStepped:Connect(function()
-        for model, data in pairs(drawingsClone) do
-            -- Luôn tự hồi phục nếu mất
-            createOrRepairESP(model, drawingsClone, COLOR)
-            data = drawingsClone[model]
-
+    -- 🔁 Cập nhật ESP theo khoảng cách
+    local function updateESP(espTable, color)
+        for model, data in pairs(espTable) do
             if model.Parent and model:FindFirstChild("HumanoidRootPart") then
+                createOrRepairESP(model, espTable, color)
+                data = espTable[model]
+
                 local hrp = model.HumanoidRootPart
-                local pos, onScreen = Camera:WorldToViewportPoint(hrp.Position + Vector3.new(0, 2.5, 0))
                 local dist = (hrp.Position - Camera.CFrame.Position).Magnitude
 
                 if data.text then
                     data.text.Text = string.format("%s [%.0fm]", model.Name, dist)
-                    data.text.Position = Vector2.new(pos.X, pos.Y)
-                    data.text.Visible = onScreen
                 end
 
                 if data.highlight then
+                    data.highlight.Adornee = model
                     data.highlight.Enabled = true
                 end
             else
-                if data.text then data.text.Visible = false end
-                if data.highlight then data.highlight.Enabled = false end
+                removeESP(model, espTable)
             end
         end
-    end)
+    end
 
-    addedConnClone = workspace.DescendantAdded:Connect(function(obj)
-        -- Bắt cả khi add vào sâu trong model
-        local model = obj:IsA("Model") and obj or obj:FindFirstAncestorOfClass("Model")
-        if model and allowedModelsClone[model.Name] then
-            createOrRepairESP(model, drawingsClone, COLOR)
+    -- 🚀 Bắt đầu ESP Clone
+    local function startESPClone()
+        if conCloneLoop then return end
+        local COLOR = Color3.fromRGB(0, 255, 0) -- xanh lá
+
+        -- Quét tất cả model sẵn có
+        for _, obj in ipairs(workspace:GetDescendants()) do
+            if obj:IsA("Model") and allowedModelsClone[obj.Name] then
+                createOrRepairESP(obj, espClone, COLOR)
+            end
         end
-    end)
 
-    removedConnClone = workspace.DescendantRemoving:Connect(function(obj)
-        -- Nếu model hoặc ancestor của nó nằm trong bảng, xoá ESP
-        local model = obj:IsA("Model") and obj or obj:FindFirstAncestorOfClass("Model")
-        if model and drawingsClone[model] then
-            removeESP(model, drawingsClone)
+        conCloneLoop = RunService.Heartbeat:Connect(function()
+            updateESP(espClone, COLOR)
+        end)
+
+        conCloneAdded = workspace.DescendantAdded:Connect(function(obj)
+            local model = obj:IsA("Model") and obj or obj:FindFirstAncestorOfClass("Model")
+            if model and allowedModelsClone[model.Name] then
+                createOrRepairESP(model, espClone, COLOR)
+            end
+        end)
+
+        conCloneRemoved = workspace.DescendantRemoving:Connect(function(obj)
+            local model = obj:IsA("Model") and obj or obj:FindFirstAncestorOfClass("Model")
+            if model and espClone[model] then
+                removeESP(model, espClone)
+            end
+        end)
+    end
+
+    -- 🛑 Dừng ESP Clone
+    local function stopESPClone()
+        if conCloneLoop then conCloneLoop:Disconnect(); conCloneLoop = nil end
+        if conCloneAdded then conCloneAdded:Disconnect(); conCloneAdded = nil end
+        if conCloneRemoved then conCloneRemoved:Disconnect(); conCloneRemoved = nil end
+        for _, d in pairs(espClone) do
+            pcall(function() if d.gui then d.gui:Destroy() end end)
+            pcall(function() if d.highlight then d.highlight:Destroy() end end)
+        end
+        espClone = {}
+    end
+
+    -- 📦 Toggle UI
+    Tabs.Visual:AddToggle("ESPCloneToggle", {
+        Title = "ESP Clone",
+        Default = false,
+    }):OnChanged(function(enabled)
+        if enabled then
+            startESPClone()
+        else
+            stopESPClone()
         end
     end)
 end
-
--- 🛑 Dừng ESP Clone
-function stopESPClone()
-    if espConnectionClone then espConnectionClone:Disconnect() end
-    if addedConnClone then addedConnClone:Disconnect() end
-    if removedConnClone then removedConnClone:Disconnect() end
-    for _, data in pairs(drawingsClone) do
-        pcall(function() if data.text then data.text:Remove() end end)
-        pcall(function() if data.highlight then data.highlight:Destroy() end end)
-    end
-    table.clear(drawingsClone)
-    espConnectionClone, addedConnClone, removedConnClone = nil, nil, nil
-end
-
--- 📌 Toggle ESP Clone
-Tabs.Visual:AddToggle("ESPCloneToggle", {
-    Title = "ESP Clone",
-    Default = false,
-}):OnChanged(function(enabled)
-    if enabled then
-        startESPClone()
-    else
-        stopESPClone()
-    end
-end)
 
 
 
@@ -5964,167 +5982,180 @@ end)
 
 
 do
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local Camera = workspace.CurrentCamera
+    local Players = game:GetService("Players")
+    local RunService = game:GetService("RunService")
+    local Camera = workspace.CurrentCamera
 
-local LocalPlayer = Players.LocalPlayer
-local drawingsESP = {}
-local espConnection, addedConn, removingConn
+    local LocalPlayer = Players.LocalPlayer
+    local ESP_COLOR = Color3.fromRGB(0, 255, 255)
 
--- 🎨 Màu xanh lơ
-local ESP_COLOR = Color3.fromRGB(0, 255, 255)
+    local espPlayers = {}
+    local espLoop, playerAddedConn, playerRemovingConn
 
--- 📌 Tạo hoặc sửa ESP cho Player
-local function createOrRepairESP(player)
-    if not player.Character then return end
-    local hrp = player.Character:FindFirstChild("HumanoidRootPart")
-    if not hrp then return end
+    -- 🧩 Tạo hoặc repair ESP (Billboard + Highlight)
+    local function createOrRepairESP(player)
+        if not player.Character then return end
+        local hrp = player.Character:FindFirstChild("HumanoidRootPart")
+        if not hrp then return end
 
-    local data = drawingsESP[player]
-    if not data then
-        local text = Drawing.new("Text")
-        text.Size = 14
-        text.Center = true
-        text.Outline = true
-        text.Visible = false
-        text.Color = ESP_COLOR
+        local data = espPlayers[player]
+        if not data then
+            -- Billboard hiển thị tên
+            local billboard = Instance.new("BillboardGui")
+            billboard.Name = "ESP_Player"
+            billboard.Size = UDim2.new(0, 180, 0, 35)
+            billboard.AlwaysOnTop = true
+            billboard.StudsOffset = Vector3.new(0, 3, 0)
+            billboard.MaxDistance = 500
+            billboard.Parent = hrp
 
-        local highlight = Instance.new("Highlight")
-        highlight.Adornee = player.Character
-        highlight.FillColor = ESP_COLOR
-        highlight.OutlineColor = ESP_COLOR
-        highlight.FillTransparency = 0.7
-        highlight.OutlineTransparency = 0
-        highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-        highlight.Enabled = true
-        highlight.Parent = player.Character
+            local label = Instance.new("TextLabel")
+            label.Size = UDim2.new(1, 0, 1, 0)
+            label.BackgroundTransparency = 1
+            label.TextColor3 = ESP_COLOR
+            label.TextStrokeTransparency = 0.3
+            label.Font = Enum.Font.GothamBold
+            label.TextSize = 16
+            label.Text = player.Name
+            label.Parent = billboard
 
-        drawingsESP[player] = { text = text, highlight = highlight }
-        return
-    end
+            -- Highlight
+            local highlight = Instance.new("Highlight")
+            highlight.Adornee = player.Character
+            highlight.FillColor = ESP_COLOR
+            highlight.OutlineColor = ESP_COLOR
+            highlight.FillTransparency = 0.7
+            highlight.OutlineTransparency = 0
+            highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+            highlight.Enabled = true
+            highlight.Parent = player.Character
 
-    -- Nếu mất thì hồi phục
-    if not data.text then
-        local text = Drawing.new("Text")
-        text.Size = 14
-        text.Center = true
-        text.Outline = true
-        text.Visible = false
-        text.Color = ESP_COLOR
-        data.text = text
-    end
-    if (not data.highlight) or (not data.highlight.Parent) then
-        pcall(function() if data.highlight then data.highlight:Destroy() end end)
-        local highlight = Instance.new("Highlight")
-        highlight.Adornee = player.Character
-        highlight.FillColor = ESP_COLOR
-        highlight.OutlineColor = ESP_COLOR
-        highlight.FillTransparency = 0.7
-        highlight.OutlineTransparency = 0
-        highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-        highlight.Enabled = true
-        highlight.Parent = player.Character
-        data.highlight = highlight
-    else
-        -- đảm bảo luôn bám vào Character
-        data.highlight.Adornee = player.Character
-        data.highlight.Enabled = true
-        data.highlight.FillColor = ESP_COLOR
-        data.highlight.OutlineColor = ESP_COLOR
-    end
-end
+            espPlayers[player] = { gui = billboard, text = label, highlight = highlight }
+            return
+        end
 
--- 📌 Xoá ESP
-local function removeESP(player)
-    local data = drawingsESP[player]
-    if data then
-        pcall(function() if data.text then data.text:Remove() end end)
-        pcall(function() if data.highlight then data.highlight:Destroy() end end)
-    end
-    drawingsESP[player] = nil
-end
+        -- Repair Billboard
+        if not data.gui or not data.gui.Parent then
+            pcall(function() if data.gui then data.gui:Destroy() end end)
+            local billboard = Instance.new("BillboardGui")
+            billboard.Name = "ESP_Player"
+            billboard.Size = UDim2.new(0, 180, 0, 35)
+            billboard.AlwaysOnTop = true
+            billboard.StudsOffset = Vector3.new(0, 3, 0)
+            billboard.MaxDistance = 500
+            billboard.Parent = hrp
 
--- 📌 Quét toàn bộ Player hiện tại
-local function scanAllPlayers()
-    for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer then
-            createOrRepairESP(player)
+            local label = Instance.new("TextLabel")
+            label.Size = UDim2.new(1, 0, 1, 0)
+            label.BackgroundTransparency = 1
+            label.TextColor3 = ESP_COLOR
+            label.TextStrokeTransparency = 0.3
+            label.Font = Enum.Font.GothamBold
+            label.TextSize = 16
+            label.Text = player.Name
+            label.Parent = billboard
+
+            data.gui, data.text = billboard, label
+        end
+
+        -- Repair Highlight
+        if not data.highlight or not data.highlight.Parent then
+            pcall(function() if data.highlight then data.highlight:Destroy() end end)
+            local highlight = Instance.new("Highlight")
+            highlight.Adornee = player.Character
+            highlight.FillColor = ESP_COLOR
+            highlight.OutlineColor = ESP_COLOR
+            highlight.FillTransparency = 0.7
+            highlight.OutlineTransparency = 0
+            highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+            highlight.Enabled = true
+            highlight.Parent = player.Character
+            data.highlight = highlight
+        else
+            data.highlight.Adornee = player.Character
+            data.highlight.Enabled = true
         end
     end
-end
 
--- 🔥 Bật ESP
-local function startESP()
-    if espConnection then return end
+    -- 🧹 Xoá ESP
+    local function removeESP(player)
+        local data = espPlayers[player]
+        if data then
+            pcall(function() if data.gui then data.gui:Destroy() end end)
+            pcall(function() if data.highlight then data.highlight:Destroy() end end)
+        end
+        espPlayers[player] = nil
+    end
 
-    scanAllPlayers()
-
-    espConnection = RunService.RenderStepped:Connect(function()
-        for player, data in pairs(drawingsESP) do
+    -- ♻️ Update liên tục
+    local function updateESP()
+        for player, data in pairs(espPlayers) do
             if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-                local hrp = player.Character.HumanoidRootPart
                 createOrRepairESP(player)
-                data = drawingsESP[player]
-
-                local pos, onScreen = Camera:WorldToViewportPoint(hrp.Position + Vector3.new(0, 2.5, 0))
+                local hrp = player.Character.HumanoidRootPart
                 local dist = (hrp.Position - Camera.CFrame.Position).Magnitude
 
                 if data.text then
                     data.text.Text = string.format("%s [%.0fm]", player.Name, dist)
-                    data.text.Position = Vector2.new(pos.X, pos.Y)
-                    data.text.Visible = onScreen
                 end
 
                 if data.highlight then
                     data.highlight.Enabled = true
                 end
             else
-                if data.text then data.text.Visible = false end
-                if data.highlight then data.highlight.Enabled = false end
+                removeESP(player)
             end
         end
-    end)
+    end
 
-    addedConn = Players.PlayerAdded:Connect(function(player)
-        if player ~= LocalPlayer then
-            player.CharacterAdded:Connect(function()
-                task.wait(1) -- chờ Character load
-                createOrRepairESP(player)
-            end)
+    -- 🚀 Bật ESP
+    local function startESP()
+        if espLoop then return end
+
+        for _, plr in ipairs(Players:GetPlayers()) do
+            if plr ~= LocalPlayer then
+                createOrRepairESP(plr)
+            end
         end
-    end)
 
-    removingConn = Players.PlayerRemoving:Connect(function(player)
-        removeESP(player)
-    end)
-end
+        espLoop = RunService.Heartbeat:Connect(function()
+            updateESP()
+        end)
 
--- 🛑 Tắt ESP
-local function stopESP()
-    if espConnection then espConnection:Disconnect() end
-    if addedConn then addedConn:Disconnect() end
-    if removingConn then removingConn:Disconnect() end
+        playerAddedConn = Players.PlayerAdded:Connect(function(plr)
+            if plr ~= LocalPlayer then
+                plr.CharacterAdded:Connect(function()
+                    task.wait(1)
+                    createOrRepairESP(plr)
+                end)
+            end
+        end)
 
-    for _, data in pairs(drawingsESP) do
-        pcall(function() if data.text then data.text:Remove() end end)
-        pcall(function() if data.highlight then data.highlight:Destroy() end end)
+        playerRemovingConn = Players.PlayerRemoving:Connect(function(plr)
+            removeESP(plr)
+        end)
     end
-    table.clear(drawingsESP)
-    espConnection, addedConn, removingConn = nil, nil, nil
-end
 
--- 📌 Toggle UI
-Tabs.Visual:AddToggle("ESPPlayerToggle", {
-    Title = "ESP Player",
-    Default = false,
-}):OnChanged(function(enabled)
-    if enabled then
-        startESP()
-    else
-        stopESP()
+    -- 🛑 Tắt ESP
+    local function stopESP()
+        if espLoop then espLoop:Disconnect(); espLoop = nil end
+        if playerAddedConn then playerAddedConn:Disconnect(); playerAddedConn = nil end
+        if playerRemovingConn then playerRemovingConn:Disconnect(); playerRemovingConn = nil end
+
+        for _, d in pairs(espPlayers) do
+            pcall(function() if d.gui then d.gui:Destroy() end end)
+            pcall(function() if d.highlight then d.highlight:Destroy() end end)
+        end
+        espPlayers = {}
     end
-end)
+
+    -- 🎛️ Toggle UI
+    Tabs.Visual:AddToggle("ESPPlayerToggle", {
+        Title = "ESP Player",
+        Default = false,
+    }):OnChanged(function(enabled)
+        if enabled then startESP() else stopESP() end
+    end)
 end
 
 
@@ -6134,227 +6165,246 @@ end
 
 
 do
-local RunService = game:GetService("RunService")
-local Camera = workspace.CurrentCamera
-local Players = game:GetService("Players")
+    local RunService = game:GetService("RunService")
+    local Camera = workspace.CurrentCamera
+    local Players = game:GetService("Players")
 
--- Danh sách model
-local allowedModelsWhite = {
-    ["Noob"] = true, ["Guest1337"] = true, ["Elliot"] = true,
-    ["Shedletsky"] = true, ["TwoTime"] = true, ["007n7"] = true, ["Veeronica"] = true,
-    ["Chance"] = true, ["Builderman"] = true, ["Taph"] = true, ["Dusekkar"] = true,
-}
+    -- Danh sách model
+    local allowedModelsWhite = {
+        ["Noob"] = true, ["Guest1337"] = true, ["Elliot"] = true,
+        ["Shedletsky"] = true, ["TwoTime"] = true, ["007n7"] = true, ["Veeronica"] = true,
+        ["Chance"] = true, ["Builderman"] = true, ["Taph"] = true, ["Dusekkar"] = true,
+    }
 
-local allowedModelsRed = {
-    ["Slasher"] = true, ["1x1x1x1"] = true, ["c00lkidd"] = true,
-    ["Noli"] = true, ["JohnDoe"] = true, ["Quest666"] = true
-}
+    local allowedModelsRed = {
+        ["Slasher"] = true, ["1x1x1x1"] = true, ["c00lkidd"] = true,
+        ["Noli"] = true, ["JohnDoe"] = true, ["Quest666"] = true
+    }
 
--- Containers
-local drawingsWhite, drawingsRed = {}, {}
-local conWhiteLoop, conWhiteAdded, conWhiteRemoved
-local conRedLoop, conRedAdded, conRedRemoved
+    -- Containers
+    local espWhite, espRed = {}, {}
+    local conWhiteLoop, conWhiteAdded, conWhiteRemoved
+    local conRedLoop, conRedAdded, conRedRemoved
 
--- Check model có phải player điều khiển không
-local function isControlledByPlayer(model)
-    if model:FindFirstChildOfClass("Humanoid") then
-        local plr = Players:GetPlayerFromCharacter(model)
-        return plr ~= nil
-    end
-    return false
-end
-
--- Utility tạo/repair ESP
-local function createOrRepairESP(model, drawings, color)
-    if not model then return end
-
-    local data = drawings[model]
-    if not data then
-        local hrp = model:FindFirstChild("HumanoidRootPart")
-        if not hrp then return end
-
-        -- Text
-        local text = Drawing.new("Text")
-        text.Size = 14
-        text.Center = true
-        text.Outline = true
-        text.Visible = false
-        text.Color = color
-
-        -- Highlight
-        local highlight = Instance.new("Highlight")
-        highlight.Adornee = model
-        highlight.FillColor = color
-        highlight.OutlineColor = color
-        highlight.FillTransparency = 0.7
-        highlight.OutlineTransparency = 0
-        highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-        highlight.Enabled = true
-        highlight.Parent = model
-
-        drawings[model] = { text = text, highlight = highlight }
-        return
+    local function isControlledByPlayer(model)
+        if model:FindFirstChildOfClass("Humanoid") then
+            local plr = Players:GetPlayerFromCharacter(model)
+            return plr ~= nil
+        end
+        return false
     end
 
-    -- Repair nếu mất
-    if not data.text then
-        local text = Drawing.new("Text")
-        text.Size = 14
-        text.Center = true
-        text.Outline = true
-        text.Visible = false
-        text.Color = color
-        data.text = text
+    -- Utility tạo/repair ESP (Billboard + Highlight)
+    local function createOrRepairESP(model, espTable, color)
+        if not model then return end
+        local data = espTable[model]
+
+        if not data then
+            local hrp = model:FindFirstChild("HumanoidRootPart")
+            if not hrp then return end
+
+            -- Billboard hiển thị tên
+            local billboard = Instance.new("BillboardGui")
+            billboard.Name = "ESP_Name"
+            billboard.Size = UDim2.new(0, 180, 0, 35) -- 👈 to hơn chút
+            billboard.AlwaysOnTop = true
+            billboard.StudsOffset = Vector3.new(0, 3, 0)
+            billboard.MaxDistance = 500
+            billboard.Parent = hrp
+
+            local label = Instance.new("TextLabel")
+            label.Size = UDim2.new(1, 0, 1, 0)
+            label.BackgroundTransparency = 1
+            label.TextColor3 = color
+            label.TextStrokeTransparency = 0.3
+            label.Font = Enum.Font.GothamBold
+            label.TextSize = 16 -- 👈 chữ to hơn
+            label.Text = model.Name
+            label.Parent = billboard
+
+            -- Highlight
+            local highlight = Instance.new("Highlight")
+            highlight.Adornee = model
+            highlight.FillColor = color
+            highlight.OutlineColor = color
+            highlight.FillTransparency = 0.7
+            highlight.OutlineTransparency = 0
+            highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+            highlight.Enabled = true
+            highlight.Parent = model
+
+            espTable[model] = { gui = billboard, text = label, highlight = highlight }
+            return
+        end
+
+        -- Repair nếu mất Billboard hoặc Highlight
+        if not data.gui or not data.gui.Parent then
+            pcall(function() if data.gui then data.gui:Destroy() end end)
+            local hrp = model:FindFirstChild("HumanoidRootPart")
+            if hrp then
+                local billboard = Instance.new("BillboardGui")
+                billboard.Name = "ESP_Name"
+                billboard.Size = UDim2.new(0, 180, 0, 35)
+                billboard.AlwaysOnTop = true
+                billboard.StudsOffset = Vector3.new(0, 3, 0)
+                billboard.MaxDistance = 500
+                billboard.Parent = hrp
+
+                local label = Instance.new("TextLabel")
+                label.Size = UDim2.new(1, 0, 1, 0)
+                label.BackgroundTransparency = 1
+                label.TextColor3 = color
+                label.TextStrokeTransparency = 0.3
+                label.Font = Enum.Font.GothamBold
+                label.TextSize = 16
+                label.Text = model.Name
+                label.Parent = billboard
+
+                data.gui, data.text = billboard, label
+            end
+        end
+
+        if not data.highlight or not data.highlight.Parent then
+            pcall(function() if data.highlight then data.highlight:Destroy() end end)
+            local highlight = Instance.new("Highlight")
+            highlight.Adornee = model
+            highlight.FillColor = color
+            highlight.OutlineColor = color
+            highlight.FillTransparency = 0.7
+            highlight.OutlineTransparency = 0
+            highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+            highlight.Enabled = true
+            highlight.Parent = model
+            data.highlight = highlight
+        end
     end
-    if not (data.highlight and data.highlight.Parent) then
-        pcall(function() if data.highlight then data.highlight:Destroy() end end)
-        local highlight = Instance.new("Highlight")
-        highlight.Adornee = model
-        highlight.FillColor = color
-        highlight.OutlineColor = color
-        highlight.FillTransparency = 0.7
-        highlight.OutlineTransparency = 0
-        highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-        highlight.Enabled = true
-        highlight.Parent = model
-        data.highlight = highlight
+
+    local function removeESP(model, espTable)
+        local data = espTable[model]
+        if data then
+            pcall(function() if data.gui then data.gui:Destroy() end end)
+            pcall(function() if data.highlight then data.highlight:Destroy() end end)
+        end
+        espTable[model] = nil
     end
-end
 
-local function removeESP(model, drawings)
-    local data = drawings[model]
-    if data then
-        pcall(function() if data.text then data.text:Remove() end end)
-        pcall(function() if data.highlight then data.highlight:Destroy() end end)
-    end
-    drawings[model] = nil
-end
+    local function updateESP(espTable, color)
+        for model, data in pairs(espTable) do
+            if model.Parent and model:FindFirstChild("HumanoidRootPart") then
+                createOrRepairESP(model, espTable, color)
+                data = espTable[model]
 
--- Loop ESP update
-local function updateESP(drawings, color)
-    for model, data in pairs(drawings) do
-        if model.Parent and model:FindFirstChild("HumanoidRootPart") then
-            createOrRepairESP(model, drawings, color)
-            data = drawings[model]
+                local hrp = model.HumanoidRootPart
+                local dist = (hrp.Position - Camera.CFrame.Position).Magnitude
 
-            local hrp = model.HumanoidRootPart
-            local pos, onScreen = Camera:WorldToViewportPoint(hrp.Position + Vector3.new(0, 2.5, 0))
-            local dist = (hrp.Position - Camera.CFrame.Position).Magnitude
-
-            if data.text then
-                local displayName = model.Name
-
-                -- Check riêng cho Noli
-                if model.Name == "Noli" and not isControlledByPlayer(model) then
-                    displayName = "Noli Fake"
+                if data.text then
+                    local displayName = model.Name
+                    if model.Name == "Noli" and not isControlledByPlayer(model) then
+                        displayName = "Noli Fake"
+                    end
+                    data.text.Text = string.format("%s [%.0fm]", displayName, dist)
                 end
 
-                data.text.Text = string.format("%s [%.0fm]", displayName, dist)
-                data.text.Position = Vector2.new(pos.X, pos.Y)
-                data.text.Visible = onScreen
+                if data.highlight then
+                    data.highlight.Adornee = model
+                    data.highlight.Enabled = true
+                end
+            else
+                removeESP(model, espTable)
             end
+        end
+    end
 
-            if data.highlight then
-                data.highlight.Adornee = model
-                data.highlight.Enabled = true
+    -- === White ESP ===
+    local function startESPWhite()
+        if conWhiteLoop then return end
+        for _, obj in ipairs(workspace:GetDescendants()) do
+            if obj:IsA("Model") and allowedModelsWhite[obj.Name] then
+                createOrRepairESP(obj, espWhite, Color3.fromRGB(255, 255, 255))
             end
-        else
-            if data.text then data.text.Visible = false end
-            if data.highlight then data.highlight.Enabled = false end
         end
-    end
-end
 
--- === White ESP ===
-local function startESPWhite()
-    if conWhiteLoop then return end
-    for _, obj in ipairs(workspace:GetDescendants()) do
-        if obj:IsA("Model") and allowedModelsWhite[obj.Name] then
-            createOrRepairESP(obj, drawingsWhite, Color3.fromRGB(255, 255, 255))
-        end
-    end
+        conWhiteLoop = RunService.Heartbeat:Connect(function()
+            updateESP(espWhite, Color3.fromRGB(255, 255, 255))
+        end)
 
-    conWhiteLoop = RunService.Heartbeat:Connect(function()
-        updateESP(drawingsWhite, Color3.fromRGB(255, 255, 255))
-    end)
-
-    conWhiteAdded = workspace.DescendantAdded:Connect(function(obj)
-        local model = obj:IsA("Model") and obj or obj:FindFirstAncestorOfClass("Model")
-        if model and allowedModelsWhite[model.Name] then
-            createOrRepairESP(model, drawingsWhite, Color3.fromRGB(255, 255, 255))
-        end
-    end)
-    conWhiteRemoved = workspace.DescendantRemoving:Connect(function(obj)
-        local model = obj:IsA("Model") and obj or obj:FindFirstAncestorOfClass("Model")
-        if model and drawingsWhite[model] then
-            removeESP(model, drawingsWhite)
-        end
-    end)
-end
-
-local function stopESPWhite()
-    if conWhiteLoop then conWhiteLoop:Disconnect(); conWhiteLoop = nil end
-    if conWhiteAdded then conWhiteAdded:Disconnect(); conWhiteAdded = nil end
-    if conWhiteRemoved then conWhiteRemoved:Disconnect(); conWhiteRemoved = nil end
-    for _, d in pairs(drawingsWhite) do
-        pcall(function() if d.text then d.text:Remove() end end)
-        pcall(function() if d.highlight then d.highlight:Destroy() end end)
-    end
-    drawingsWhite = {}
-end
-
--- === Red ESP ===
-local function startESPRed()
-    if conRedLoop then return end
-    for _, obj in ipairs(workspace:GetDescendants()) do
-        if obj:IsA("Model") and allowedModelsRed[obj.Name] then
-            createOrRepairESP(obj, drawingsRed, Color3.fromRGB(255, 0, 0))
-        end
+        conWhiteAdded = workspace.DescendantAdded:Connect(function(obj)
+            local model = obj:IsA("Model") and obj or obj:FindFirstAncestorOfClass("Model")
+            if model and allowedModelsWhite[model.Name] then
+                createOrRepairESP(model, espWhite, Color3.fromRGB(255, 255, 255))
+            end
+        end)
+        conWhiteRemoved = workspace.DescendantRemoving:Connect(function(obj)
+            local model = obj:IsA("Model") and obj or obj:FindFirstAncestorOfClass("Model")
+            if model and espWhite[model] then
+                removeESP(model, espWhite)
+            end
+        end)
     end
 
-    conRedLoop = RunService.Heartbeat:Connect(function()
-        updateESP(drawingsRed, Color3.fromRGB(255, 0, 0))
-    end)
-
-    conRedAdded = workspace.DescendantAdded:Connect(function(obj)
-        local model = obj:IsA("Model") and obj or obj:FindFirstAncestorOfClass("Model")
-        if model and allowedModelsRed[model.Name] then
-            createOrRepairESP(model, drawingsRed, Color3.fromRGB(255, 0, 0))
+    local function stopESPWhite()
+        if conWhiteLoop then conWhiteLoop:Disconnect(); conWhiteLoop = nil end
+        if conWhiteAdded then conWhiteAdded:Disconnect(); conWhiteAdded = nil end
+        if conWhiteRemoved then conWhiteRemoved:Disconnect(); conWhiteRemoved = nil end
+        for _, d in pairs(espWhite) do
+            pcall(function() if d.gui then d.gui:Destroy() end end)
+            pcall(function() if d.highlight then d.highlight:Destroy() end end)
         end
-    end)
-    conRedRemoved = workspace.DescendantRemoving:Connect(function(obj)
-        local model = obj:IsA("Model") and obj or obj:FindFirstAncestorOfClass("Model")
-        if model and drawingsRed[model] then
-            removeESP(model, drawingsRed)
-        end
-    end)
-end
-
-local function stopESPRed()
-    if conRedLoop then conRedLoop:Disconnect(); conRedLoop = nil end
-    if conRedAdded then conRedAdded:Disconnect(); conRedAdded = nil end
-    if conRedRemoved then conRedRemoved:Disconnect(); conRedRemoved = nil end
-    for _, d in pairs(drawingsRed) do
-        pcall(function() if d.text then d.text:Remove() end end)
-        pcall(function() if d.highlight then d.highlight:Destroy() end end)
+        espWhite = {}
     end
-    drawingsRed = {}
-end
 
--- Toggles
-Tabs.Visual:AddToggle("ESPModelWhiteToggle", {
-    Title = "ESP Survivors",
-    Default = false,
-}):OnChanged(function(enabled)
-    if enabled then startESPWhite() else stopESPWhite() end
-end)
+    -- === Red ESP ===
+    local function startESPRed()
+        if conRedLoop then return end
+        for _, obj in ipairs(workspace:GetDescendants()) do
+            if obj:IsA("Model") and allowedModelsRed[obj.Name] then
+                createOrRepairESP(obj, espRed, Color3.fromRGB(255, 0, 0))
+            end
+        end
 
-Tabs.Visual:AddToggle("ESPModelRedToggle", {
-    Title = "ESP Killers",
-    Default = false,
-}):OnChanged(function(enabled)
-    if enabled then startESPRed() else stopESPRed() end
-end)
+        conRedLoop = RunService.Heartbeat:Connect(function()
+            updateESP(espRed, Color3.fromRGB(255, 0, 0))
+        end)
+
+        conRedAdded = workspace.DescendantAdded:Connect(function(obj)
+            local model = obj:IsA("Model") and obj or obj:FindFirstAncestorOfClass("Model")
+            if model and allowedModelsRed[model.Name] then
+                createOrRepairESP(model, espRed, Color3.fromRGB(255, 0, 0))
+            end
+        end)
+        conRedRemoved = workspace.DescendantRemoving:Connect(function(obj)
+            local model = obj:IsA("Model") and obj or obj:FindFirstAncestorOfClass("Model")
+            if model and espRed[model] then
+                removeESP(model, espRed)
+            end
+        end)
+    end
+
+    local function stopESPRed()
+        if conRedLoop then conRedLoop:Disconnect(); conRedLoop = nil end
+        if conRedAdded then conRedAdded:Disconnect(); conRedAdded = nil end
+        if conRedRemoved then conRedRemoved:Disconnect(); conRedRemoved = nil end
+        for _, d in pairs(espRed) do
+            pcall(function() if d.gui then d.gui:Destroy() end end)
+            pcall(function() if d.highlight then d.highlight:Destroy() end end)
+        end
+        espRed = {}
+    end
+
+    -- Toggles
+    Tabs.Visual:AddToggle("ESPModelWhiteToggle", {
+        Title = "ESP Survivors",
+        Default = false,
+    }):OnChanged(function(enabled)
+        if enabled then startESPWhite() else stopESPWhite() end
+    end)
+
+    Tabs.Visual:AddToggle("ESPModelRedToggle", {
+        Title = "ESP Killers",
+        Default = false,
+    }):OnChanged(function(enabled)
+        if enabled then startESPRed() else stopESPRed() end
+    end)
 end
 
 
@@ -6504,25 +6554,20 @@ do
 local RunService = game:GetService("RunService")
 local Camera = workspace.CurrentCamera
 
-local itemsDraw = {}
-local conItemsAdded, conItemsRemoved, conItemsLoop
+local itemsESP = {}
+local conItemsAdded, conItemsRemoved
 
 local function getToolPart(tool)
     return tool:FindFirstChild("Handle") or tool:FindFirstChildWhichIsA("BasePart")
 end
 
+-- 🌟 Tạo ESP cho item
 local function createItemESP(tool)
-    if itemsDraw[tool] then return end
+    if itemsESP[tool] then return end
     local part = getToolPart(tool)
     if not part then return end
 
-    local text = Drawing.new("Text")
-    text.Size = 14
-    text.Center = true
-    text.Outline = true
-    text.Visible = false
-    text.Color = Color3.fromRGB(255, 215, 0)
-
+    -- Highlight
     local hl = Instance.new("Highlight")
     hl.Name = "ItemESP_Highlight"
     hl.Adornee = part
@@ -6531,26 +6576,52 @@ local function createItemESP(tool)
     hl.FillTransparency = 0.7
     hl.OutlineTransparency = 0
     hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-    hl.Enabled = true
     hl.Parent = tool
 
-    itemsDraw[tool] = {text = text, highlight = hl, part = part}
+    -- Billboard + TextLabel (⚙️ kích cỡ vừa, chữ 16)
+    local billboard = Instance.new("BillboardGui")
+    billboard.Name = "ItemESP_Label"
+    billboard.AlwaysOnTop = true
+    billboard.Size = UDim2.new(0, 110, 0, 18)
+    billboard.StudsOffset = Vector3.new(0, 2.5, 0)
+    billboard.Parent = part
+
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, 0, 1, 0)
+    label.BackgroundTransparency = 1
+    label.TextColor3 = Color3.fromRGB(255, 215, 0)
+    label.TextStrokeTransparency = 0
+    label.TextScaled = false
+    label.Font = Enum.Font.GothamBold
+    label.TextSize = 16
+    label.Text = tool.Name
+    label.Parent = billboard
+
+    itemsESP[tool] = {
+        highlight = hl,
+        billboard = billboard,
+        label = label,
+        part = part
+    }
 end
 
+-- 🌑 Xóa ESP
 local function removeItemESP(tool)
-    local data = itemsDraw[tool]
+    local data = itemsESP[tool]
     if not data then return end
-    pcall(function() if data.text then data.text:Remove() end end)
     pcall(function() if data.highlight then data.highlight:Destroy() end end)
-    itemsDraw[tool] = nil
+    pcall(function() if data.billboard then data.billboard:Destroy() end end)
+    itemsESP[tool] = nil
 end
 
+-- Kiểm tra tool có nằm trong workspace.Map.Ingame không
 local function isInIngameFolder(inst)
     local map = workspace:FindFirstChild("Map")
     local ingame = map and map:FindFirstChild("Ingame")
     return ingame and inst:IsDescendantOf(ingame)
 end
 
+-- Quét toàn bộ item hiện có
 local function scanInitialItems()
     local map = workspace:FindFirstChild("Map")
     local ingame = map and map:FindFirstChild("Ingame")
@@ -6562,12 +6633,11 @@ local function scanInitialItems()
     end
 end
 
+-- 🔥 Bật ESP
 local function startESPItems()
-    if conItemsLoop then return end
-
+    if conItemsAdded then return end
     scanInitialItems()
 
-    -- Chỉ quét các tool mới thêm
     conItemsAdded = workspace.DescendantAdded:Connect(function(obj)
         if obj:IsA("Tool") and isInIngameFolder(obj) then
             createItemESP(obj)
@@ -6575,55 +6645,51 @@ local function startESPItems()
     end)
 
     conItemsRemoved = workspace.DescendantRemoving:Connect(function(obj)
-        if itemsDraw[obj] then
+        if itemsESP[obj] then
             removeItemESP(obj)
         end
     end)
 
-    -- Cập nhật vị trí text mỗi frame
-    conItemsLoop = RunService.RenderStepped:Connect(function()
-        for tool, data in pairs(itemsDraw) do
+    -- Cập nhật text khoảng cách mỗi frame
+    RunService.RenderStepped:Connect(function()
+        for tool, data in pairs(itemsESP) do
             local part = data.part
-            if not (tool.Parent and part and part.Parent) or not isInIngameFolder(tool) then
-                data.text.Visible = false
-            else
-                local pos, onScreen = Camera:WorldToViewportPoint(part.Position + Vector3.new(0,2,0))
-                local dist = (part.Position - Camera.CFrame.Position).Magnitude
-                data.text.Text = string.format("%s [%.0fm]", tool.Name, dist)
-                data.text.Position = Vector2.new(pos.X, pos.Y)
-                data.text.Visible = onScreen
-                if data.highlight then
-                    data.highlight.Adornee = part
-                    data.highlight.Enabled = true
-                end
+            if part and part.Parent then
+                local dist = (Camera.CFrame.Position - part.Position).Magnitude
+                data.label.Text = string.format("%s [%.0fm]", tool.Name, dist)
+                data.highlight.Enabled = true
             end
         end
     end)
 end
 
+-- 🛑 Tắt ESP
 local function stopESPItems()
     if conItemsAdded then conItemsAdded:Disconnect(); conItemsAdded = nil end
     if conItemsRemoved then conItemsRemoved:Disconnect(); conItemsRemoved = nil end
-    if conItemsLoop then conItemsLoop:Disconnect(); conItemsLoop = nil end
-    for tool, _ in pairs(itemsDraw) do
+    for tool, _ in pairs(itemsESP) do
         removeItemESP(tool)
     end
-    itemsDraw = {}
+    table.clear(itemsESP)
 end
 
+-- 🧭 Toggle trong GUI
 Tabs.Visual:AddToggle("ESPItemsToggle", {
     Title = "ESP Items",
     Default = false,
 }):OnChanged(function(enabled)
-    if enabled then startESPItems() else stopESPItems() end
+    if enabled then
+        startESPItems()
+    else
+        stopESPItems()
+    end
 end)
 end
 
 
 
 
-
---// ✨ Glow ESP + Distance Display (Player-Style Logic, Filtered + Auto Repair)
+--// ✨ Glow ESP + Distance Display (Billboard-based, Auto Repair)
 --// ======================================
 
 do
@@ -6646,10 +6712,9 @@ do
     }
 
     local espObjects = {}
-    local connections = {}
-    local activeTypes = {} -- ✅ Track loại ESP đang bật
+    local activeTypes = {}
 
-    -- 🧩 Tạo hoặc sửa ESP
+    -- 🧩 Tạo hoặc sửa ESP (Highlight + Billboard)
     local function createOrRepairESP(model, color)
         if not model or not model:IsA("Model") then return end
         if IGNORE_NAMES[model.Name] then return end
@@ -6659,71 +6724,91 @@ do
 
         local data = espObjects[model]
         if not data then
-            local text = Drawing.new("Text")
-            text.Size = 14
-            text.Center = true
-            text.Outline = true
-            text.Visible = false
-            text.Color = color
+            -- Highlight
+            local hl = Instance.new("Highlight")
+            hl.Name = "BuilderESP"
+            hl.Adornee = model
+            hl.FillColor = color
+            hl.OutlineColor = color
+            hl.FillTransparency = 0.7
+            hl.OutlineTransparency = 0
+            hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+            hl.Parent = model
 
-            local highlight = Instance.new("Highlight")
-            highlight.Name = "BuilderESP"
-            highlight.Adornee = model
-            highlight.FillColor = color
-            highlight.OutlineColor = color
-            highlight.FillTransparency = 0.7
-            highlight.OutlineTransparency = 0
-            highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-            highlight.Enabled = true
-            highlight.Parent = model
+            -- Billboard text (⚙️ cỡ chữ 16)
+            local billboard = Instance.new("BillboardGui")
+            billboard.Name = "ESP_Label"
+            billboard.AlwaysOnTop = true
+            billboard.Size = UDim2.new(0, 120, 0, 20)
+            billboard.StudsOffset = Vector3.new(0, 3, 0)
+            billboard.Parent = primary
 
-            espObjects[model] = { text = text, highlight = highlight, color = color }
+            local label = Instance.new("TextLabel")
+            label.Size = UDim2.new(1, 0, 1, 0)
+            label.BackgroundTransparency = 1
+            label.TextColor3 = color
+            label.TextStrokeTransparency = 0
+            label.TextScaled = false
+            label.Font = Enum.Font.GothamBold
+            label.TextSize = 16
+            label.Text = model.Name
+            label.Parent = billboard
+
+            espObjects[model] = {
+                highlight = hl,
+                billboard = billboard,
+                label = label,
+                color = color,
+                part = primary,
+            }
             return
         end
 
-        -- ✅ Nếu text hoặc highlight bị mất, tái tạo lại
-        if not data.text then
-            local text = Drawing.new("Text")
-            text.Size = 14
-            text.Center = true
-            text.Outline = true
-            text.Visible = false
-            text.Color = color
-            data.text = text
+        -- Auto repair
+        if not data.highlight or not data.highlight.Parent then
+            local hl = Instance.new("Highlight")
+            hl.Name = "BuilderESP"
+            hl.Adornee = model
+            hl.FillColor = color
+            hl.OutlineColor = color
+            hl.FillTransparency = 0.7
+            hl.OutlineTransparency = 0
+            hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+            hl.Parent = model
+            data.highlight = hl
         end
 
-        if (not data.highlight) or (not data.highlight.Parent) then
-            pcall(function() if data.highlight then data.highlight:Destroy() end end)
-            local highlight = Instance.new("Highlight")
-            highlight.Name = "BuilderESP"
-            highlight.Adornee = model
-            highlight.FillColor = color
-            highlight.OutlineColor = color
-            highlight.FillTransparency = 0.7
-            highlight.OutlineTransparency = 0
-            highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-            highlight.Enabled = true
-            highlight.Parent = model
-            data.highlight = highlight
-        end
+        if not data.billboard or not data.billboard.Parent then
+            local billboard = Instance.new("BillboardGui")
+            billboard.Name = "ESP_Label"
+            billboard.AlwaysOnTop = true
+            billboard.Size = UDim2.new(0, 120, 0, 20)
+            billboard.StudsOffset = Vector3.new(0, 3, 0)
+            billboard.Parent = primary
 
-        data.highlight.Adornee = model
-        data.highlight.Enabled = true
+            local label = Instance.new("TextLabel")
+            label.Size = UDim2.new(1, 0, 1, 0)
+            label.BackgroundTransparency = 1
+            label.TextColor3 = color
+            label.TextStrokeTransparency = 0
+            label.TextScaled = false
+            label.Font = Enum.Font.GothamBold
+            label.TextSize = 16
+            label.Text = model.Name
+            label.Parent = billboard
+
+            data.billboard = billboard
+            data.label = label
+        end
     end
 
+    -- 🧹 Xoá ESP
     local function removeESP(model)
         local data = espObjects[model]
-        if data then
-            pcall(function()
-                if data.text then
-                    data.text.Visible = false
-                    task.wait()
-                    data.text:Remove()
-                end
-            end)
-            pcall(function() if data.highlight then data.highlight:Destroy() end end)
-            espObjects[model] = nil
-        end
+        if not data then return end
+        pcall(function() if data.highlight then data.highlight:Destroy() end end)
+        pcall(function() if data.billboard then data.billboard:Destroy() end end)
+        espObjects[model] = nil
     end
 
     local function clearTypeESP(typeCheck)
@@ -6734,41 +6819,24 @@ do
         end
     end
 
-    -- 🎯 Tick Render (Auto Repair + Draw)
-    local function updateLoop()
+    -- 🎯 Cập nhật khoảng cách và quét liên tục
+    RunService.RenderStepped:Connect(function()
         for model, data in pairs(espObjects) do
-            local stillActive = false
-            for tName, _ in pairs(activeTypes) do
-                if tName == "Dispenser" and model.Name:lower():find("dispenser") then stillActive = true break end
-                if tName == "Sentry" and model.Name:lower():find("sentry") then stillActive = true break end
-                if tName == "Tripwire" and model.Name:find("TaphTripwire") then stillActive = true break end
-                if tName == "Subspace" and model.Name == "SubspaceTripmine" then stillActive = true break end
-            end
-
-            if not stillActive then
+            local part = data.part
+            if not (part and model.Parent) then
                 removeESP(model)
-                continue
-            end
-
-            local part = model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart")
-            if part and model.Parent then
-                createOrRepairESP(model, data.color)
-                local pos, onScreen = Camera:WorldToViewportPoint(part.Position + Vector3.new(0, 2.5, 0))
-                local dist = 0
-                if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                    dist = (part.Position - LocalPlayer.Character.HumanoidRootPart.Position).Magnitude
-                end
-                data.text.Text = string.format("%s [%.0fm]", model.Name, dist)
-                data.text.Position = Vector2.new(pos.X, pos.Y)
-                data.text.Visible = onScreen
-                data.highlight.Enabled = true
             else
-                if data.text then data.text.Visible = false end
-                if data.highlight then data.highlight.Enabled = false end
+                -- Cập nhật text khoảng cách
+                if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                    local dist = (part.Position - LocalPlayer.Character.HumanoidRootPart.Position).Magnitude
+                    data.label.Text = string.format("%s [%.0fm]", model.Name, dist)
+                else
+                    data.label.Text = model.Name
+                end
             end
         end
 
-        -- ✅ Quét lại Ingame để thêm model mới
+        -- Quét ingame thêm mới
         for _, model in ipairs(ingame:GetChildren()) do
             if activeTypes.Dispenser and model:IsA("Model") and model.Name:lower():find("dispenser") then
                 if not espObjects[model] then createOrRepairESP(model, ESPConfigs.Dispenser) end
@@ -6780,9 +6848,7 @@ do
                 if not espObjects[model] then createOrRepairESP(model, ESPConfigs.Subspace) end
             end
         end
-    end
-
-    connections[#connections + 1] = RunService.RenderStepped:Connect(updateLoop)
+    end)
 
     -- 🟢 Fluent UI
     Tabs.Visual:AddSection("↳ Buildman")
@@ -6821,6 +6887,8 @@ do
         if not state then clearTypeESP(function(m) return m.Name == "SubspaceTripmine" end) end
     end)
 end
+
+
 
 -- Tabs.Misc
 
@@ -8047,93 +8115,92 @@ end)
 
 
 
---// ⚙️ Services
-local Players = game:GetService("Players")
+--// FPS + Ping Display (Safe BillboardGui Version)
 local RunService = game:GetService("RunService")
 local Stats = game:GetService("Stats")
-local CoreGui = game:GetService("CoreGui")
-local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 
---// 🧩 Wait Fluent UI Load
-task.spawn(function()
-    repeat task.wait() until Tabs and Tabs.Misc
-    task.wait(0.5)
+--// UI Container
+local ui = Instance.new("ScreenGui")
+ui.Name = "FPS_Ping_Display"
+ui.ResetOnSpawn = false
+ui.IgnoreGuiInset = true
+ui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ui.Parent = game:GetService("CoreGui")
 
-    --// 🧱 Drawing Setup
-    local showFPS = true
-    local showPing = true
+--// FPS Label
+local fpsLabel = Instance.new("TextLabel")
+fpsLabel.Size = UDim2.new(0, 120, 0, 20)
+fpsLabel.Position = UDim2.new(1, -130, 0, 5)
+fpsLabel.BackgroundTransparency = 1
+fpsLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
+fpsLabel.TextStrokeTransparency = 0
+fpsLabel.TextSize = 16
+fpsLabel.Font = Enum.Font.Code
+fpsLabel.TextXAlignment = Enum.TextXAlignment.Left
+fpsLabel.Text = "FPS: ..."
+fpsLabel.Parent = ui
 
-    local fpsText = Drawing.new("Text")
-    fpsText.Size = 16
-    fpsText.Position = Vector2.new(Camera.ViewportSize.X - 100, 10)
-    fpsText.Color = Color3.fromRGB(0, 255, 0)
-    fpsText.Center = false
-    fpsText.Outline = true
-    fpsText.Visible = showFPS
+--// Ping Label
+local pingLabel = fpsLabel:Clone()
+pingLabel.Position = UDim2.new(1, -130, 0, 25)
+pingLabel.Text = "Ping: ..."
+pingLabel.Parent = ui
 
-    local msText = Drawing.new("Text")
-    msText.Size = 16
-    msText.Position = Vector2.new(Camera.ViewportSize.X - 100, 30)
-    msText.Color = Color3.fromRGB(0, 255, 0)
-    msText.Center = false
-    msText.Outline = true
-    msText.Visible = showPing
+--// Variables
+local showFPS = true
+local showPing = true
+local fpsCounter, lastUpdate = 0, tick()
 
-    local fpsCounter = 0
-    local fpsLastUpdate = tick()
-
-    --// 🧮 FPS + Ping Logic
-    RunService.RenderStepped:Connect(function()
-        fpsCounter += 1
-        if tick() - fpsLastUpdate >= 1 then
-            if showFPS then
-                fpsText.Text = "FPS: " .. tostring(fpsCounter)
-                fpsText.Visible = true
-            else
-                fpsText.Visible = false
-            end
-
-            if showPing then
-                local pingStat = Stats.Network.ServerStatsItem["Data Ping"]
-                local ping = pingStat and math.floor(pingStat:GetValue()) or 0
-                msText.Text = "Ping: " .. ping .. " ms"
-
-                if ping <= 60 then
-                    msText.Color = Color3.fromRGB(0, 255, 0)
-                elseif ping <= 120 then
-                    msText.Color = Color3.fromRGB(255, 165, 0)
-                else
-                    msText.Color = Color3.fromRGB(255, 0, 0)
-                end
-                msText.Visible = true
-            else
-                msText.Visible = false
-            end
-
-            fpsCounter = 0
-            fpsLastUpdate = tick()
+--// Update Loop
+RunService.RenderStepped:Connect(function()
+    fpsCounter += 1
+    if tick() - lastUpdate >= 1 then
+        if showFPS then
+            fpsLabel.Visible = true
+            fpsLabel.Text = "FPS: " .. tostring(fpsCounter)
+        else
+            fpsLabel.Visible = false
         end
-    end)
 
-    --// ✅ Fluent GUI Toggles
-    local fpsToggle = Tabs.Misc:AddToggle("ShowFPSToggle", {
-        Title = "Show FPS",
-        Default = true
-    })
-    fpsToggle:OnChanged(function(val)
-        showFPS = val
-        fpsText.Visible = val
-    end)
+        if showPing then
+            local pingStat = Stats.Network.ServerStatsItem["Data Ping"]
+            local ping = pingStat and math.floor(pingStat:GetValue()) or 0
+            pingLabel.Text = "Ping: " .. ping .. " ms"
+            if ping <= 60 then
+                pingLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
+            elseif ping <= 120 then
+                pingLabel.TextColor3 = Color3.fromRGB(255, 165, 0)
+            else
+                pingLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
+            end
+            pingLabel.Visible = true
+        else
+            pingLabel.Visible = false
+        end
 
-    local pingToggle = Tabs.Misc:AddToggle("ShowPingToggle", {
-        Title = "Show Ping",
-        Default = true
-    })
-    pingToggle:OnChanged(function(val)
-        showPing = val
-        msText.Visible = val
-    end)
+        fpsCounter = 0
+        lastUpdate = tick()
+    end
+end)
+
+--// Fluent UI Toggles
+local fpsToggle = Tabs.Misc:AddToggle("ShowFPSToggle", {
+    Title = "Show FPS",
+    Default = true
+})
+fpsToggle:OnChanged(function(val)
+    showFPS = val
+    fpsLabel.Visible = val
+end)
+
+local pingToggle = Tabs.Misc:AddToggle("ShowPingToggle", {
+    Title = "Show Ping",
+    Default = true
+})
+pingToggle:OnChanged(function(val)
+    showPing = val
+    pingLabel.Visible = val
 end)
 
 
