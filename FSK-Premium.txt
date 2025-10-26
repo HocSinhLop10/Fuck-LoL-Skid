@@ -12,53 +12,27 @@
 ---------------------------------------------------------------------------------
 
 
-local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
-local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/SLK-gaming/Fluent/refs/heads/main/SaveManager.lua.txt"))()
-local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/SLK-gaming/Fluent/refs/heads/main/InterfaceManager.lua.txt"))()
+local Fluent = loadstring(game:HttpGet("https://raw.githubusercontent.com/discoart/FluentPlus/refs/heads/main/Beta.lua"))()
+local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/SaveManager.lua"))()
+local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/InterfaceManager.lua"))()
 
-local minimizeUI = Enum.KeyCode.RightAlt
-
--- 🟢 Create Main UI
 local Window = Fluent:CreateWindow({
-    Title = "Hutao Hub [Premium] | Forsaken",
+    Title = "Hutao Hub [Premium] | Forsaken |",
     SubTitle = "Version 5.0.0",
+    Search = true, -- optional and default true
+    Icon = "rbxassetid://121302760641013", -- optional
     TabWidth = 160,
     Size = UDim2.fromOffset(480, 360),
-    Acrylic = false,
-    Theme = "Darker",
-    MinimizeKey = minimizeUI
+    Acrylic = true, -- The blur may be detectable, setting this to false disables blur entirely
+    Theme = "Dark",
+    MinimizeKey = Enum.KeyCode.RightAlt, -- Used when theres no MinimizeKeybind
+
+    UserInfo = true,
+    UserInfoTop = false, -- display user info at the top of the window
+    UserInfoTitle = game:GetService("Players").LocalPlayer.DisplayName,
+    UserInfoSubtitle = "I Love Hutao",
+    UserInfoSubtitleColor = Color3.fromRGB(71, 123, 255)
 })
-
--- 🧩 Add Logo inside a header frame in the TabHolder (fix overlap)
-task.spawn(function()
-    repeat task.wait() until Window and Window.TabHolder -- đợi Fluent load
-    local tabHolder = Window.TabHolder
-
-    -- nếu đã có header cũ thì xoá (tránh tạo 2 lần khi reload)
-    if tabHolder:FindFirstChild("HubHeader") then
-        tabHolder.HubHeader:Destroy()
-    end
-
-    -- Header frame sẽ nằm trên cùng của tab list (UIListLayout sẽ xếp các tab phía dưới)
-    local header = Instance.new("Frame")
-    header.Name = "HubHeader"
-    header.BackgroundTransparency = 1
-    header.Size = UDim2.new(1, 0, 0, 100) -- chỉnh kích cỡ khung hình
-    header.LayoutOrder = 0
-    header.Parent = tabHolder
-
-    -- Logo
-    local logo = Instance.new("ImageLabel")
-    logo.Name = "HubLogo"
-    logo.Image = "rbxassetid://121302760641013" -- đổi sang ID của bạn nếu muốn
-    logo.BackgroundTransparency = 1
-    logo.Size = UDim2.fromOffset(110, 110) -- kích thước logo
-    logo.Position = UDim2.new(0, 16, 0, -8) -- căn bên trái trong header
-    logo.AnchorPoint = Vector2.new(0, 0)
-    logo.Parent = header
-
-    -- (Không được xóa phần này)
-end)
 
 -- Tabs
 local Tabs = {
@@ -71,6 +45,9 @@ local Tabs = {
     Misc = Window:AddTab({ Title = "Misc", Icon = "menu" }),
     Settings = Window:AddTab({ Title = "Settings", Icon = "settings" }),
 }         
+
+
+
 
 -- Tab.Dev
 
