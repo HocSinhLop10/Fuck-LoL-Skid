@@ -11,14 +11,14 @@
 
 ---------------------------------------------------------------------------------
 
-local Fluent = loadstring(game:HttpGet("https://raw.githubusercontent.com/discoart/FluentPlus/refs/heads/main/Beta.lua"))()
+local Fluent = loadstring(game:HttpGet("https://raw.githubusercontent.com/SLK-gaming/Fluent/refs/heads/main/Beta-v1.3.lua"))()
 local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/SaveManager.lua"))()
 local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/InterfaceManager.lua"))()
 
 -- Tạo cửa sổ Fluent chính
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Premium] | Forsaken |",
-    SubTitle = "Version 5.0.1",
+    SubTitle = "Version 5.0.2",
     Search = true,
     Icon = "rbxassetid://121302760641013",
     TabWidth = 160,
@@ -45,94 +45,6 @@ local Tabs = {
     Misc = Window:AddTab({ Title = "Misc", Icon = "menu" }),
     Settings = Window:AddTab({ Title = "Settings", Icon = "settings" }),
 }
-
----------------------------------------------------------------------
--- ⚙️ Giữ Fluent ở lớp cao nhất, không đè GUI tương tác (Generator, Prompt, Repair, v.v.)
----------------------------------------------------------------------
-
-task.spawn(function()
-    local CoreGui = game:GetService("CoreGui")
-    local Players = game:GetService("Players")
-    local PlayerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
-    local Workspace = game:GetService("Workspace")
-
-    -- 🧠 Các GUI không bị ép
-    local excludedKeywords = {
-        "fluent", "prompt", "hold", "dialog", "menu", "context", "touch",
-        "interaction", "interact", "button", "clickdetector", "input",
-        "proximity", "generator", "repair", "fix", "setup", "activate",
-        "terminal", "action", "task"
-    }
-
-    -- Tạo thêm nhiều biến thể viết hoa/thường
-    local function expandKeywords(keywords)
-        local expanded = {}
-        for _, word in ipairs(keywords) do
-            table.insert(expanded, word:lower())
-            table.insert(expanded, word:upper())
-            table.insert(expanded, word:sub(1,1):upper() .. word:sub(2):lower())
-            table.insert(expanded, string.lower(word:sub(1, math.floor(#word/2))) .. string.upper(word:sub(math.floor(#word/2)+1)))
-            table.insert(expanded, string.upper(word:sub(1, math.floor(#word/2))) .. string.lower(word:sub(math.floor(#word/2)+1)))
-        end
-        return expanded
-    end
-
-    excludedKeywords = expandKeywords(excludedKeywords)
-
-    local function isExcluded(gui)
-        if not gui:IsA("ScreenGui") then return true end
-        local name = gui.Name
-        for _, keyword in ipairs(excludedKeywords) do
-            if string.find(string.lower(name), string.lower(keyword)) then
-                return true
-            end
-        end
-        return false
-    end
-
-    -- Vòng lặp ép GUI
-    while task.wait(1) do
-        for _, container in ipairs({ CoreGui, PlayerGui }) do
-            for _, gui in ipairs(container:GetChildren()) do
-                if gui:IsA("ScreenGui") then
-                    if not isExcluded(gui) then
-                        pcall(function()
-                            gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-                            gui.DisplayOrder = 0
-                        end)
-                    else
-                        -- GUI tương tác thì giữ nguyên
-                        pcall(function()
-                            gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-                            gui.DisplayOrder = 1000
-                        end)
-                    end
-                end
-            end
-        end
-
-        -- 🔝 Giữ Fluent luôn trên cùng
-        for _, gui in ipairs(CoreGui:GetChildren()) do
-            if gui:IsA("ScreenGui") and string.find(string.lower(gui.Name), "fluent") then
-                pcall(function()
-                    gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-                    gui.DisplayOrder = 9999
-                end)
-            end
-        end
-
-        -- ⚙️ Giữ ProximityPrompt hoạt động nhưng không thay đổi khoảng cách gốc
-        for _, obj in ipairs(Workspace:GetDescendants()) do
-            if obj:IsA("ProximityPrompt") then
-                pcall(function()
-                    -- Chỉ đảm bảo nó không bị tắt, không thay đổi range
-                    obj.Enabled = true
-                    obj.RequiresLineOfSight = false
-                end)
-            end
-        end
-    end
-end)
 
 
 
