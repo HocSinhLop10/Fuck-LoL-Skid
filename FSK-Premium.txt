@@ -4943,6 +4943,28 @@ end
 
 
 
+Tabs.Player:AddToggle("InfiniteZoom", {
+    Title = "Infinite Zoom",
+    Default = false,
+    Callback = function(Value)
+        local player = game.Players.LocalPlayer
+        local camera = workspace.CurrentCamera
+
+        if Value then
+            -- Bật zoom vô hạn
+            player.CameraMaxZoomDistance = math.huge
+            player.CameraMinZoomDistance = 0.5
+            print("[ZoomCam] Infinite Zoom Enabled ✅")
+        else
+            -- Tắt zoom vô hạn, trở lại bình thường
+            player.CameraMaxZoomDistance = 128
+            player.CameraMinZoomDistance = 0.5
+            print("[ZoomCam] Infinite Zoom Disabled ❌")
+        end
+    end
+})
+
+
     Tabs.Player:AddSection("↳ Troller")
 
 
