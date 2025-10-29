@@ -18,7 +18,7 @@ local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.
 -- Tạo cửa sổ Fluent chính
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Premium] | Forsaken |",
-    SubTitle = "Version 5.0.2",
+    SubTitle = "Version 5.0.3",
     Search = true,
     Icon = "rbxassetid://121302760641013",
     TabWidth = 160,
@@ -4648,6 +4648,202 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
+
+
+Tabs.Custom:AddSection("↳ Victim")
+
+-- HackerVibe_Toggle.lua
+-- Hiệu ứng hacker thật 3D, có nút bật/tắt (Fake H4CK3R)
+-- Bảo toàn sau khi chết, đổi character, không rung giật
+
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local player = Players.LocalPlayer
+
+local character = player.Character or player.CharacterAdded:Wait()
+
+-- ⚙️ CONFIG
+local outlineColor = Color3.fromRGB(0, 255, 255)
+local binarySpawnInterval = 0.12
+local binaryLifetime = 1.8
+local binaryRiseDistance = 5
+local binaryMinScale = 0.6
+local binaryMaxScale = 1.1
+local maxSimultaneous = 40
+local spawnRadius = 3
+
+math.randomseed(tick() + player.UserId)
+
+-- === Phần spawn ===
+local active = 0
+local running = false
+local folderName = "HackerFX3D"
+local folder = nil
+
+-- === Danh sách các part dùng để spawn ===
+local partNames = {
+	"Head","HumanoidRootPart",
+	"UpperTorso","LowerTorso","Torso",
+	"LeftUpperArm","RightUpperArm","LeftLowerArm","RightLowerArm",
+	"LeftUpperLeg","RightUpperLeg","LeftLowerLeg","RightLowerLeg",
+	"LeftHand","RightHand","LeftFoot","RightFoot"
+}
+
+local function getParts()
+	character = player.Character or player.CharacterAdded:Wait()
+	local list = {}
+	for _, name in ipairs(partNames) do
+		local part = character:FindFirstChild(name)
+		if part and part:IsA("BasePart") then
+			table.insert(list, part)
+		end
+	end
+	return list
+end
+
+-- === Highlight ===
+local function createHighlight()
+	local old = character:FindFirstChild("HackerHighlight")
+	if old then old:Destroy() end
+	local h = Instance.new("Highlight")
+	h.Name = "HackerHighlight"
+	h.Adornee = character
+	h.OutlineColor = outlineColor
+	h.FillTransparency = 1
+	h.OutlineTransparency = 0
+	h.Parent = character
+end
+
+-- === Folder hiệu ứng ===
+local function ensureFolder()
+	folder = player:WaitForChild("PlayerGui"):FindFirstChild(folderName)
+	if not folder then
+		folder = Instance.new("Folder")
+		folder.Name = folderName
+		folder.Parent = player:WaitForChild("PlayerGui")
+	end
+	return folder
+end
+
+-- === Spawn chữ bay quanh người ===
+local function spawnBinary()
+	if not running then return end
+	if active >= maxSimultaneous then return end
+
+	local parts = getParts()
+	if #parts == 0 then return end
+	local origin = parts[math.random(1, #parts)]
+	if not origin then return end
+
+	active += 1
+	local s = ""
+	for i = 1, math.random(1, 3) do
+		s ..= tostring(math.random(0, 1))
+	end
+
+	local attach = Instance.new("Part")
+	attach.Anchored = false
+	attach.CanCollide = false
+	attach.Transparency = 1
+	attach.Size = Vector3.new(0.2, 0.2, 0.2)
+	attach.Parent = ensureFolder()
+
+	local weld = Instance.new("WeldConstraint")
+	weld.Part0 = attach
+	weld.Part1 = origin
+	weld.Parent = attach
+
+	local xOff = (math.random() - 0.5) * spawnRadius
+	local yOff = (math.random() - 0.5) * spawnRadius
+	local zOff = (math.random() - 0.5) * spawnRadius
+	attach.CFrame = origin.CFrame * CFrame.new(xOff, yOff, zOff)
+
+	local bb = Instance.new("BillboardGui")
+	bb.Size = UDim2.new(0, 80, 0, 30)
+	bb.AlwaysOnTop = true
+	bb.Adornee = attach
+	bb.Parent = folder
+
+	local txt = Instance.new("TextLabel")
+	txt.BackgroundTransparency = 1
+	txt.BorderSizePixel = 0
+	txt.Size = UDim2.fromScale(1, 1)
+	txt.Font = Enum.Font.Code
+	txt.Text = s
+	txt.TextColor3 = Color3.fromRGB(0, 255, 200)
+	txt.TextScaled = true
+	txt.TextTransparency = 0
+	txt.Parent = bb
+	txt.TextSize = 20 * (math.random() * (binaryMaxScale - binaryMinScale) + binaryMinScale)
+
+	local goal = attach.Position + Vector3.new(0, binaryRiseDistance, 0)
+	local moveTween = TweenService:Create(attach, TweenInfo.new(binaryLifetime, Enum.EasingStyle.Linear), {Position = goal})
+	local fadeTween = TweenService:Create(txt, TweenInfo.new(binaryLifetime, Enum.EasingStyle.Linear), {TextTransparency = 1})
+	moveTween:Play()
+	fadeTween:Play()
+
+	task.delay(binaryLifetime + 0.05, function()
+		pcall(function()
+			bb:Destroy()
+			attach:Destroy()
+		end)
+		active = math.max(0, active - 1)
+	end)
+end
+
+-- === Vòng spawn chính ===
+task.spawn(function()
+	while true do
+		if running then
+			spawnBinary()
+		end
+		task.wait(binarySpawnInterval)
+	end
+end)
+
+-- === Khi respawn / đổi character ===
+player.CharacterAdded:Connect(function(char)
+	character = char
+	task.wait(0.25)
+	if running then
+		createHighlight()
+	end
+end)
+
+-- === HÀM BẬT / TẮT CHÍNH ===
+local function ToggleFakeHacker(state)
+	running = state
+
+	local highlight = character:FindFirstChild("HackerHighlight")
+	if not highlight and state then
+		createHighlight()
+	end
+
+	if highlight then
+		highlight.OutlineTransparency = state and 0 or 1
+	end
+
+	if state then
+		ensureFolder().Parent = player:WaitForChild("PlayerGui")
+	else
+		local f = player.PlayerGui:FindFirstChild(folderName)
+		if f then
+			for _, v in ipairs(f:GetChildren()) do
+				v:Destroy()
+			end
+		end
+	end
+end
+
+-- === Callback cho UI toggle ===
+-- 🔹 Chèn đoạn này vào code UI library của bạn:
+Tabs.Custom:AddToggle("FakeH4CK3R", {
+	Title = "Fake H4CK3R",
+	Default = false,
+	Callback = function(Value)
+		ToggleFakeHacker(Value)
+	end
+})
 
 
 -- Tabs.Player
