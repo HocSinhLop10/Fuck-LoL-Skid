@@ -7616,7 +7616,7 @@ do
 
     -- Toggle
     Tabs.Misc:AddToggle("AntiBanV3", {
-        Title = "Anti Ban V3",
+        Title = "Anti Ban V3.5",
         Default = true,
         Callback = function(state)
             if state then
