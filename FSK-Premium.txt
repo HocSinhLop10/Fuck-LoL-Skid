@@ -7508,7 +7508,7 @@ local AllowedPlayers = {
 -- Danh sách Killers
 local DangerousKillers = {
     Slasher = true, ["1x1x1x1"] = true, c00lkidd = true,
-    Noli = true, JohnDoe = true, Guest 666 = true,
+    Noli = true, JohnDoe = true, ["Guest 666"] = true,
     PizzaDeliveryRig = true, Mafia1 = true, Mafia2 = true,
     ["1x1x1x1Zombie"] = true
 }
