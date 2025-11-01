@@ -128,7 +128,7 @@ do
         ["c00lkidd"] = true,
         ["Noli"] = true,
         ["JohnDoe"] = true,
-        ["Quest666"] = true,
+        ["Guest 666"] = true,
     }
 
     -- 🟢 Danh sách ưu tiên
@@ -355,7 +355,7 @@ local DangerousKillers = {
     ["c00lkidd"] = true,
     ["Noli"] = true,
     ["JohnDoe"] = true,
-    ["Quest666"] = true
+    ["Guest 666"] = true
 }
 
 -- 🟢 Kiểm tra killer gần generator
@@ -1638,7 +1638,7 @@ local aimMode = "Normal"
 local aimDuration = 1.7
 local fasterDuration = 1.5
 local spinDuration = 0.5
-local aimTargets = {"Slasher", "c00lkidd", "JohnDoe", "1x1x1x1", "Noli", "Quest666"}
+local aimTargets = {"Slasher", "c00lkidd", "JohnDoe", "1x1x1x1", "Noli", "Guest666"}
 
 local Humanoid, HRP = nil, nil
 local originalWS, originalJP, originalAutoRotate = nil, nil, nil
@@ -4740,7 +4740,7 @@ local AllowedPlayers = {
 
 local AllowedKillers = {
     ["Slasher"] = true, ["1x1x1x1"] = true, ["c00lkidd"] = true,
-    ["Noli"] = true, ["JohnDoe"] = true, ["Quest666"] = true,
+    ["Noli"] = true, ["JohnDoe"] = true, ["Guest 666"] = true,
 }
 
 -- ======= BIẾN TRẠNG THÁI =======
@@ -5586,7 +5586,7 @@ local AttackAnimations = {
 -- danh sách model killers và survivors (theo yêu cầu của bạn)
 local Killers = {
     ["Slasher"] = true, ["1x1x1x1"] = true, ["c00lkidd"] = true,
-    ["Noli"] = true, ["JohnDoe"] = true, ["Quest666"] = true
+    ["Noli"] = true, ["JohnDoe"] = true, ["Guest 666"] = true
 }
 
 local Survivors = {
@@ -7508,7 +7508,7 @@ local AllowedPlayers = {
 -- Danh sách Killers
 local DangerousKillers = {
     Slasher = true, ["1x1x1x1"] = true, c00lkidd = true,
-    Noli = true, JohnDoe = true, Quest666 = true,
+    Noli = true, JohnDoe = true, Guest 666 = true,
     PizzaDeliveryRig = true, Mafia1 = true, Mafia2 = true,
     ["1x1x1x1Zombie"] = true
 }
