@@ -18,7 +18,7 @@ local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.
 -- Tạo cửa sổ Fluent chính
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Premium] | Forsaken |",
-    SubTitle = "Version 5.0.8",
+    SubTitle = "Version 5.0.9",
     Search = true,
     Icon = "rbxassetid://121302760641013",
     TabWidth = 160,
@@ -6414,6 +6414,7 @@ do
 
     local function createESP(model, espTable, color)
         if not model or not model:IsDescendantOf(workspace) then return end
+        if espTable[model] then return end -- tránh tạo trùng
         local hrp = model:FindFirstChild("HumanoidRootPart")
         if not hrp then return end
 
@@ -6456,22 +6457,25 @@ do
         espTable[model] = nil
     end
 
-    local function repairESP(model, espTable, color)
-        local hrp = model:FindFirstChild("HumanoidRootPart")
+    local function ensureESP(model, espTable, color)
+        if not model or not model:IsDescendantOf(workspace) then return end
         local humanoid = model:FindFirstChildOfClass("Humanoid")
-        if not hrp or not humanoid then return end
-        local data = espTable[model]
-
-        if humanoid.Health <= 0 then
-            if data then removeESP(model, espTable) end
+        if not humanoid or humanoid.Health <= 0 then
+            removeESP(model, espTable)
             return
         end
 
-        if not data or not data.gui or not data.gui.Parent or not data.highlight or not data.highlight.Parent then
-            createESP(model, espTable, color)
+        local data = espTable[model]
+        if data and data.gui and data.gui.Parent and data.highlight and data.highlight.Parent then
+            return -- ESP đã tồn tại hợp lệ → không tạo lại
         end
+
+        -- Nếu bị mất ESP (bị xóa / nil / không còn parent)
+        removeESP(model, espTable)
+        createESP(model, espTable, color)
     end
 
+    -- ✅ ĐÃ FIX: Hiển thị cả HP & khoảng cách
     local function updateESP(espTable, color)
         for model, data in pairs(espTable) do
             local humanoid = model:FindFirstChildOfClass("Humanoid")
@@ -6479,11 +6483,15 @@ do
             if humanoid and hrp and humanoid.Health > 0 then
                 local dist = (hrp.Position - Camera.CFrame.Position).Magnitude
                 local name = model:GetAttribute("ActorDisplayName") or model.Name
+                local hp = math.floor(humanoid.Health)
+                local maxhp = humanoid.MaxHealth or 100
+
                 if model:GetAttribute("IsFakeNoli") then
                     name = name .. " [Fake]"
                 end
+
                 if data.text then
-                    data.text.Text = string.format("%s [%.0fm]", name, dist)
+                    data.text.Text = string.format("%s | HP:%d | [%.0fm]", name, hp, dist)
                 end
             else
                 removeESP(model, espTable)
@@ -6500,7 +6508,7 @@ do
 
         conWhiteLoop = RunService.Heartbeat:Connect(function()
             for _, model in ipairs(scanFolder(survivorsFolder)) do
-                repairESP(model, espWhite, Color3.fromRGB(255, 255, 255))
+                ensureESP(model, espWhite, Color3.fromRGB(255, 255, 255))
             end
             updateESP(espWhite, Color3.fromRGB(255, 255, 255))
         end)
@@ -6534,7 +6542,7 @@ do
 
         conRedLoop = RunService.Heartbeat:Connect(function()
             for _, model in ipairs(scanFolder(killersFolder)) do
-                repairESP(model, espRed, Color3.fromRGB(255, 0, 0))
+                ensureESP(model, espRed, Color3.fromRGB(255, 0, 0))
             end
             updateESP(espRed, Color3.fromRGB(255, 0, 0))
         end)
