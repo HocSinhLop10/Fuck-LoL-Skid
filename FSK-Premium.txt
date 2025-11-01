@@ -18,7 +18,7 @@ local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.
 -- Tạo cửa sổ Fluent chính
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Premium] | Forsaken |",
-    SubTitle = "Version 5.0.4",
+    SubTitle = "Version 5.0.6",
     Search = true,
     Icon = "rbxassetid://121302760641013",
     TabWidth = 160,
@@ -961,29 +961,27 @@ Tabs.Main:AddInput("PizzaAimDistance", {
     end
 end)
 
--- ⚔️ Setup
+-- ⚙️ Services
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local localPlayer = Players.LocalPlayer
+local survivorsFolder = workspace:WaitForChild("Players"):WaitForChild("Survivors")
 
-local dangerousAnimations = {
+-- 🎞️ Animation IDs
+local PizzaAnimation = {
     ["114155003741146"] = true,
     ["104033348426533"] = true
 }
 
+-- 🧠 Eliot check
 local EliotModels = {["Elliot"] = true}
-local survivorModels = {
-    ["Noob"] = true, ["Guest1337"] = true, ["Elliot"] = true,
-    ["Shedletsky"] = true, ["TwoTime"] = true, ["007n7"] = true, ["Veeronica"] = true,
-    ["Chance"] = true, ["Builderman"] = true, ["Taph"] = true, ["Dusekkar"] = true
-}
 
--- state
+-- 🔖 State
 local autoRotateDisabledByScript = false
 local currentTarget, isLockedOn, wasPlayingAnimation = nil, false, false
 local aimOffset = 2 -- lệch phải 2 studs
 
--- 🧠 utils
+-- ⚙️ Utils
 local function isEliot()
     local char = localPlayer.Character
     return char and EliotModels[char.Name] or false
@@ -1010,7 +1008,7 @@ local function isPlayingDangerousAnimation()
     for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
         if track and track.Animation and track.Animation.AnimationId then
             local animId = tostring(track.Animation.AnimationId):match("%d+")
-            if animId and dangerousAnimations[animId] then
+            if animId and PizzaAnimation[animId] then
                 return true
             end
         end
@@ -1018,7 +1016,7 @@ local function isPlayingDangerousAnimation()
     return false
 end
 
--- 🎯 tìm survivor yếu máu nhất (bỏ qua bản thân)
+-- 🎯 Lấy survivor yếu máu nhất (trong folder Survivors)
 local function getWeakestSurvivor()
     local list = {}
     local myChar = localPlayer.Character
@@ -1028,26 +1026,25 @@ local function getWeakestSurvivor()
 
     local myHpPercent = myHum.Health / myHum.MaxHealth
 
-    for _, obj in pairs(workspace:GetDescendants()) do
-        if obj:IsA("Model") and survivorModels[obj.Name] and obj ~= myChar then
+    for _, obj in ipairs(survivorsFolder:GetChildren()) do
+        if obj:IsA("Model") and obj ~= myChar then
             local hum = obj:FindFirstChildWhichIsA("Humanoid")
             local hrp = obj:FindFirstChild("HumanoidRootPart")
             if hum and hrp and hum.Health > 0 and hum.MaxHealth > 0 then
                 local dist = (hrp.Position - myRoot.Position).Magnitude
                 local hpPercent = hum.Health / hum.MaxHealth
-                if dist <= maxDistance and hpPercent < 1 then
+                if dist <= maxDistance then
                     table.insert(list, {model = obj, hp = hpPercent})
                 end
             end
         end
     end
 
-    -- sắp xếp theo % máu tăng dần
+    -- Sắp xếp theo % máu tăng dần
     table.sort(list, function(a, b)
         return a.hp < b.hp
     end)
 
-    -- nếu mình là yếu nhất, chọn người yếu thứ 2
     if #list == 0 then return nil end
     if myHpPercent <= list[1].hp and #list > 1 then
         return list[2].model
@@ -1056,14 +1053,14 @@ local function getWeakestSurvivor()
     end
 end
 
--- reset khi respawn
+-- 🔁 Reset khi respawn
 localPlayer.CharacterAdded:Connect(function()
     task.delay(0.1, function()
         autoRotateDisabledByScript = false
     end)
 end)
 
--- 🔁 Main loop
+-- 🔂 Main loop
 RunService.RenderStepped:Connect(function()
     if not toggleFlag.Value then
         restoreAutoRotate()
@@ -1084,7 +1081,7 @@ RunService.RenderStepped:Connect(function()
 
     local isPlaying = isPlayingDangerousAnimation()
 
-    -- 🧲 Lock target (chỉ chọn khi bắt đầu animation)
+    -- 🧲 Lock target khi bắt đầu animation
     if isPlaying and not isLockedOn then
         currentTarget = getWeakestSurvivor()
         if currentTarget then isLockedOn = true end
@@ -1247,9 +1244,8 @@ do
     local sliderInitialized = false
 
     local TELEPORT_DURATION = 0.8
-    local AI_DELAY = 15 -- ⏳ Delay 15s giữa mỗi lần teleport AI
+    local AI_DELAY = 15 -- ⏳ Delay giữa mỗi lần teleport AI
 
-    local killerNames = { "Slasher", "c00lkidd", "JohnDoe", "1x1x1x1", "Noli", "Quest666" }
     local killersFolder = workspace:WaitForChild("Players"):WaitForChild("Killers")
 
     -- 🎵 Animation IDs
@@ -1349,11 +1345,8 @@ do
 
     -- ⚡ Helpers
     local function getRelativeTeleportPosition(hrp, targetHRP)
-        -- Lấy hướng tương đối giữa mình và mục tiêu
         local toTarget = (hrp.Position - targetHRP.Position).Unit
-        -- teleport tới vị trí tương đối đó (2 studs khoảng cách)
-        local teleportPos = targetHRP.Position + (toTarget * 2)
-        return teleportPos
+        return targetHRP.Position + (toTarget * 2)
     end
 
     local function teleportAndSlash(target, spam)
@@ -1377,35 +1370,29 @@ do
 
             if tick() - start >= TELEPORT_DURATION then
                 if conn then conn:Disconnect() end
-                -- Nếu là AI Aimbot thì delay 15s, còn Player Aimbot delay = TELEPORT_DURATION
-                local delayTime = (mode == "AI Aimbot") and AI_DELAY or TELEPORT_DURATION
-                task.delay(delayTime, function()
+                task.delay((mode == "AI Aimbot") and AI_DELAY or TELEPORT_DURATION, function()
                     cooldown = false
                     lastTarget = nil
                 end)
                 return
             end
 
-            -- ⚙️ Teleport theo hướng của mình so với mục tiêu
             local newPos = getRelativeTeleportPosition(hrp, kHRP)
             hrp.CFrame = CFrame.new(newPos, kHRP.Position)
 
-            if spam then
-                useSlash()
-            end
+            if spam then useSlash() end
         end)
     end
 
-    -- ⚔️ AI Aimbot Mode
+    -- ⚔️ AI Aimbot Mode (auto tìm trong Killers folder)
     RunService.Heartbeat:Connect(function()
         if not enabled or cooldown or mode ~= "AI Aimbot" then return end
         local char = lp.Character
         if not (char and char:FindFirstChild("HumanoidRootPart")) then return end
         local hrp = char.HumanoidRootPart
 
-        for _, name in ipairs(killerNames) do
-            local killer = killersFolder:FindFirstChild(name)
-            if killer and killer:FindFirstChild("HumanoidRootPart") then
+        for _, killer in ipairs(killersFolder:GetChildren()) do
+            if killer:FindFirstChild("HumanoidRootPart") then
                 local kHRP = killer.HumanoidRootPart
                 local dist = (hrp.Position - kHRP.Position).Magnitude
                 if dist <= maxDistance and killer ~= lastTarget then
@@ -1425,9 +1412,8 @@ do
             if not enabled or mode ~= "Player Aimbot" or cooldown then return end
             local animId = animTrack.Animation and animTrack.Animation.AnimationId
             if animId and table.find(monitoredAnimations, animId) then
-                for _, name in ipairs(killerNames) do
-                    local killer = killersFolder:FindFirstChild(name)
-                    if killer and killer:FindFirstChild("HumanoidRootPart") then
+                for _, killer in ipairs(killersFolder:GetChildren()) do
+                    if killer:FindFirstChild("HumanoidRootPart") then
                         local hrpLocal = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
                         local kHRP = killer:FindFirstChild("HumanoidRootPart")
                         if hrpLocal and kHRP then
@@ -2029,282 +2015,266 @@ end
     Tabs.Main:AddSection("↳ Two Time")
 
 
---// Auto Backstab Unified (AI Aimbot + Player Aimbot, Only works if model = "TwoTime")  
-do  
-    local Players = game:GetService("Players")  
-    local RunService = game:GetService("RunService")  
-    local lp = Players.LocalPlayer  
-  
-    -- ⚙️ Config  
-    local Mode = "AI Aimbot"  
-    local checkRadius = 18  
-    local backstabDelay = 0.01  
-  
-    local killerNames = { "Slasher", "c00lkidd", "JohnDoe", "1x1x1x1", "Noli", "Quest666" }  
-    local killersFolder = workspace:WaitForChild("Players"):WaitForChild("Killers")  
-  
-    local ANIM_IDS = {  
+--// Auto Backstab Unified (AI Aimbot + Player Aimbot, tự động quét Killers Folder)
+do
+    local Players = game:GetService("Players")
+    local RunService = game:GetService("RunService")
+    local lp = Players.LocalPlayer
+
+    -- ⚙️ Config
+    local Mode = "AI Aimbot"
+    local checkRadius = 18
+    local backstabDelay = 0.01
+
+    local killersFolder = workspace:WaitForChild("Players"):WaitForChild("Killers")
+
+    local ANIM_IDS = {
         "115194624791339",
         "86545133269813",
         "89448354637442",
-        "115194624791339",
-        "89448354637442",
-        "86545133269813",
         "77119710693654",
         "107640065977686",
         "112902284724598",
-    }  
-    local KILLER_MODELS = {  
-        ["Slasher"] = true, ["1x1x1x1"] = true, ["c00lkidd"] = true,  
-        ["Noli"] = true, ["JohnDoe"] = true, ["Quest666"] = true,  
-    }  
-  
-    -- 🔘 UI  
-    Tabs.Main:AddDropdown("BackstabMode", {  
-        Title = "Backstab Mode",  
-        Values = { "AI Aimbot", "Player Aimbot" },  
-        Default = "AI Aimbot",  
-    }):OnChanged(function(value)  
-        Mode = value  
-        print("🎯 Backstab Mode:", value)  
-    end)  
-  
-    local enabled = false  
-    Tabs.Main:AddToggle("AutoBackstab", {  
-        Title = "Auto Backstab V2",  
-        Default = false  
-    }):OnChanged(function(state)  
-        enabled = state  
-        print("🔪 Auto Backstab:", state and "ON" or "OFF")  
-    end)  
-  
-    Tabs.Main:AddInput("BackstabRadiusInput", {  
-        Title = "Check Radius",  
-        Default = tostring(checkRadius),  
-        Placeholder = "Write Here (1 - 50)",  
-        Numeric = true,  
-        Callback = function(value)  
-            local num = tonumber(value)  
-            if num then  
-                checkRadius = math.clamp(num, 1, 50)  
-                print("📏 Check Radius set to:", checkRadius)  
-            else  
-                print("⚠️ Nhập số hợp lệ!")  
-            end  
-        end  
-    })  
-  
-    -- =====================  
-    -- 🗡️ Dagger Remote Finder  
-    -- =====================  
-    local daggerButton, daggerRemote, daggerConnections = nil, nil, {}  
-  
-    local function findDaggerRemote()  
-        if daggerRemote then return daggerRemote end  
-        if not daggerButton then return nil end  
-        for _, conn in ipairs(getconnections(daggerButton.MouseButton1Click)) do  
-            local f = conn.Function  
-            if f and islclosure(f) then  
-                local upvals = getupvalues(f)  
-                for _, v in pairs(upvals) do  
-                    if typeof(v) == "Instance" and v:IsA("RemoteEvent") then  
-                        daggerRemote = v  
-                        warn("[Backstab] Found Dagger Remote:", v:GetFullName())  
-                        return daggerRemote  
-                    end  
-                end  
-            end  
-        end  
-        return nil  
-    end  
-  
-    local function initDaggerButton()  
-        local gui = lp:FindFirstChild("PlayerGui")  
-        if not gui then return end  
-        local mainUI = gui:FindFirstChild("MainUI")  
-        local container = mainUI and mainUI:FindFirstChild("AbilityContainer")  
-        daggerButton = container and container:FindFirstChild("Dagger")  
-        if daggerButton and daggerButton:IsA("ImageButton") then  
-            daggerConnections = getconnections(daggerButton.MouseButton1Click)  
-            findDaggerRemote()  
-        end  
-    end  
-  
-    initDaggerButton()  
-    lp.CharacterAdded:Connect(function()  
-        task.wait(0.5)  
-        initDaggerButton()  
-    end)  
-  
-    local function useDagger()  
-        if daggerRemote then  
-            pcall(function()  
-                daggerRemote:FireServer(true)  
-                task.delay(0.05, function()  
-                    daggerRemote:FireServer(false)  
-                end)  
-            end)  
-        elseif daggerButton then  
-            for _, conn in ipairs(daggerConnections) do  
-                pcall(function() conn:Fire() end)  
-            end  
-            pcall(function() daggerButton:Activate() end)  
-        end  
-    end  
-  
-    -- =====================  
-    -- ⚒️ Helpers  
-    -- =====================  
-    local function getCharacter()  
-        local ch = lp.Character  
-        if ch and ch.Parent then  
-            local hrp = ch:FindFirstChild("HumanoidRootPart")  
-            local humanoid = ch:FindFirstChildOfClass("Humanoid")  
-            return ch, humanoid, hrp  
-        end  
-        return nil, nil, nil  
-    end  
-  
-    local function isPlayingTargetAnimation(humanoid)  
-        if not humanoid then return false end  
-        for _, t in ipairs(humanoid:GetPlayingAnimationTracks()) do  
-            local animId = tostring(t.Animation.AnimationId or "")  
-            for _, id in ipairs(ANIM_IDS) do  
-                if animId:find(id, 1, true) then  
-                    return true  
-                end  
-            end  
-        end  
-        return false  
-    end  
-  
-    local function teleportBehind(targetHRP, myHRP)  
-        local look = targetHRP.CFrame.LookVector  
-        local destPos = targetHRP.Position - look * 2  
-        myHRP.CFrame = CFrame.new(destPos, destPos + look)  
-    end  
-  
-    local function isBehindTarget(targetHRP, myHRP)  
-        local look = targetHRP.CFrame.LookVector  
-        local dir = (myHRP.Position - targetHRP.Position).Unit  
-        return look:Dot(dir) < -0.5  
-    end  
-  
-    local function getNearbyKillers(position)  
-        local killers = {}  
-        for _, plr in ipairs(Players:GetPlayers()) do  
-            if plr ~= lp and plr.Character then  
-                local char = plr.Character  
-                local hrp = char:FindFirstChild("HumanoidRootPart") or char.PrimaryPart  
-                if hrp and KILLER_MODELS[char.Name] then  
-                    local dist = (hrp.Position - position).Magnitude  
-                    if dist <= checkRadius then  
-                        table.insert(killers, {model = char, hrp = hrp, dist = dist})  
-                    end  
-                end  
-            end  
-        end  
-        return killers  
-    end  
-  
-    local function getNearbyAIKillers(hrp)  
-        local killers = {}  
-        for _, name in ipairs(killerNames) do  
-            local killer = killersFolder:FindFirstChild(name)  
-            if killer and killer:FindFirstChild("HumanoidRootPart") then  
-                local kHRP = killer.HumanoidRootPart  
-                local dist = (kHRP.Position - hrp.Position).Magnitude  
-                if dist <= checkRadius then  
-                    table.insert(killers, {model = killer, hrp = kHRP, dist = dist})  
-                end  
-            end  
-        end  
-        return killers  
-    end  
-  
-    -- =====================  
-    -- 🔄 Main Loop  
-    -- =====================  
-    local cooldown = false  
-    local lastTarget = nil  
-  
-    RunService.Heartbeat:Connect(function()  
-        if not enabled or cooldown then return end  
-        local char, humanoid, myHRP = getCharacter()  
-        if not (char and humanoid and myHRP) then return end  
-  
-        -- 🚨 Chỉ hoạt động nếu model là "TwoTime"  
-        if char.Name ~= "TwoTime" then return end  
-  
-        -- =====================  
-        -- 🎯 PLAYER AIMBOT (update)  
-        -- =====================  
-        if Mode == "Player Aimbot" then  
-            if isPlayingTargetAnimation(humanoid) then  
-                local killers = getNearbyKillers(myHRP.Position)  
-                if #killers > 0 then  
-                    table.sort(killers, function(a,b) return a.dist < b.dist end)  
-                    local target = killers[1]  
-                    cooldown = true  
-  
-                    local start = tick()  
-                    local conn  
-                    conn = RunService.Heartbeat:Connect(function()  
-                        if not (char and target.hrp and char.Parent and target.hrp.Parent) then  
-                            if conn then conn:Disconnect() end  
-                            cooldown = false  
-                            return  
-                        end  
-                        if tick() - start >= 0.7 then  
-                            if conn then conn:Disconnect() end  
-                            task.delay(1, function() cooldown = false end)  
-                            return  
-                        end  
-                        teleportBehind(target.hrp, myHRP)  
-                        useDagger()  
-                    end)  
-                end  
-            end  
-  
-        -- =====================  
-        -- 🤖 AI AIMBOT (giữ nguyên)  
-        -- =====================  
-        elseif Mode == "AI Aimbot" then  
-            local killers = getNearbyAIKillers(myHRP)  
-            if #killers > 0 then  
-                table.sort(killers, function(a,b) return a.dist < b.dist end)  
-                local target = killers[1]  
-                if target.model ~= lastTarget and isBehindTarget(target.hrp, myHRP) then  
-                    cooldown = true  
-                    lastTarget = target.model  
-  
-                    local start = tick()  
-                    local conn  
-                    conn = RunService.Heartbeat:Connect(function()  
-                        if not (char and char.Parent and target.hrp and target.hrp.Parent) then  
-                            if conn then conn:Disconnect() end  
-                            return  
-                        end  
-                        if tick() - start >= 0.7 then  
-                            if conn then conn:Disconnect() end  
-                            task.delay(10, function()  
-                                cooldown = false  
-                                lastTarget = nil  
-                            end)  
-                            return  
-                        end  
-                        teleportBehind(target.hrp, myHRP)  
-                        useDagger()  
-                    end)  
-                end  
-            end  
-        end  
-    end)  
-  
-    lp.CharacterAdded:Connect(function()  
-        task.wait(1)  
-        print("🔄 Character respawned/changed, Auto Backstab vẫn hoạt động (nếu model = 'TwoTime').")  
-    end)  
+    }
+
+    -- 🔘 UI
+    Tabs.Main:AddDropdown("BackstabMode", {
+        Title = "Backstab Mode",
+        Values = { "AI Aimbot", "Player Aimbot" },
+        Default = "AI Aimbot",
+    }):OnChanged(function(value)
+        Mode = value
+        print("🎯 Backstab Mode:", value)
+    end)
+
+    local enabled = false
+    Tabs.Main:AddToggle("AutoBackstab", {
+        Title = "Auto Backstab V2",
+        Default = false
+    }):OnChanged(function(state)
+        enabled = state
+        print("🔪 Auto Backstab:", state and "ON" or "OFF")
+    end)
+
+    Tabs.Main:AddInput("BackstabRadiusInput", {
+        Title = "Check Radius",
+        Default = tostring(checkRadius),
+        Placeholder = "Write Here (1 - 50)",
+        Numeric = true,
+        Callback = function(value)
+            local num = tonumber(value)
+            if num then
+                checkRadius = math.clamp(num, 1, 50)
+                print("📏 Check Radius set to:", checkRadius)
+            else
+                print("⚠️ Nhập số hợp lệ!")
+            end
+        end
+    })
+
+    -- =====================
+    -- 🗡️ Dagger Remote Finder
+    -- =====================
+    local daggerButton, daggerRemote, daggerConnections = nil, nil, {}
+
+    local function findDaggerRemote()
+        if daggerRemote then return daggerRemote end
+        if not daggerButton then return nil end
+        for _, conn in ipairs(getconnections(daggerButton.MouseButton1Click)) do
+            local f = conn.Function
+            if f and islclosure(f) then
+                for _, v in pairs(getupvalues(f)) do
+                    if typeof(v) == "Instance" and v:IsA("RemoteEvent") then
+                        daggerRemote = v
+                        warn("[Backstab] Found Dagger Remote:", v:GetFullName())
+                        return daggerRemote
+                    end
+                end
+            end
+        end
+        return nil
+    end
+
+    local function initDaggerButton()
+        local gui = lp:FindFirstChild("PlayerGui")
+        if not gui then return end
+        local mainUI = gui:FindFirstChild("MainUI")
+        local container = mainUI and mainUI:FindFirstChild("AbilityContainer")
+        daggerButton = container and container:FindFirstChild("Dagger")
+        if daggerButton and daggerButton:IsA("ImageButton") then
+            daggerConnections = getconnections(daggerButton.MouseButton1Click)
+            findDaggerRemote()
+        end
+    end
+
+    initDaggerButton()
+    lp.CharacterAdded:Connect(function()
+        task.wait(0.5)
+        initDaggerButton()
+    end)
+
+    local function useDagger()
+        if daggerRemote then
+            pcall(function()
+                daggerRemote:FireServer(true)
+                task.delay(0.05, function()
+                    daggerRemote:FireServer(false)
+                end)
+            end)
+        elseif daggerButton then
+            for _, conn in ipairs(daggerConnections) do
+                pcall(function() conn:Fire() end)
+            end
+            pcall(function() daggerButton:Activate() end)
+        end
+    end
+
+    -- =====================
+    -- ⚒️ Helpers
+    -- =====================
+    local function getCharacter()
+        local ch = lp.Character
+        if ch and ch.Parent then
+            local hrp = ch:FindFirstChild("HumanoidRootPart")
+            local humanoid = ch:FindFirstChildOfClass("Humanoid")
+            return ch, humanoid, hrp
+        end
+        return nil, nil, nil
+    end
+
+    local function isPlayingTargetAnimation(humanoid)
+        if not humanoid then return false end
+        for _, t in ipairs(humanoid:GetPlayingAnimationTracks()) do
+            local animId = tostring(t.Animation.AnimationId or "")
+            for _, id in ipairs(ANIM_IDS) do
+                if animId:find(id, 1, true) then
+                    return true
+                end
+            end
+        end
+        return false
+    end
+
+    local function teleportBehind(targetHRP, myHRP)
+        local look = targetHRP.CFrame.LookVector
+        local destPos = targetHRP.Position - look * 2
+        myHRP.CFrame = CFrame.new(destPos, destPos + look)
+    end
+
+    local function isBehindTarget(targetHRP, myHRP)
+        local look = targetHRP.CFrame.LookVector
+        local dir = (myHRP.Position - targetHRP.Position).Unit
+        return look:Dot(dir) < -0.5
+    end
+
+    local function getNearbyKillers(position)
+        local killers = {}
+        for _, plr in ipairs(Players:GetPlayers()) do
+            if plr ~= lp and plr.Character then
+                local char = plr.Character
+                local hrp = char:FindFirstChild("HumanoidRootPart") or char.PrimaryPart
+                if hrp then
+                    local dist = (hrp.Position - position).Magnitude
+                    if dist <= checkRadius then
+                        table.insert(killers, {model = char, hrp = hrp, dist = dist})
+                    end
+                end
+            end
+        end
+        return killers
+    end
+
+    local function getNearbyAIKillers(hrp)
+        local killers = {}
+        for _, killer in ipairs(killersFolder:GetChildren()) do
+            local kHRP = killer:FindFirstChild("HumanoidRootPart")
+            if kHRP then
+                local dist = (kHRP.Position - hrp.Position).Magnitude
+                if dist <= checkRadius then
+                    table.insert(killers, {model = killer, hrp = kHRP, dist = dist})
+                end
+            end
+        end
+        return killers
+    end
+
+    -- =====================
+    -- 🔄 Main Loop
+    -- =====================
+    local cooldown = false
+    local lastTarget = nil
+
+    RunService.Heartbeat:Connect(function()
+        if not enabled or cooldown then return end
+        local char, humanoid, myHRP = getCharacter()
+        if not (char and humanoid and myHRP) then return end
+
+        -- 🚨 Chỉ hoạt động nếu model là "TwoTime"
+        if char.Name ~= "TwoTime" then return end
+
+        if Mode == "Player Aimbot" then
+            if isPlayingTargetAnimation(humanoid) then
+                local killers = getNearbyKillers(myHRP.Position)
+                if #killers > 0 then
+                    table.sort(killers, function(a,b) return a.dist < b.dist end)
+                    local target = killers[1]
+                    cooldown = true
+
+                    local start = tick()
+                    local conn
+                    conn = RunService.Heartbeat:Connect(function()
+                        if not (char and target.hrp and char.Parent and target.hrp.Parent) then
+                            if conn then conn:Disconnect() end
+                            cooldown = false
+                            return
+                        end
+                        if tick() - start >= 0.7 then
+                            if conn then conn:Disconnect() end
+                            task.delay(1, function() cooldown = false end)
+                            return
+                        end
+                        teleportBehind(target.hrp, myHRP)
+                        useDagger()
+                    end)
+                end
+            end
+
+        elseif Mode == "AI Aimbot" then
+            local killers = getNearbyAIKillers(myHRP)
+            if #killers > 0 then
+                table.sort(killers, function(a,b) return a.dist < b.dist end)
+                local target = killers[1]
+                if target.model ~= lastTarget and isBehindTarget(target.hrp, myHRP) then
+                    cooldown = true
+                    lastTarget = target.model
+
+                    local start = tick()
+                    local conn
+                    conn = RunService.Heartbeat:Connect(function()
+                        if not (char and char.Parent and target.hrp and target.hrp.Parent) then
+                            if conn then conn:Disconnect() end
+                            return
+                        end
+                        if tick() - start >= 0.7 then
+                            if conn then conn:Disconnect() end
+                            task.delay(10, function()
+                                cooldown = false
+                                lastTarget = nil
+                            end)
+                            return
+                        end
+                        teleportBehind(target.hrp, myHRP)
+                        useDagger()
+                    end)
+                end
+            end
+        end
+    end)
+
+    lp.CharacterAdded:Connect(function()
+        task.wait(1)
+        print("🔄 Character respawned/changed, Auto Backstab vẫn hoạt động (nếu model = 'TwoTime').")
+    end)
 end
 
 
@@ -2320,13 +2290,8 @@ do
     local animTrack
     local InvisibleEnabled = false
 
-    local SpecialModels = {
-        ["Noob"] = true, ["Guest1337"] = true, ["Elliot"] = true,
-        ["Shedletsky"] = true, ["TwoTime"] = true, ["007n7"] = true,
-        ["Chance"] = true, ["Builderman"] = true, ["Taph"] = true, ["Dusekkar"] = true,
-        ["Slasher"] = true, ["1x1x1x1"] = true, ["c00lkidd"] = true,
-        ["Noli"] = true, ["JohnDoe"] = true, ["Quest666"] = true, ["Veeronica"] = true
-    }
+    -- 🔍 Tự động lấy Survivors trong workspace
+    local survivorsFolder = workspace:WaitForChild("Players"):WaitForChild("Survivors")
 
     local function getHumanoid()
         local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
@@ -2361,11 +2326,11 @@ do
         end
     end
 
-    local function isSpecialModel(char)
+    -- ✅ Kiểm tra nếu character là survivor (trong folder Survivors)
+    local function isSurvivorModel(char)
         if not char then return false end
-        if SpecialModels[char.Name] then return true end
-        for _, child in ipairs(char:GetChildren()) do
-            if SpecialModels[child.Name] then return true end
+        if survivorsFolder:FindFirstChild(char.Name) then
+            return true
         end
         return false
     end
@@ -2384,7 +2349,8 @@ do
                         task.wait(0.5)
                         continue
                     end
-                    if isSpecialModel(char) then
+
+                    if isSurvivorModel(char) then
                         playInvisibleAnim(humanoid)
                     else
                         stopInvisibleAnim()
@@ -2400,12 +2366,12 @@ do
 
     LocalPlayer.CharacterAdded:Connect(function(char)
         task.wait(1)
-        if InvisibleEnabled and isSpecialModel(char) then
+        if InvisibleEnabled and isSurvivorModel(char) then
             handleToggle(true)
         end
     end)
 
-    -- ✅ Toggle dạng mới Fluent UI
+    -- 🟢 Fluent UI Toggle
     Tabs.Main:AddToggle("InstantInvisibleV2", {
         Title = "Instant Invisible",
         Default = false
@@ -2413,7 +2379,6 @@ do
         handleToggle(Value)
     end)
 end
-
 
 
 
@@ -2685,82 +2650,42 @@ end
 
 
 
-
 do
     local Players = game:GetService("Players")
     local RunService = game:GetService("RunService")
     local localPlayer = Players.LocalPlayer
 
-    local Killers = {
-        ["Slasher"] = true,
-        ["1x1x1x1"] = true,
-        ["c00lkidd"] = true,
-        ["Noli"] = true,
-        ["JohnDoe"] = true,
-        ["Quest666"] = true
-    }
+    -- 🧩 Dùng folder Killers thay vì danh sách tay
+    local KillersFolder = workspace:WaitForChild("Players"):WaitForChild("Killers")
 
     local function isKiller(player)
         local char = player.Character
         if not char then return false end
-        return Killers[char.Name] == true
+        return KillersFolder:FindFirstChild(char.Name) ~= nil
     end
 
     local animationIds = {
-        ["83829782357897"]  = true, -- Slash, 1x1x1x1
-        ["126830014841198"] = true, -- Slash, Jason
-        ["126355327951215"] = true, -- Behead, Jason
-        ["121086746534252"] = true, -- GashingWoundStart, Jason
-        ["105458270463374"] = true, -- Slash, JohnDoe
-        ["18885909645"]     = true, -- Attack, c00lkid
-        ["94162446513587"]  = true, -- Slash, JohnDoe, Skin: !Joner
-        ["93069721274110"]  = true, -- Slash, JohnDoe, Skin: AnnihilationJohnDoe
-        ["97433060861952"]  = true, -- Slash, JohnDoe, Skin: #SK
-        ["121293883585738"] = true, -- Slash, 1x1x1x1
-        ["92173139187970"]  = true, -- Slash, Skin: Hacklord1x1x1x1
-        ["106847695270773"] = true, -- GashingWoundStart, Jason, Skin: Subject0Jason
-        ["125403313786645"] = true, -- Slash, Jason, Skin: Subject0Jason
-        ["81639435858902"]  = true, -- Behead, Jason, Skin: WhitePumpkinJason
-        ["137314737492715"] = true, -- GashingWoundStart, Jason, Skin: WhitePumpkinJason
-        ["120112897026015"] = true, -- Slash, Jason, Skin: WhitePumpkinJason
-        ["82113744478546"]  = true, -- Behead, Jason (nhiều skin)
-        ["118298475669935"] = true, -- Slash, Jason (nhiều skin)
-        ["126681776859538"] = true, -- Behead, Jason, Skin: PursuerJason
-        ["129976080405072"] = true, -- GashingWoundStart, Jason, Skin: PursuerJason
-        ["109667959938617"] = true, -- Slash, Jason, Skin: PursuerJason
-        ["74707328554358"]  = true, -- Slash, Jason, Skin: #DeadRabbitsJason
-        ["133336594357903"] = true, -- Behead, Jason, Skin: #DeadRabbitsJason
-        ["86204001129974"]  = true, -- GashingWoundStart, Jason, Skin: #DeadRabbitsJason
-        ["70371667919898"]  = true, -- Attack, c00lkidd, Skin: MafiosoC00l
-        ["131543461321709"] = true, -- Attack, c00lkidd, Skin: SaviorC00l
-        ["106776364623742"] = true, -- Walkspeed Overing, c00lkidd (all skins)
-        ["136323728355613"] = true, -- Swing, Noli
-        ["109230267448394"] = true, -- Swing, Noli (all skins)
-        ["139835501033932"] = true, -- VoidRush, Noli (all skins)
-        ["114356208094580"] = true, -- VoidRush2, Noli
-        ["106538427162796"] = true, -- Stab, All Noli
-        ["126896426760253"] = true, -- VoidRush, Noli
-        ["131430497821198"] = true, -- MassInfection, 1x1x1x1
-        ["100592913030351"] = true, -- MassInfection, 1x1x1x1 (Fleskhjerta/AceOfSpades/Lancer)
-        ["70447634862911"]  = true, -- MassInfection, Skin: Hacklord1x1x1x1 Old
-        ["83685305553364"]  = true, -- MassInfection, Skin: Hacklord1x1x1x1 New
-        ["126171487400618"]  = true, -- Slash, Skin: Hacklord1x1x1x1
-        ["97167027849946"]  = true,
-        ["99135633258223"]  = true,
-        ["98456918873918"]  = true,
-        ["83251433279852"]  = true,
-        ["126681776859538"] = true,
-        ["129976080405072"] = true,
+        ["83829782357897"]  = true, ["126830014841198"] = true, ["126355327951215"] = true,
+        ["121086746534252"] = true, ["105458270463374"] = true, ["18885909645"]     = true,
+        ["94162446513587"]  = true, ["93069721274110"]  = true, ["97433060861952"]  = true,
+        ["121293883585738"] = true, ["92173139187970"]  = true, ["106847695270773"] = true,
+        ["125403313786645"] = true, ["81639435858902"]  = true, ["137314737492715"] = true,
+        ["120112897026015"] = true, ["82113744478546"]  = true, ["118298475669935"] = true,
+        ["126681776859538"] = true, ["129976080405072"] = true, ["109667959938617"] = true,
+        ["74707328554358"]  = true, ["133336594357903"] = true, ["86204001129974"]  = true,
+        ["70371667919898"]  = true, ["131543461321709"] = true, ["106776364623742"] = true,
+        ["136323728355613"] = true, ["109230267448394"] = true, ["139835501033932"] = true,
+        ["114356208094580"] = true, ["106538427162796"] = true, ["126896426760253"] = true,
+        ["131430497821198"] = true, ["100592913030351"] = true, ["70447634862911"]  = true,
+        ["83685305553364"]  = true, ["126171487400618"] = true, ["97167027849946"]  = true,
+        ["99135633258223"]  = true, ["98456918873918"]  = true, ["83251433279852"]  = true,
+        ["126681776859538"] = true, ["129976080405072"] = true,
     }
 
-    local delayedAnimations = {}
-
-    local toggleOn = false
-    local strictRangeOn = false
+    local delayedAnimations, toggleOn, strictRangeOn = {}, false, false
     local detectionRange = 18
 
-    local blockRemote
-    local blockButton, connections = nil, {}
+    local blockRemote, blockButton, connections = nil, {}
 
     local function findBlockRemote()
         if blockRemote then return blockRemote end
@@ -2768,8 +2693,7 @@ do
         for _, conn in ipairs(getconnections(blockButton.MouseButton1Click)) do
             local f = conn.Function
             if f and islclosure(f) then
-                local upvals = getupvalues(f)
-                for _, v in pairs(upvals) do
+                for _, v in pairs(getupvalues(f)) do
                     if typeof(v) == "Instance" and v:IsA("RemoteEvent") then
                         blockRemote = v
                         warn("[AutoBlock] Found Block Remote:", v:GetFullName())
@@ -2795,7 +2719,7 @@ do
 
     initBlockButton()
     localPlayer.CharacterAdded:Connect(function()
-        task.wait(0)
+        task.wait(0.5)
         initBlockButton()
     end)
 
@@ -2803,15 +2727,10 @@ do
         if blockRemote then
             pcall(function()
                 blockRemote:FireServer(true)
-                task.delay(1e-10, function()
-                    blockRemote:FireServer(false)
-                end)
+                task.delay(1e-10, function() blockRemote:FireServer(false) end)
             end)
-        else
-            if not blockButton or not blockButton.Visible then return end
-            for _, conn in ipairs(connections) do
-                pcall(function() conn:Fire() end)
-            end
+        elseif blockButton then
+            for _, conn in ipairs(connections) do pcall(function() conn:Fire() end) end
             pcall(function() blockButton:Activate() end)
         end
     end
@@ -2821,61 +2740,37 @@ do
         local now = tick()
         if now - lastTeleport < 5 then return end
         lastTeleport = now
-
-        local myChar = localPlayer.Character
-        local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
+        local myChar, myRoot = localPlayer.Character, localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart")
         local killerRoot = killerChar and killerChar:FindFirstChild("HumanoidRootPart")
         if not (myRoot and killerRoot) then return end
-
-        local oldCFrame = myRoot.CFrame
-        local forward = killerRoot.CFrame.LookVector
-
+        local oldCFrame, forward = myRoot.CFrame, killerRoot.CFrame.LookVector
         myRoot.CFrame = killerRoot.CFrame + forward * 7.5
-
-        task.delay(0.1, function()
-            if myRoot then
-                myRoot.CFrame = oldCFrame
-            end
-        end)
+        task.delay(0.1, function() if myRoot then myRoot.CFrame = oldCFrame end end)
     end
 
-    local function getBoolFlag(name, default)
+    local function getFlag(name, default, class)
         local flag = localPlayer:FindFirstChild(name)
         if not flag then
-            flag = Instance.new("BoolValue")
-            flag.Name = name
-            flag.Value = default
+            flag = Instance.new(class)
+            flag.Name, flag.Value = name, default
             flag.Parent = localPlayer
         end
         return flag
     end
 
-    local function getNumberFlag(name, default)
-        local flag = localPlayer:FindFirstChild(name)
-        if not flag then
-            flag = Instance.new("NumberValue")
-            flag.Name = name
-            flag.Value = default
-            flag.Parent = localPlayer
-        end
-        return flag
-    end
+    local toggleFlag = getFlag("AutoBlockToggle", false, "BoolValue")
+    local strictFlag = getFlag("AutoBlockStrictRange", false, "BoolValue")
+    local rangeFlag = getFlag("AutoBlockRange", 18, "NumberValue")
 
-    local toggleFlag = getBoolFlag("AutoBlockToggle", false)
-    local strictFlag = getBoolFlag("AutoBlockStrictRange", false)
-    local rangeFlag = getNumberFlag("AutoBlockRange", 18)
+    toggleOn, strictRangeOn, detectionRange = toggleFlag.Value, strictFlag.Value, rangeFlag.Value
 
-    toggleOn = toggleFlag.Value
-    strictRangeOn = strictFlag.Value
-    detectionRange = rangeFlag.Value
-
-    Tabs.Main:AddToggle("AutoBlockV2", {Title = "Auto Block V3", Default = toggleOn})
+    Tabs.Main:AddToggle("AutoBlockV3", { Title = "Auto Block V3", Default = toggleOn })
         :OnChanged(function(state)
             toggleOn = state
             toggleFlag.Value = state
         end)
 
-    Tabs.Main:AddToggle("StrictRangeCheck", {Title = "Auto Check V3", Default = strictRangeOn})
+    Tabs.Main:AddToggle("StrictRangeCheck", { Title = "Auto Check V3", Default = strictRangeOn })
         :OnChanged(function(state)
             strictRangeOn = state
             strictFlag.Value = state
@@ -2887,84 +2782,57 @@ do
         Placeholder = "Enter detection range"
     }):OnChanged(function(txt)
         local val = tonumber(txt)
-        if val then
-            detectionRange = val
-            rangeFlag.Value = val
-        end
+        if val then detectionRange = val rangeFlag.Value = val end
     end)
 
-    local playerConns = {}
-    local recentBlocks = {}
+    local playerConns, recentBlocks = {}, {}
     local COOLDOWN_ZERO, COOLDOWN_MISS = 0, 0
 
     local function cleanupPlayerConns(p)
-        local tbl = playerConns[p]
-        if tbl then
-            for _, c in ipairs(tbl) do
-                if c and c.Disconnect then c:Disconnect() end
-            end
+        if playerConns[p] then
+            for _, c in ipairs(playerConns[p]) do if c.Disconnect then c:Disconnect() end end
             playerConns[p] = nil
         end
         recentBlocks[p.UserId] = nil
     end
 
     local function shouldBlockNow(p, animId, track)
+        local now, last = tick(), (recentBlocks[p.UserId] and recentBlocks[p.UserId][animId]) or 0
         recentBlocks[p.UserId] = recentBlocks[p.UserId] or {}
-        local last = recentBlocks[p.UserId][animId] or 0
-        local now = tick()
         if track.TimePosition <= 0 then
-            if now - last >= COOLDOWN_ZERO then
-                recentBlocks[p.UserId][animId] = now
-                return true
-            end
-            return false
+            if now - last >= COOLDOWN_ZERO then recentBlocks[p.UserId][animId] = now return true end
         else
-            if now - last >= COOLDOWN_MISS then
-                recentBlocks[p.UserId][animId] = now
-                return true
-            end
-            return false
+            if now - last >= COOLDOWN_MISS then recentBlocks[p.UserId][animId] = now return true end
         end
+        return false
     end
 
     local massInfectionIds = {
-        ["131430497821198"] = true,
-        ["100592913030351"] = true,
-        ["70447634862911"]  = true,
-        ["83685305553364"]  = true,
+        ["131430497821198"] = true, ["100592913030351"] = true,
+        ["70447634862911"] = true, ["83685305553364"] = true,
     }
 
     local function onAnimationPlayed(player, char, track)
-        if not toggleOn then return end
-        if not (track and track.Animation) then return end
-        local animIdStr = track.Animation.AnimationId
-        local id = animIdStr and string.match(animIdStr, "%d+")
+        if not toggleOn or not (track and track.Animation) then return end
+        local id = string.match(track.Animation.AnimationId or "", "%d+")
         if not id or not animationIds[id] then return end
 
         if strictRangeOn then
-            local myChar = localPlayer.Character
-            local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
+            local myRoot = localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart")
             local root = char and char:FindFirstChild("HumanoidRootPart")
-            if not myRoot or not root then return end
+            if not (myRoot and root) then return end
             local dist = (root.Position - myRoot.Position).Magnitude
             if dist > detectionRange then return end
         end
 
         if shouldBlockNow(player, id, track) then
-            if massInfectionIds[id] then
-                task.delay(0.5, fastBlock) -- delay 0.5s cho MassInfection
-            else
-                fastBlock()
-            end
-
-            if isKiller(player) and delayedAnimations[id] then
-                teleportDodge(char)
-            end
+            if massInfectionIds[id] then task.delay(0.5, fastBlock)
+            else fastBlock() end
+            if isKiller(player) and delayedAnimations[id] then teleportDodge(char) end
         end
     end
 
     local function monitorCharacter(player, char)
-        if not player or not char then return end
         local hum = char:FindFirstChildOfClass("Humanoid") or char:WaitForChild("Humanoid", 5)
         if not hum then return end
         local con = hum.AnimationPlayed:Connect(function(track)
@@ -2974,15 +2842,15 @@ do
         table.insert(playerConns[player], con)
     end
 
-    local function onPlayerAdded(player)
-        if player == localPlayer then return end
-        if player.Character then monitorCharacter(player, player.Character) end
-        local conCharAdded = player.CharacterAdded:Connect(function(char)
+    local function onPlayerAdded(p)
+        if p == localPlayer then return end
+        if p.Character then monitorCharacter(p, p.Character) end
+        local added = p.CharacterAdded:Connect(function(char)
             task.wait(0)
-            monitorCharacter(player, char)
+            monitorCharacter(p, char)
         end)
-        playerConns[player] = playerConns[player] or {}
-        table.insert(playerConns[player], conCharAdded)
+        playerConns[p] = playerConns[p] or {}
+        table.insert(playerConns[p], added)
     end
 
     for _, p in ipairs(Players:GetPlayers()) do onPlayerAdded(p) end
@@ -2990,56 +2858,49 @@ do
     Players.PlayerRemoving:Connect(cleanupPlayerConns)
 
     local circles = {}
-
-    local function createCircleFor(player, hrp)
-        if circles[player] then circles[player]:Destroy() end
-        local circle = Instance.new("Part")
-        circle.Anchored, circle.CanCollide = true, false
-        circle.Shape = Enum.PartType.Cylinder
-        circle.Size = Vector3.new(0.2, detectionRange * 2, detectionRange * 2)
-        circle.CFrame = hrp.CFrame * CFrame.Angles(0, 0, math.rad(90))
-        circle.Material, circle.Transparency = Enum.Material.Neon, 0.5
-        circle.Color = Color3.fromRGB(255, 0, 0)
-        circle.Parent = workspace
-        circles[player] = circle
+    local function createCircleFor(p, hrp)
+        if circles[p] then circles[p]:Destroy() end
+        local part = Instance.new("Part")
+        part.Anchored, part.CanCollide = true, false
+        part.Shape = Enum.PartType.Cylinder
+        part.Size = Vector3.new(0.2, detectionRange * 2, detectionRange * 2)
+        part.CFrame = hrp.CFrame * CFrame.Angles(0, 0, math.rad(90))
+        part.Material, part.Transparency = Enum.Material.Neon, 0.5
+        part.Color = Color3.fromRGB(255, 0, 0)
+        part.Parent = workspace
+        circles[p] = part
     end
 
-    local function removeCircle(player)
-        if circles[player] then circles[player]:Destroy() circles[player] = nil end
+    local function removeCircle(p)
+        if circles[p] then circles[p]:Destroy() circles[p] = nil end
     end
 
     RunService.Heartbeat:Connect(function()
         if not strictRangeOn then
-            for _, circle in pairs(circles) do
-                if circle then circle.Transparency = 1 end
-            end
+            for _, c in pairs(circles) do if c then c.Transparency = 1 end end
             return
         end
-        local myChar = localPlayer.Character
-        local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
+        local myRoot = localPlayer.Character and localPlayer.Character:FindFirstChild("HumanoidRootPart")
         if not myRoot then return end
-        for _, player in ipairs(Players:GetPlayers()) do
-            if player ~= localPlayer then
-                local char = player.Character
-                local hrp = char and char:FindFirstChild("HumanoidRootPart")
-                local hum = char and char:FindFirstChildOfClass("Humanoid")
-                if hrp and hum and hum.Health > 0 and isKiller(player) then
-                    if not circles[player] then createCircleFor(player, hrp) end
-                    local circle = circles[player]
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p ~= localPlayer then
+                local char, hrp, hum = p.Character, p.Character and p.Character:FindFirstChild("HumanoidRootPart"), p.Character and p.Character:FindFirstChildOfClass("Humanoid")
+                if hrp and hum and hum.Health > 0 and isKiller(p) then
+                    if not circles[p] then createCircleFor(p, hrp) end
+                    local circle = circles[p]
                     circle.Size = Vector3.new(0.2, detectionRange * 2, detectionRange * 2)
                     circle.CFrame = hrp.CFrame * CFrame.Angles(0, 0, math.rad(90))
                     local dist = (myRoot.Position - hrp.Position).Magnitude
                     circle.Color = (dist <= detectionRange) and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 0, 0)
                     circle.Transparency = 0.5
-                else
-                    removeCircle(player)
-                end
+                else removeCircle(p) end
             end
         end
     end)
 
     Players.PlayerRemoving:Connect(removeCircle)
 end
+
 
 
 
@@ -3298,6 +3159,7 @@ end
     Tabs.Main:AddSection("↳ c00lkidd")
 
 
+
 do
     --== ⚙️ Base Globals ==--
     local Players = game:GetService("Players")
@@ -3318,11 +3180,22 @@ do
     end
 
     --== 🎯 Target list ==
-    local specialTargets = {
-        ["Noob"] = true, ["Guest1337"] = true, ["Elliot"] = true,
-        ["Shedletsky"] = true, ["TwoTime"] = true, ["007n7"] = true, ["Veeronica"] = true,
-        ["Chance"] = true, ["Builderman"] = true, ["Taph"] = true, ["Dusekkar"] = true,
-    }
+    -- Thay specialTargets bằng folder Survivors tự động
+    local survivorsFolder = workspace:WaitForChild("Players"):WaitForChild("Survivors")
+
+    local function isSpecialTarget(char)
+        if not char then return false end
+        if survivorsFolder:FindFirstChild(char.Name) then
+            return true
+        end
+        -- một số model có thể là child của model (cẩn thận)
+        for _, child in ipairs(char:GetChildren()) do
+            if survivorsFolder:FindFirstChild(child.Name) then
+                return true
+            end
+        end
+        return false
+    end
 
     --== 🏃 Movement Logic ==--
     local stopMovement = false
@@ -3402,6 +3275,7 @@ do
     --== 🔄 Movement follow camera ==--
     local function onHeartbeat()
         local char = Player.Character
+        -- giữ check c00lkidd như gốc (chỉ áp dụng cho mẫu c00lkidd)
         if not char or char.Name ~= "c00lkidd" then return end
         local root = getHumRoot(char)
         local hum = char:FindFirstChildOfClass("Humanoid")
@@ -3538,7 +3412,6 @@ end
 
 
 
-
     Tabs.Main:AddSection("↳ Noli")
 
 do
@@ -3551,11 +3424,14 @@ do
     local DASH_SPEED = 80
     local ATTACK_RANGE = 6
     local ATTACK_INTERVAL = 0.2
-    local PRIORITY_NAMES = {
-        ["Noob"] = true, ["Guest1337"] = true, ["Elliot"] = true,
-        ["Shedletsky"] = true, ["TwoTime"] = true, ["007n7"] = true, ["Veeronica"] = true,
-        ["Chance"] = true, ["Builderman"] = true, ["Taph"] = true, ["Dusekkar"] = true
-    }
+
+    -- ====== DYNAMIC PRIORITY ======
+    local survivorsFolder = workspace:WaitForChild("Players"):WaitForChild("Survivors")
+
+    local function isPriorityTarget(p)
+        if not p or not p.Character then return false end
+        return survivorsFolder:FindFirstChild(p.Name) ~= nil
+    end
 
     -- ====== STATE ======
     local isOverrideActive = false
@@ -3568,7 +3444,6 @@ do
     local function setupCharacter(character)
         Humanoid = character:WaitForChild("Humanoid")
         RootPart = character:WaitForChild("HumanoidRootPart")
-
         Humanoid.Died:Connect(function()
             stopOverride()
         end)
@@ -3589,7 +3464,7 @@ do
         return hrp and hum and hum.Health > 0
     end
 
-    -- tìm player gần nhất (ưu tiên whitelist)
+    -- tìm player gần nhất (ưu tiên survivorsFolder)
     local function getClosestTarget()
         if not RootPart then return nil end
 
@@ -3598,16 +3473,18 @@ do
 
         for _, p in ipairs(Players:GetPlayers()) do
             if validTarget(p) then
-                local hrp = p.Character.HumanoidRootPart
-                local d = (hrp.Position - RootPart.Position).Magnitude
-
-                if PRIORITY_NAMES[p.Name] and d < distW then
-                    distW = d
-                    closestW = p
-                end
-                if d < distA then
-                    distA = d
-                    closestA = p
+                local c = p.Character
+                local hrp = c and c:FindFirstChild("HumanoidRootPart")
+                if hrp then
+                    local d = (hrp.Position - RootPart.Position).Magnitude
+                    if isPriorityTarget(p) and d < distW then
+                        distW = d
+                        closestW = p
+                    end
+                    if d < distA then
+                        distA = d
+                        closestA = p
+                    end
                 end
             end
         end
@@ -3664,7 +3541,6 @@ do
     function stopOverride()
         if not isOverrideActive then return end
         isOverrideActive = false
-
         if connection then
             connection:Disconnect()
             connection = nil
@@ -3709,8 +3585,8 @@ local toggleFlag = Instance.new("BoolValue")
 toggleFlag.Name = "1x1x1x1AutoAim_ToggleFlag"
 toggleFlag.Value = false
 
-local aimMode = "One Player" -- default
-local predictMovement = false -- toggle mới
+local aimMode = "One Player"
+local predictMovement = false
 
 Tabs.Main:AddDropdown("AimModeDropdown", {
     Title = "Aim Mode",
@@ -3735,10 +3611,12 @@ Tabs.Main:AddToggle("PredictMovementToggle", {
     predictMovement = state
 end)
 
--- ⚔️ Setup
+-- ⚙️ Setup
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local localPlayer = Players.LocalPlayer
+local workspacePlayers = workspace:WaitForChild("Players")
+local survivorsFolder = workspacePlayers:WaitForChild("Survivors")
 
 local dangerousAnimations = {
     ["131430497821198"] = true,
@@ -3748,17 +3626,12 @@ local dangerousAnimations = {
 }
 
 local killerModels = {["1x1x1x1"] = true}
-local survivorModels = {
-    ["Noob"] = true, ["Guest1337"] = true, ["Elliot"] = true,
-    ["Shedletsky"] = true, ["TwoTime"] = true, ["007n7"] = true, ["Veeronica"] = true,
-    ["Chance"] = true, ["Builderman"] = true, ["Taph"] = true, ["Dusekkar"] = true
-}
 
--- state
+-- ⚡ State
 local autoRotateDisabledByScript = false
 local currentTarget, isLockedOn, wasPlayingAnimation = nil, false, false
 
--- utils
+-- 🧩 Utils
 local function isKiller()
     local char = localPlayer.Character
     return char and killerModels[char.Name] or false
@@ -3792,6 +3665,7 @@ local function isPlayingDangerousAnimation()
     return false
 end
 
+-- 🧭 Tìm survivor gần nhất trong folder "Survivors"
 local function getClosestSurvivor()
     local myHumanoid = getMyHumanoid()
     if not myHumanoid then return nil end
@@ -3799,8 +3673,9 @@ local function getClosestSurvivor()
     if not myRoot then return nil end
 
     local closest, closestDist = nil, math.huge
-    for _, obj in pairs(workspace:GetDescendants()) do
-        if obj:IsA("Model") and survivorModels[obj.Name] then
+
+    for _, obj in ipairs(survivorsFolder:GetChildren()) do
+        if obj:IsA("Model") then
             local hrp = obj:FindFirstChild("HumanoidRootPart")
             local hum = obj:FindFirstChildWhichIsA("Humanoid")
             if hrp and hum and hum.Health > 0 then
@@ -3815,7 +3690,7 @@ local function getClosestSurvivor()
     return closest
 end
 
--- reset khi respawn
+-- 🌀 Reset khi respawn
 localPlayer.CharacterAdded:Connect(function()
     task.delay(0.1, function()
         autoRotateDisabledByScript = false
@@ -3823,7 +3698,7 @@ localPlayer.CharacterAdded:Connect(function()
 end)
 
 -- 🔁 Main loop
-RunService.RenderStepped:Connect(function(dt)
+RunService.RenderStepped:Connect(function()
     if not toggleFlag.Value then
         restoreAutoRotate()
         currentTarget, isLockedOn, wasPlayingAnimation = nil, false, false
@@ -3843,40 +3718,42 @@ RunService.RenderStepped:Connect(function(dt)
 
     local isPlaying = isPlayingDangerousAnimation()
 
-    -- Lock target (chỉ lấy 1 lần khi bắt đầu animation)
+    -- Lock target 1 lần khi bắt đầu animation
     if isPlaying and not isLockedOn then
         currentTarget = getClosestSurvivor()
         if currentTarget then isLockedOn = true end
     end
 
-    -- Validate current target
+    -- Validate target
     if isLockedOn and currentTarget then
-        local tHum, tHrp = currentTarget:FindFirstChildWhichIsA("Humanoid"), currentTarget:FindFirstChild("HumanoidRootPart")
+        local tHum = currentTarget:FindFirstChildWhichIsA("Humanoid")
+        local tHrp = currentTarget:FindFirstChild("HumanoidRootPart")
         if (not tHum) or (tHum and tHum.Health <= 0) or (not tHrp) then
             currentTarget, isLockedOn = nil, false
         end
     end
 
-    -- End animation -> reset
+    -- End animation
     if (not isPlaying) and wasPlayingAnimation then
         currentTarget, isLockedOn = nil, false
         restoreAutoRotate()
     end
     wasPlayingAnimation = isPlaying
 
-    -- Aim/Teleport logic
+    -- 🎯 Aim / Teleport
     if isPlaying and isLockedOn and currentTarget and currentTarget:FindFirstChild("HumanoidRootPart") then
         local hrp = currentTarget.HumanoidRootPart
         local targetPos = hrp.Position
+
         if not autoRotateDisabledByScript then
             myHumanoid.AutoRotate = false
             autoRotateDisabledByScript = true
         end
 
-        -- 🧮 Predict movement nếu bật toggle
+        -- Predict movement
         if predictMovement then
             local vel = hrp.Velocity
-            if vel.Magnitude > 2 then -- chỉ khi đang di chuyển
+            if vel.Magnitude > 2 then
                 targetPos = targetPos + hrp.CFrame.LookVector * 3
             end
         end
@@ -3892,9 +3769,7 @@ RunService.RenderStepped:Connect(function(dt)
             myRoot.CFrame = myRoot.CFrame:Lerp(CFrame.lookAt(myRoot.Position, lookAt), 0.99)
 
         elseif aimMode == "Teleport" then
-            -- teleport ra sau lưng target trong suốt animation
-            local targetLookVector = hrp.CFrame.LookVector
-            local behindPos = hrp.Position - targetLookVector * 3 + Vector3.new(0, 0, 0)
+            local behindPos = hrp.Position - hrp.CFrame.LookVector * 3
             myRoot.CFrame = CFrame.new(behindPos, targetPos)
         end
     end
