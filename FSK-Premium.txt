@@ -18,7 +18,7 @@ local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.
 -- Tạo cửa sổ Fluent chính
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Premium] | Forsaken |",
-    SubTitle = "Version 5.0.3",
+    SubTitle = "Version 5.0.4",
     Search = true,
     Icon = "rbxassetid://121302760641013",
     TabWidth = 160,
@@ -6364,44 +6364,87 @@ do
     local Camera = workspace.CurrentCamera
     local Players = game:GetService("Players")
 
-    -- Danh sách model
-    local allowedModelsWhite = {
-        ["Noob"] = true, ["Guest1337"] = true, ["Elliot"] = true,
-        ["Shedletsky"] = true, ["TwoTime"] = true, ["007n7"] = true, ["Veeronica"] = true,
-        ["Chance"] = true, ["Builderman"] = true, ["Taph"] = true, ["Dusekkar"] = true,
-    }
+    -- === LOGIC TỰ TÌM MODEL TRONG WORKSPACE ===
+    local killersFolder = workspace:WaitForChild("Players"):WaitForChild("Killers")
+    local survivorsFolder = workspace:WaitForChild("Players"):WaitForChild("Survivors")
+    local noliByUsername = {}
 
-    local allowedModelsRed = {
-        ["Slasher"] = true, ["1x1x1x1"] = true, ["c00lkidd"] = true,
-        ["Noli"] = true, ["JohnDoe"] = true, ["Quest666"] = true
-    }
+    local function clearFakeTags()
+        for _, killer in ipairs(killersFolder:GetChildren()) do
+            if killer:GetAttribute("ActorDisplayName") == "Noli" then
+                killer:SetAttribute("IsFakeNoli", false)
+            end
+        end
+    end
 
-    -- Containers
+    local function scanNolis()
+        noliByUsername = {}
+        for _, killer in ipairs(killersFolder:GetChildren()) do
+            if killer:GetAttribute("ActorDisplayName") == "Noli" then
+                local username = killer:GetAttribute("Username")
+                if username then
+                    noliByUsername[username] = noliByUsername[username] or {}
+                    table.insert(noliByUsername[username], killer)
+                end
+            end
+        end
+        for username, models in pairs(noliByUsername) do
+            if #models > 1 then
+                for i = 2, #models do
+                    models[i]:SetAttribute("IsFakeNoli", true)
+                end
+                models[1]:SetAttribute("IsFakeNoli", false)
+            else
+                models[1]:SetAttribute("IsFakeNoli", false)
+            end
+        end
+    end
+
+    local function updateFakeNolis()
+        clearFakeTags()
+        scanNolis()
+    end
+
+    local function scanFolder(folder)
+        local validModels = {}
+        for _, model in ipairs(folder:GetChildren()) do
+            if model:IsA("Model") and model:FindFirstChildOfClass("Humanoid") then
+                table.insert(validModels, model)
+            end
+        end
+        return validModels
+    end
+
+    updateFakeNolis()
+
+    killersFolder.ChildAdded:Connect(function(model)
+        task.wait(0.2)
+        if model:GetAttribute("ActorDisplayName") == "Noli" then
+            updateFakeNolis()
+        end
+    end)
+
+    killersFolder.ChildRemoved:Connect(function(model)
+        if model:GetAttribute("ActorDisplayName") == "Noli" then
+            updateFakeNolis()
+        end
+    end)
+
+    -- === ESP CORE ===
     local espWhite, espRed = {}, {}
     local conWhiteLoop, conWhiteAdded, conWhiteRemoved
     local conRedLoop, conRedAdded, conRedRemoved
 
-    local function isControlledByPlayer(model)
-        if model:FindFirstChildOfClass("Humanoid") then
-            local plr = Players:GetPlayerFromCharacter(model)
-            return plr ~= nil
-        end
-        return false
-    end
-
-    -- Utility tạo/repair ESP (Billboard + Highlight)
     local function createOrRepairESP(model, espTable, color)
         if not model then return end
         local data = espTable[model]
+        local hrp = model:FindFirstChild("HumanoidRootPart")
+        if not hrp then return end
 
         if not data then
-            local hrp = model:FindFirstChild("HumanoidRootPart")
-            if not hrp then return end
-
-            -- Billboard hiển thị tên
             local billboard = Instance.new("BillboardGui")
             billboard.Name = "ESP_Name"
-            billboard.Size = UDim2.new(0, 180, 0, 35) -- 👈 to hơn chút
+            billboard.Size = UDim2.new(0, 180, 0, 35)
             billboard.AlwaysOnTop = true
             billboard.StudsOffset = Vector3.new(0, 3, 0)
             billboard.MaxDistance = 500
@@ -6413,11 +6456,10 @@ do
             label.TextColor3 = color
             label.TextStrokeTransparency = 0.3
             label.Font = Enum.Font.GothamBold
-            label.TextSize = 16 -- 👈 chữ to hơn
+            label.TextSize = 16
             label.Text = model.Name
             label.Parent = billboard
 
-            -- Highlight
             local highlight = Instance.new("Highlight")
             highlight.Adornee = model
             highlight.FillColor = color
@@ -6429,80 +6471,28 @@ do
             highlight.Parent = model
 
             espTable[model] = { gui = billboard, text = label, highlight = highlight }
-            return
-        end
-
-        -- Repair nếu mất Billboard hoặc Highlight
-        if not data.gui or not data.gui.Parent then
-            pcall(function() if data.gui then data.gui:Destroy() end end)
-            local hrp = model:FindFirstChild("HumanoidRootPart")
-            if hrp then
-                local billboard = Instance.new("BillboardGui")
-                billboard.Name = "ESP_Name"
-                billboard.Size = UDim2.new(0, 180, 0, 35)
-                billboard.AlwaysOnTop = true
-                billboard.StudsOffset = Vector3.new(0, 3, 0)
-                billboard.MaxDistance = 500
-                billboard.Parent = hrp
-
-                local label = Instance.new("TextLabel")
-                label.Size = UDim2.new(1, 0, 1, 0)
-                label.BackgroundTransparency = 1
-                label.TextColor3 = color
-                label.TextStrokeTransparency = 0.3
-                label.Font = Enum.Font.GothamBold
-                label.TextSize = 16
-                label.Text = model.Name
-                label.Parent = billboard
-
-                data.gui, data.text = billboard, label
-            end
-        end
-
-        if not data.highlight or not data.highlight.Parent then
-            pcall(function() if data.highlight then data.highlight:Destroy() end end)
-            local highlight = Instance.new("Highlight")
-            highlight.Adornee = model
-            highlight.FillColor = color
-            highlight.OutlineColor = color
-            highlight.FillTransparency = 0.7
-            highlight.OutlineTransparency = 0
-            highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-            highlight.Enabled = true
-            highlight.Parent = model
-            data.highlight = highlight
         end
     end
 
     local function removeESP(model, espTable)
         local data = espTable[model]
-        if data then
-            pcall(function() if data.gui then data.gui:Destroy() end end)
-            pcall(function() if data.highlight then data.highlight:Destroy() end end)
-        end
+        if not data then return end
+        pcall(function() if data.gui then data.gui:Destroy() end end)
+        pcall(function() if data.highlight then data.highlight:Destroy() end end)
         espTable[model] = nil
     end
 
     local function updateESP(espTable, color)
         for model, data in pairs(espTable) do
             if model.Parent and model:FindFirstChild("HumanoidRootPart") then
-                createOrRepairESP(model, espTable, color)
-                data = espTable[model]
-
                 local hrp = model.HumanoidRootPart
                 local dist = (hrp.Position - Camera.CFrame.Position).Magnitude
-
-                if data.text then
-                    local displayName = model.Name
-                    if model.Name == "Noli" and not isControlledByPlayer(model) then
-                        displayName = "Noli Fake"
-                    end
-                    data.text.Text = string.format("%s [%.0fm]", displayName, dist)
+                local name = model:GetAttribute("ActorDisplayName") or model.Name
+                if model:GetAttribute("IsFakeNoli") then
+                    name = name .. " [Fake]"
                 end
-
-                if data.highlight then
-                    data.highlight.Adornee = model
-                    data.highlight.Enabled = true
+                if data.text then
+                    data.text.Text = string.format("%s [%.0fm]", name, dist)
                 end
             else
                 removeESP(model, espTable)
@@ -6510,30 +6500,26 @@ do
         end
     end
 
-    -- === White ESP ===
+    -- === WHITE ESP (SURVIVORS) ===
     local function startESPWhite()
         if conWhiteLoop then return end
-        for _, obj in ipairs(workspace:GetDescendants()) do
-            if obj:IsA("Model") and allowedModelsWhite[obj.Name] then
-                createOrRepairESP(obj, espWhite, Color3.fromRGB(255, 255, 255))
-            end
+        for _, model in ipairs(scanFolder(survivorsFolder)) do
+            createOrRepairESP(model, espWhite, Color3.fromRGB(255, 255, 255))
         end
 
         conWhiteLoop = RunService.Heartbeat:Connect(function()
             updateESP(espWhite, Color3.fromRGB(255, 255, 255))
         end)
 
-        conWhiteAdded = workspace.DescendantAdded:Connect(function(obj)
-            local model = obj:IsA("Model") and obj or obj:FindFirstAncestorOfClass("Model")
-            if model and allowedModelsWhite[model.Name] then
+        conWhiteAdded = survivorsFolder.ChildAdded:Connect(function(model)
+            task.wait(0.2)
+            if model:IsA("Model") and model:FindFirstChildOfClass("Humanoid") then
                 createOrRepairESP(model, espWhite, Color3.fromRGB(255, 255, 255))
             end
         end)
-        conWhiteRemoved = workspace.DescendantRemoving:Connect(function(obj)
-            local model = obj:IsA("Model") and obj or obj:FindFirstAncestorOfClass("Model")
-            if model and espWhite[model] then
-                removeESP(model, espWhite)
-            end
+
+        conWhiteRemoved = survivorsFolder.ChildRemoved:Connect(function(model)
+            removeESP(model, espWhite)
         end)
     end
 
@@ -6548,30 +6534,26 @@ do
         espWhite = {}
     end
 
-    -- === Red ESP ===
+    -- === RED ESP (KILLERS) ===
     local function startESPRed()
         if conRedLoop then return end
-        for _, obj in ipairs(workspace:GetDescendants()) do
-            if obj:IsA("Model") and allowedModelsRed[obj.Name] then
-                createOrRepairESP(obj, espRed, Color3.fromRGB(255, 0, 0))
-            end
+        for _, model in ipairs(scanFolder(killersFolder)) do
+            createOrRepairESP(model, espRed, Color3.fromRGB(255, 0, 0))
         end
 
         conRedLoop = RunService.Heartbeat:Connect(function()
             updateESP(espRed, Color3.fromRGB(255, 0, 0))
         end)
 
-        conRedAdded = workspace.DescendantAdded:Connect(function(obj)
-            local model = obj:IsA("Model") and obj or obj:FindFirstAncestorOfClass("Model")
-            if model and allowedModelsRed[model.Name] then
+        conRedAdded = killersFolder.ChildAdded:Connect(function(model)
+            task.wait(0.2)
+            if model:IsA("Model") and model:FindFirstChildOfClass("Humanoid") then
                 createOrRepairESP(model, espRed, Color3.fromRGB(255, 0, 0))
             end
         end)
-        conRedRemoved = workspace.DescendantRemoving:Connect(function(obj)
-            local model = obj:IsA("Model") and obj or obj:FindFirstAncestorOfClass("Model")
-            if model and espRed[model] then
-                removeESP(model, espRed)
-            end
+
+        conRedRemoved = killersFolder.ChildRemoved:Connect(function(model)
+            removeESP(model, espRed)
         end)
     end
 
@@ -6586,7 +6568,7 @@ do
         espRed = {}
     end
 
-    -- Toggles
+    -- === NÚT BẬT TẮT ===
     Tabs.Visual:AddToggle("ESPModelWhiteToggle", {
         Title = "ESP Survivors",
         Default = false,
