@@ -18,7 +18,7 @@ local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.
 -- Tạo cửa sổ Fluent chính
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Premium] | Forsaken |",
-    SubTitle = "Version 5.1.2",
+    SubTitle = "Version 5.1.3",
     Search = true,
     Icon = "rbxassetid://121302760641013",
     TabWidth = 160,
@@ -2717,6 +2717,8 @@ do
         ["83251433279852"]  = true,
         ["126681776859538"] = true,
         ["129976080405072"] = true,
+        ["122709416391891"] = true, -- Đánh Thường Guest 666
+        ["87989533095285"] = true, -- Vồ Tới Guest 666
     }
 
     local delayedAnimations = {}
@@ -4998,11 +5000,11 @@ Tabs.Custom:AddSection("↳ Victim")
 -- HackerVibe_Toggle.lua
 -- Hiệu ứng hacker thật 3D, có nút bật/tắt (Fake H4CK3R)
 -- Bảo toàn sau khi chết, đổi character, không rung giật
+-- Hiệu ứng hacker 3D + animation tự bật/tắt
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local player = Players.LocalPlayer
-
 local character = player.Character or player.CharacterAdded:Wait()
 
 -- ⚙️ CONFIG
@@ -5014,16 +5016,18 @@ local binaryMinScale = 0.6
 local binaryMaxScale = 1.1
 local maxSimultaneous = 40
 local spawnRadius = 3
+local animationId = "rbxassetid://86559211184601" -- 🧠 Animation Hacker
 
 math.randomseed(tick() + player.UserId)
 
--- === Phần spawn ===
+-- === Biến ===
 local active = 0
 local running = false
 local folderName = "HackerFX3D"
 local folder = nil
+local animTrack = nil
 
--- === Danh sách các part dùng để spawn ===
+-- === Danh sách part để spawn chữ ===
 local partNames = {
 	"Head","HumanoidRootPart",
 	"UpperTorso","LowerTorso","Torso",
@@ -5044,7 +5048,7 @@ local function getParts()
 	return list
 end
 
--- === Highlight ===
+-- === Highlight Hacker ===
 local function createHighlight()
 	local old = character:FindFirstChild("HackerHighlight")
 	if old then old:Destroy() end
@@ -5068,7 +5072,7 @@ local function ensureFolder()
 	return folder
 end
 
--- === Spawn chữ bay quanh người ===
+-- === Hiệu ứng số bay ===
 local function spawnBinary()
 	if not running then return end
 	if active >= maxSimultaneous then return end
@@ -5134,7 +5138,7 @@ local function spawnBinary()
 	end)
 end
 
--- === Vòng spawn chính ===
+-- === Loop spawn chữ ===
 task.spawn(function()
 	while true do
 		if running then
@@ -5144,16 +5148,26 @@ task.spawn(function()
 	end
 end)
 
--- === Khi respawn / đổi character ===
+-- === Khi respawn / đổi nhân vật ===
 player.CharacterAdded:Connect(function(char)
 	character = char
 	task.wait(0.25)
 	if running then
 		createHighlight()
+
+		-- 🔄 Phát lại animation nếu đang bật
+		local hum = character:FindFirstChildOfClass("Humanoid")
+		if hum then
+			local anim = Instance.new("Animation")
+			anim.AnimationId = animationId
+			animTrack = hum:LoadAnimation(anim)
+			animTrack:Play()
+			animTrack.Looped = true
+		end
 	end
 end)
 
--- === HÀM BẬT / TẮT CHÍNH ===
+-- === HÀM CHÍNH BẬT / TẮT ===
 local function ToggleFakeHacker(state)
 	running = state
 
@@ -5168,7 +5182,25 @@ local function ToggleFakeHacker(state)
 
 	if state then
 		ensureFolder().Parent = player:WaitForChild("PlayerGui")
+
+		-- 🎬 Bắt đầu animation
+		local hum = character:FindFirstChildOfClass("Humanoid")
+		if hum then
+			local anim = Instance.new("Animation")
+			anim.AnimationId = animationId
+			animTrack = hum:LoadAnimation(anim)
+			animTrack.Looped = true
+			animTrack:Play()
+		end
 	else
+		-- 🛑 Dừng animation
+		if animTrack then
+			animTrack:Stop()
+			animTrack:Destroy()
+			animTrack = nil
+		end
+
+		-- 🧹 Xóa hiệu ứng chữ
 		local f = player.PlayerGui:FindFirstChild(folderName)
 		if f then
 			for _, v in ipairs(f:GetChildren()) do
@@ -5178,8 +5210,7 @@ local function ToggleFakeHacker(state)
 	end
 end
 
--- === Callback cho UI toggle ===
--- 🔹 Chèn đoạn này vào code UI library của bạn:
+-- === GẮN VÀO UI (ví dụ Fluent) ===
 Tabs.Custom:AddToggle("FakeH4CK3R", {
 	Title = "Fake H4CK3R",
 	Default = false,
@@ -6048,7 +6079,11 @@ local AttackAnimations = {
     'rbxassetid://129976080405072',
     'rbxassetid://110400453990786',
     'rbxassetid://83685305553364',
-    'rbxassetid://126171487400618'
+    'rbxassetid://126171487400618',
+    'rbxassetid://122709416391891',
+    'rbxassetid://87989533095285',
+    'rbxassetid://119326397274934',
+    'rbxassetid://140365014326125'
 }
 
 -- danh sách model killers và survivors (theo yêu cầu của bạn)
