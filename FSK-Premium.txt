@@ -18,7 +18,7 @@ local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.
 -- Tạo cửa sổ Fluent chính
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Premium] | Forsaken |",
-    SubTitle = "Version 5.1.1",
+    SubTitle = "Version 5.1.2",
     Search = true,
     Icon = "rbxassetid://121302760641013",
     TabWidth = 160,
@@ -145,7 +145,8 @@ do
         "MassInfection", "CorruptNature", "WalkspeedOverride", "PizzaDelivery",
         "UnstableEye", "Entanglement",
         "DigitalFootprint", "404Error",
-        "RagingPace"
+        "RagingPace", "Carving Slash", "Demonic Pursuit",
+        "Infernal Cry", "Blood Rush"
     }
 
     -- =====================
