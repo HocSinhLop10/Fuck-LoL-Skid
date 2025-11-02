@@ -18,7 +18,7 @@ local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.
 -- Tạo cửa sổ Fluent chính
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Premium] | Forsaken |",
-    SubTitle = "Version 5.1.0",
+    SubTitle = "Version 5.1.1",
     Search = true,
     Icon = "rbxassetid://121302760641013",
     TabWidth = 160,
@@ -3918,6 +3918,7 @@ do
         ["toon dusek"] = true,
         ["dusek"] = true,
         ["umdum"] = true,
+        ["doothsek"] = true,
     }
 
     -- 🚫 Khu vực không hiển thị ESP
@@ -4088,6 +4089,7 @@ local TargetNames = {
     "toon dusek",
     "umdum",
     "dusek",
+    "doothsek",
 }
 
 -- ⚙️ Cài đặt
