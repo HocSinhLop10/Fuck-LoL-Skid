@@ -18,7 +18,7 @@ local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.
 -- Tạo cửa sổ Fluent chính
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Premium] | Forsaken |",
-    SubTitle = "Version 5.0.9",
+    SubTitle = "Version 5.1.0",
     Search = true,
     Icon = "rbxassetid://121302760641013",
     TabWidth = 160,
@@ -39,6 +39,7 @@ local Tabs = {
     Dev = Window:AddTab({ Title = "About", Icon = "info" }),
     Farm = Window:AddTab({ Title = "Farm", Icon = "box" }),
     Main = Window:AddTab({ Title = "Main", Icon = "home" }),
+    Event = Window:AddTab({ Title = "Event", Icon = "bell" }),
     Custom = Window:AddTab({ Title = "Custom", Icon = "brush" }),
     Player = Window:AddTab({ Title = "Player", Icon = "user" }),
     Visual = Window:AddTab({ Title = "Visual", Icon = "eye" }),
@@ -3880,6 +3881,366 @@ RunService.RenderStepped:Connect(function()
 end)
 end
 
+
+-- Tabs.Event
+
+    Tabs.Event:AddSection("↳ Halloween")
+
+
+do
+    local Players = game:GetService("Players")
+    local LocalPlayer = Players.LocalPlayer
+
+    -- 📦 Nút Teleport riêng
+    Tabs.Event:AddButton({
+        Title = "TP to Shop",
+        Description = "Teleport đến khu Shop",
+        Callback = function()
+            local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+            local hrp = char:FindFirstChild("HumanoidRootPart")
+            if hrp then
+                hrp.CFrame = CFrame.new(-3540.36, -392.73, 231.53)
+            end
+        end,
+    })
+end
+
+
+do
+    local RunService = game:GetService("RunService")
+    local Camera = workspace.CurrentCamera
+    local Players = game:GetService("Players")
+    local LocalPlayer = Players.LocalPlayer
+
+    -- ✅ Danh sách model cần ESP (chữ thường)
+    local allowedModels = {
+        ["dumsek"] = true,
+        ["toon dusek"] = true,
+        ["dusek"] = true,
+        ["umdum"] = true,
+    }
+
+    -- 🚫 Khu vực không hiển thị ESP
+    local blockedCenter = Vector3.new(-3485.02, 4.48, 217.77)
+    local blockedRadius = 500
+
+    local espModels = {}
+    local conLoop, conAdded, conRemoved
+
+    local function removeESP(model)
+        local data = espModels[model]
+        if not data then return end
+        pcall(function() if data.gui then data.gui:Destroy() end end)
+        pcall(function() if data.highlight then data.highlight:Destroy() end end)
+        espModels[model] = nil
+    end
+
+    -- 🔍 Tìm part để gắn ESP
+    local function getModelPart(model)
+        if model.PrimaryPart then return model.PrimaryPart end
+        for _, part in ipairs(model:GetDescendants()) do
+            if part:IsA("BasePart") then
+                return part
+            end
+        end
+    end
+
+    -- ⚙️ Tạo hoặc khôi phục ESP
+    local function createOrRepairESP(model, color)
+        if not model:IsA("Model") then return end
+        local basePart = getModelPart(model)
+        if not basePart then return end
+
+        -- 📏 Kiểm tra khu vực cấm
+        if (basePart.Position - blockedCenter).Magnitude <= blockedRadius then
+            removeESP(model)
+            return
+        end
+
+        -- Nếu đã có ESP thì thôi
+        if espModels[model] then return end
+
+        -- 🧩 Billboard hiển thị tên
+        local billboard = Instance.new("BillboardGui")
+        billboard.Name = "ESP_Name"
+        billboard.Size = UDim2.new(0, 180, 0, 35)
+        billboard.AlwaysOnTop = true
+        billboard.StudsOffset = Vector3.new(0, 3, 0)
+        billboard.MaxDistance = 500
+        billboard.Parent = basePart
+
+        local label = Instance.new("TextLabel")
+        label.Size = UDim2.new(1, 0, 1, 0)
+        label.BackgroundTransparency = 1
+        label.TextColor3 = color
+        label.TextStrokeTransparency = 0.3
+        label.Font = Enum.Font.GothamBold
+        label.TextSize = 16
+        label.Text = model.Name
+        label.Parent = billboard
+
+        -- 🟦 Viền sáng
+        local highlight = Instance.new("Highlight")
+        highlight.Adornee = model
+        highlight.FillColor = color
+        highlight.OutlineColor = color
+        highlight.FillTransparency = 0.7
+        highlight.OutlineTransparency = 0
+        highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+        highlight.Enabled = true
+        highlight.Parent = model
+
+        -- 🧠 Khi nhân vật bạn chạm vào model → ẩn ESP
+        for _, part in ipairs(model:GetDescendants()) do
+            if part:IsA("BasePart") then
+                part.Touched:Connect(function(hit)
+                    local char = LocalPlayer.Character
+                    if char and hit:IsDescendantOf(char) then
+                        removeESP(model)
+                    end
+                end)
+            end
+        end
+
+        espModels[model] = {
+            gui = billboard,
+            text = label,
+            highlight = highlight,
+        }
+    end
+
+    -- 🔁 Cập nhật ESP
+    local function updateESP(color)
+        for model, data in pairs(espModels) do
+            local part = getModelPart(model)
+            if not model.Parent or not part then
+                removeESP(model)
+            else
+                local distToBlocked = (part.Position - blockedCenter).Magnitude
+                if distToBlocked <= blockedRadius then
+                    removeESP(model)
+                else
+                    local dist = (part.Position - Camera.CFrame.Position).Magnitude
+                    if data.text then
+                        data.text.Text = string.format("%s [%.0fm]", model.Name, dist)
+                    end
+                end
+            end
+        end
+    end
+
+    -- 🚀 Bắt đầu ESP
+    local function startESP()
+        if conLoop then return end
+        local COLOR = Color3.fromRGB(0, 85, 255)
+
+        -- Quét models hiện tại
+        for _, obj in ipairs(workspace:GetDescendants()) do
+            if obj:IsA("Model") and allowedModels[string.lower(obj.Name)] then
+                createOrRepairESP(obj, COLOR)
+            end
+        end
+
+        conLoop = RunService.Heartbeat:Connect(function()
+            updateESP(COLOR)
+        end)
+
+        conAdded = workspace.DescendantAdded:Connect(function(obj)
+            local model = obj:IsA("Model") and obj or obj:FindFirstAncestorOfClass("Model")
+            if model and allowedModels[string.lower(model.Name)] then
+                createOrRepairESP(model, COLOR)
+            end
+        end)
+
+        conRemoved = workspace.DescendantRemoving:Connect(function(obj)
+            local model = obj:IsA("Model") and obj or obj:FindFirstAncestorOfClass("Model")
+            if model and espModels[model] then
+                removeESP(model)
+            end
+        end)
+    end
+
+    -- 🧹 Dừng ESP
+    local function stopESP()
+        if conLoop then conLoop:Disconnect(); conLoop = nil end
+        if conAdded then conAdded:Disconnect(); conAdded = nil end
+        if conRemoved then conRemoved:Disconnect(); conRemoved = nil end
+        for model in pairs(espModels) do removeESP(model) end
+    end
+
+    -- 📦 Toggle trong GUI Fluent
+    Tabs.Event:AddToggle("ESPSukkarsToggle", {
+        Title = "ESP Sukkars",
+        Default = false,
+    }):OnChanged(function(enabled)
+        if enabled then
+            startESP()
+        else
+            stopESP()
+        end
+    end)
+end
+
+
+-- 🧭 Danh sách model cần teleport tới
+local TargetNames = {
+    "dumsek",
+    "toon dusek",
+    "umdum",
+    "dusek",
+}
+
+-- ⚙️ Cài đặt
+local ScanInterval = 1.5     -- thời gian quét (giây)
+local HeightOffset = 0       -- độ cao khi teleport
+local IgnoreCenter = Vector3.new(-3485.02, 4.48, 217.77) -- tâm khu vực bỏ qua
+local IgnoreRadius = 500     -- bán kính bỏ qua (studs)
+
+-- ⚡ Biến điều khiển
+local autoTeleport = false
+local running = false
+local animTrack
+local InvisibleEnabled = false
+
+-- === SERVICES ===
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+-- 🔍 Tự động lấy Survivors trong workspace
+local survivorsFolder = workspace:WaitForChild("Players"):WaitForChild("Survivors")
+
+-- === HÀM HỖ TRỢ ===
+local function getHumanoid()
+    local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+    return char:FindFirstChildOfClass("Humanoid"), char
+end
+
+local function getAnimator(humanoid)
+    local animator = humanoid:FindFirstChildOfClass("Animator")
+    if not animator then
+        animator = Instance.new("Animator")
+        animator.Parent = humanoid
+    end
+    return animator
+end
+
+local function playInvisibleAnim(humanoid)
+    local animator = getAnimator(humanoid)
+    if not animTrack or not animTrack.IsPlaying then
+        local animation = Instance.new("Animation")
+        animation.AnimationId = "rbxassetid://75804462760596"
+        animTrack = animator:LoadAnimation(animation)
+        animTrack.Looped = true
+        animTrack:Play()
+        animTrack:AdjustSpeed(0)
+    end
+end
+
+local function stopInvisibleAnim()
+    if animTrack and animTrack.IsPlaying then
+        animTrack:Stop()
+        animTrack = nil
+    end
+end
+
+-- ✅ Kiểm tra nếu character là survivor (trong folder Survivors)
+local function isSurvivorModel(char)
+    if not char then return false end
+    if survivorsFolder:FindFirstChild(char.Name) then
+        return true
+    end
+    return false
+end
+
+-- === LOGIC TELEPORT ===
+local function getModelCFrame(model)
+    local part = model:FindFirstChild("HumanoidRootPart") or model.PrimaryPart
+    if part and part:IsA("BasePart") then
+        return part.CFrame
+    end
+    if model.GetPivot then
+        local ok, pivot = pcall(function() return model:GetPivot() end)
+        if ok then return pivot end
+    end
+    local sum, count = Vector3.zero, 0
+    for _, v in ipairs(model:GetDescendants()) do
+        if v:IsA("BasePart") then
+            sum += v.Position
+            count += 1
+        end
+    end
+    return count > 0 and CFrame.new(sum / count) or nil
+end
+
+local function findTargets()
+    local result = {}
+    local lowerNames = {}
+    for _, n in ipairs(TargetNames) do
+        lowerNames[n:lower()] = true
+    end
+
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        if obj:IsA("Model") and lowerNames[obj.Name:lower()] then
+            local cf = getModelCFrame(obj)
+            if cf then
+                local pos = cf.Position
+                if (pos - IgnoreCenter).Magnitude > IgnoreRadius then
+                    table.insert(result, obj)
+                end
+            end
+        end
+    end
+    return result
+end
+
+-- === VÒNG LẶP TELEPORT + INVISIBLE ANIM ===
+task.spawn(function()
+    while task.wait(ScanInterval) do
+        if autoTeleport and LocalPlayer.Character then
+            local humanoid, char = getHumanoid()
+            local hrp = char and char:FindFirstChild("HumanoidRootPart")
+            if hrp and humanoid then
+                -- Invisible anim logic
+                if isSurvivorModel(char) then
+                    playInvisibleAnim(humanoid)
+                else
+                    stopInvisibleAnim()
+                end
+
+                -- Teleport logic
+                local targets = findTargets()
+                for _, model in ipairs(targets) do
+                    local cf = getModelCFrame(model)
+                    if cf then
+                        hrp.CFrame = cf + Vector3.new(0, HeightOffset, 0)
+                        task.wait(ScanInterval)
+                    end
+                end
+            end
+        end
+    end
+end)
+
+-- === RESET ANIM KHI NHÂN VẬT HỒI SINH ===
+LocalPlayer.CharacterAdded:Connect(function(char)
+    task.wait(1)
+    if InvisibleEnabled and isSurvivorModel(char) then
+        playInvisibleAnim(char:FindFirstChildOfClass("Humanoid"))
+    end
+end)
+
+-- === FLUENT GUI TOGGLE ===
+Tabs.Event:AddToggle("AutoFarmSukkars", {
+    Title = "Auto Farm Sukkars",
+    Default = false,
+    Callback = function(Value)
+        autoTeleport = Value
+        InvisibleEnabled = Value
+        if not Value then
+            stopInvisibleAnim()
+        end
+    end,
+})
 
 
 -- Tabs.Custom
@@ -8534,6 +8895,72 @@ Button.MouseButton1Click:Connect(function()
 
     -- Click animation
     TweenService:Create(Button, tweenInfo, {
+        BackgroundTransparency = 0.5,
+        Size = UDim2.new(0, 45, 0, 45),
+        Rotation = 5
+    }):Play()
+    task.wait(0.1)
+    TweenService:Create(Button, tweenInfo, {
+        BackgroundTransparency = 0.3,
+        Size = UDim2.new(0, 50, 0, 50),
+        Rotation = 0
+    }):Play()
+
+    ToggleUI()
+end)
+
+-- Hover Animation
+Button.MouseEnter:Connect(function()
+    TweenService:Create(Button, tweenInfo, {Size = UDim2.new(0, 55, 0, 55)}):Play()
+end)
+
+Button.MouseLeave:Connect(function()
+    TweenService:Create(Button, tweenInfo, {Size = UDim2.new(0, 50, 0, 50)}):Play()
+end)
+
+-- Dragging Logic for PC & Mobile
+local dragging, dragStart, startPos
+
+local function StartDrag(input)
+    isDragging = false
+    dragging = true
+    dragStart = input.Position
+    startPos = Button.Position
+
+    input.Changed:Connect(function()
+        if input.UserInputState == Enum.UserInputState.End then
+            dragging = false
+        end
+    end)
+end
+
+local function OnDrag(input)
+    if dragging then
+        local delta = (input.Position - dragStart).Magnitude
+        if delta > dragThreshold then
+            isDragging = true
+        end
+        Button.Position = UDim2.new(
+            startPos.X.Scale,
+            startPos.X.Offset + (input.Position.X - dragStart.X),
+            startPos.Y.Scale,
+            startPos.Y.Offset + (input.Position.Y - dragStart.Y)
+        )
+    end
+end
+
+-- Dragging Support
+Button.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        StartDrag(input)
+    end
+end)
+
+Button.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        OnDrag(input)
+    end
+end)  TweenService:Create(Button, tweenInfo, {
         BackgroundTransparency = 0.5,
         Size = UDim2.new(0, 45, 0, 45),
         Rotation = 5
