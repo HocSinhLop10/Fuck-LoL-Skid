@@ -18,7 +18,7 @@ local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.
 -- Tạo cửa sổ Fluent chính
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Premium] | Forsaken |",
-    SubTitle = "Version 5.1.8",
+    SubTitle = "Version 5.1.9",
     Search = true,
     Icon = "rbxassetid://121302760641013",
     TabWidth = 160,
@@ -441,6 +441,7 @@ do
         ["Noli"] = true,
         ["JohnDoe"] = true,
         ["Guest 666"] = true,
+        ["Sixer"] = true,
     }
 
     -- 🟢 Danh sách ưu tiên
@@ -668,7 +669,8 @@ local DangerousKillers = {
     ["c00lkidd"] = true,
     ["Noli"] = true,
     ["JohnDoe"] = true,
-    ["Guest 666"] = true
+    ["Guest 666"] = true,
+    ["Sixer"] = true
 }
 
 -- 🟢 Kiểm tra killer gần generator
@@ -5479,6 +5481,7 @@ local AllowedPlayers = {
 local AllowedKillers = {
     ["Slasher"] = true, ["1x1x1x1"] = true, ["c00lkidd"] = true,
     ["Noli"] = true, ["JohnDoe"] = true, ["Guest 666"] = true,
+    ["Sixer"] = true,
 }
 
 -- ======= BIẾN TRẠNG THÁI =======
@@ -6328,7 +6331,8 @@ local AttackAnimations = {
 -- danh sách model killers và survivors (theo yêu cầu của bạn)
 local Killers = {
     ["Slasher"] = true, ["1x1x1x1"] = true, ["c00lkidd"] = true,
-    ["Noli"] = true, ["JohnDoe"] = true, ["Guest 666"] = true
+    ["Noli"] = true, ["JohnDoe"] = true, ["Guest 666"] = true,
+    ["Sixer"] = true
 }
 
 local Survivors = {
@@ -7328,7 +7332,7 @@ local DangerousKillers = {
     Slasher = true, ["1x1x1x1"] = true, c00lkidd = true,
     Noli = true, JohnDoe = true, ["Guest 666"] = true,
     PizzaDeliveryRig = true, Mafia1 = true, Mafia2 = true,
-    ["1x1x1x1Zombie"] = true
+    ["1x1x1x1Zombie"] = true, ["Sixer"] = true
 }
 
 -- Danh sách Clones (coi như Killers)
