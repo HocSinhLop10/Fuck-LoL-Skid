@@ -18,7 +18,7 @@ local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.
 -- Tạo cửa sổ Fluent chính
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Premium] | Forsaken |",
-    SubTitle = "Version 5.1.7",
+    SubTitle = "Version 5.1.8",
     Search = true,
     Icon = "rbxassetid://121302760641013",
     TabWidth = 160,
@@ -49,20 +49,28 @@ local Tabs = {
 
 -- Phần Logic Chính
 
---// ⚙️ ESPManager v2 (Optimized Unified System)
---// Không lag - chỉ 1 vòng update, dùng sự kiện thay vì quét toàn bộ workspace
+--// ⚙️ ESPManager v2.7 (Auto-Restore + Debounce 0.5s)
+--// Tự thêm lại khi model biến mất/hiện, chết/hồi sinh, GUI/HL mất, với debounce 0.5s để tránh lag
 
 local RunService = game:GetService("RunService")
 local Camera = workspace.CurrentCamera
 
 local ESPManager = {
     ActiveTypes = {},    -- ["Player"] = true
-    Objects = {},        -- [model] = { type, gui, hl, label }
+    Objects = {},        -- [model] = { type, gui, hl, label, conns = {} }
     Filters = {},        -- filterFn
     Colors = {},         -- typeColor
     Watchers = {},       -- connection table
     ShowHP = {},         -- typeName -> boolean
+    _pendingCreate = {}, -- [model] = true (debounce)
 }
+
+-- Helper: safe find primary part
+local function getPrimaryPart(model)
+    if not model then return nil end
+    local p = model:FindFirstChild("HumanoidRootPart") or model:FindFirstChildWhichIsA("BasePart")
+    return p
+end
 
 -- 🧩 Đăng ký loại ESP
 function ESPManager:RegisterType(name, color, filterFn, showHP)
@@ -72,11 +80,31 @@ function ESPManager:RegisterType(name, color, filterFn, showHP)
     self.ActiveTypes[name] = false
 end
 
--- 🧱 Tạo ESP
-function ESPManager:Create(model, typeName)
-    if not model or self.Objects[model] then return end
-    local color = self.Colors[typeName]
-    local part = model:FindFirstChild("HumanoidRootPart") or model:FindFirstChildWhichIsA("BasePart")
+-- internal: disconnect connections table
+local function disconnectConns(tbl)
+    if not tbl then return end
+    for _, c in pairs(tbl) do
+        if c and typeof(c.Disconnect) == "function" then
+            pcall(function() c:Disconnect() end)
+        end
+    end
+end
+
+-- 🧱 Tạo ESP (không debounce) - gọi an toàn bên trong task.delay khi cần
+function ESPManager:_CreateImmediate(model, typeName)
+    if not model or not model.Parent then return end
+    if ESPManager.Objects[model] then
+        -- nếu tồn tại nhưng bị hỏng phần gui/hl thì dọn trước
+        local existing = ESPManager.Objects[model]
+        if existing.gui and existing.gui.Parent and existing.hl and existing.hl.Parent then
+            return -- đã ok rồi
+        else
+            ESPManager:Remove(model)
+        end
+    end
+
+    local color = ESPManager.Colors[typeName]
+    local part = getPrimaryPart(model)
     if not part then return end
 
     -- Billboard
@@ -109,16 +137,104 @@ function ESPManager:Create(model, typeName)
     hl.Enabled = true
     hl.Parent = model
 
-    self.Objects[model] = {type = typeName, gui = billboard, label = label, hl = hl}
+    -- Kết nối model-level watchers (để tự phục hồi khi parent thay đổi / respawn / humanoid died)
+    local conns = {}
+
+    -- nếu model bị reparent / removed -> schedule recreate (debounced)
+    table.insert(conns, model.AncestryChanged:Connect(function(_, parent)
+        -- nếu model không còn trong workspace, xóa ESP
+        if not model:IsDescendantOf(workspace) then
+            -- xóa ngay (không recreate khi user tắt loại)
+            if ESPManager.Objects[model] and ESPManager.Objects[model].type == typeName then
+                ESPManager:Remove(model)
+            end
+            return
+        end
+        -- nếu trở lại workspace -> debounce tạo lại
+        if ESPManager.ActiveTypes[typeName] and ESPManager.Filters[typeName](model) then
+            ESPManager:_ScheduleCreate(model, typeName)
+        end
+    end))
+
+    -- watch humanoid death & respawn
+    local function watchHumanoid(hum)
+        if not hum then return end
+        -- Died -> remove, rồi chờ humanoid mới
+        table.insert(conns, hum.Died:Connect(function()
+            if ESPManager.Objects[model] and ESPManager.Objects[model].type == typeName then
+                ESPManager:Remove(model)
+            end
+            -- chờ humanoid mới xuất hiện (ChildAdded)
+            -- scheduled create sẽ handle khi Humanoid xuất hiện
+        end))
+    end
+
+    -- nếu đã có humanoid, watch nó
+    watchHumanoid(model:FindFirstChildOfClass("Humanoid"))
+
+    -- listen ChildAdded để detect humanoid respawn
+    table.insert(conns, model.ChildAdded:Connect(function(child)
+        if child and child:IsA("Humanoid") then
+            -- humanoid mới -> schedule create
+            watchHumanoid(child)
+            if ESPManager.ActiveTypes[typeName] and ESPManager.Filters[typeName](model) then
+                ESPManager:_ScheduleCreate(model, typeName)
+            end
+        end
+        -- nếu PrimaryPart xuất hiện muộn cũng schedule create
+        if (child:IsA("BasePart") or child:IsA("Model")) and ESPManager.ActiveTypes[typeName] and ESPManager.Filters[typeName](model) then
+            -- primary part may appear later
+            ESPManager:_ScheduleCreate(model, typeName)
+        end
+    end))
+
+    ESPManager.Objects[model] = {
+        type = typeName,
+        gui = billboard,
+        label = label,
+        hl = hl,
+        conns = conns,
+    }
+end
+
+-- 🧱 Public Create (debounced wrapper)
+function ESPManager:_ScheduleCreate(model, typeName)
+    if not model or not typeName then return end
+    -- nếu loại đang tắt thì không schedule
+    if not ESPManager.ActiveTypes[typeName] then return end
+    -- tránh schedule nhiều lần
+    if ESPManager._pendingCreate[model] then return end
+    ESPManager._pendingCreate[model] = true
+
+    -- dùng task.delay 0.5 để debounce, tránh spam tạo khi model đang mid-update
+    task.delay(0.5, function()
+        pcall(function()
+            ESPManager._pendingCreate[model] = nil
+            -- double-check điều kiện
+            if not model or not model.Parent then return end
+            local filterFn = ESPManager.Filters[typeName]
+            if not filterFn or not filterFn(model) then return end
+            -- call immediate create (safe)
+            ESPManager:_CreateImmediate(model, typeName)
+        end)
+    end)
 end
 
 -- 🧹 Xoá ESP
 function ESPManager:Remove(model)
     local data = self.Objects[model]
     if not data then return end
+
+    -- disconnect model connections
+    if data.conns then
+        disconnectConns(data.conns)
+    end
+
     pcall(function() if data.gui then data.gui:Destroy() end end)
     pcall(function() if data.hl then data.hl:Destroy() end end)
     self.Objects[model] = nil
+    -- clear pending if any
+    self._pendingCreate[model] = nil
 end
 
 -- ⚙️ Tạo watcher (tự động thêm/xóa ESP khi model thay đổi)
@@ -127,24 +243,28 @@ function ESPManager:StartWatcher(typeName)
     if not filterFn then return end
     if self.Watchers[typeName] then return end
 
-    -- tạo ESP cho model sẵn có
+    -- tạo ESP cho model sẵn có (debounced per model)
     for _, obj in ipairs(workspace:GetDescendants()) do
         if filterFn(obj) then
-            self:Create(obj, typeName)
+            -- schedule create with debounce
+            self:_ScheduleCreate(obj, typeName)
         end
     end
 
-    -- theo dõi model mới
+    -- theo dõi model mới (DescendantAdded) nhưng schedule create chỉ khi hợp lệ
     local addConn = workspace.DescendantAdded:Connect(function(obj)
         if self.ActiveTypes[typeName] and filterFn(obj) then
-            self:Create(obj, typeName)
+            self:_ScheduleCreate(obj, typeName)
         end
     end)
 
+    -- khi model bị remove -> Remove ESP nếu có
     local removeConn = workspace.DescendantRemoving:Connect(function(obj)
         if self.Objects[obj] and self.Objects[obj].type == typeName then
             self:Remove(obj)
         end
+        -- clear any pending create when descendant removing
+        self._pendingCreate[obj] = nil
     end)
 
     self.Watchers[typeName] = {add = addConn, rem = removeConn}
@@ -159,43 +279,77 @@ function ESPManager:StopWatcher(typeName)
     self.Watchers[typeName] = nil
 end
 
--- ♻️ Cập nhật (1 vòng duy nhất, cực nhẹ)
+-- ♻️ Cập nhật (1 vòng duy nhất, cực nhẹ) - CHỈ cập nhật text / kiểm tra nhanh
 RunService.Heartbeat:Connect(function()
+    -- Sử dụng pairs(Objects) nhỏ (chỉ những model có ESP hiện tại)
     for model, data in pairs(ESPManager.Objects) do
+        -- nếu model hỏng -> dọn
         if not model or not model.Parent then
             ESPManager:Remove(model)
         else
-            local part = model:FindFirstChild("HumanoidRootPart") or model:FindFirstChildWhichIsA("BasePart")
-            if not part then ESPManager:Remove(model) continue end
-
-            local dist = (Camera.CFrame.Position - part.Position).Magnitude
-            local txt = model.Name
-            local showHP = ESPManager.ShowHP[data.type]
-
-            if showHP then
-                local hum = model:FindFirstChildOfClass("Humanoid")
-                if hum then
-                    txt = string.format("%s | HP:%d | [%.0fm]", txt, math.floor(hum.Health), dist)
-                else
-                    txt = string.format("%s [%.0fm]", txt, dist)
-                end
+            local part = getPrimaryPart(model)
+            if not part then
+                ESPManager:Remove(model)
             else
-                txt = string.format("%s [%.0fm]", txt, dist)
+                -- nếu gui/hl bị xóa bất ngờ -> schedule recreate (debounced)
+                local needRecreate = false
+                if (not data.gui) or (not data.hl) or (not data.label) then
+                    needRecreate = true
+                else
+                    -- kiểm tra parent tình trạng (nếu parent nil)
+                    if not data.gui.Parent then
+                        needRecreate = true
+                    end
+                end
+                if needRecreate then
+                    -- remove entry ngay (dọn) và schedule tạo lại an toàn
+                    local typeName = data.type
+                    ESPManager:Remove(model)
+                    ESPManager:_ScheduleCreate(model, typeName)
+                    -- next model
+                else
+                    -- cập nhật text (nhẹ)
+                    local dist = (Camera.CFrame.Position - part.Position).Magnitude
+                    local txt = model.Name
+                    local showHP = ESPManager.ShowHP[data.type]
+                    if showHP then
+                        local hum = model:FindFirstChildOfClass("Humanoid")
+                        if hum then
+                            txt = string.format("%s | HP:%d | [%.0fm]", txt, math.floor(hum.Health), dist)
+                        else
+                            txt = string.format("%s [%.0fm]", txt, dist)
+                        end
+                    else
+                        txt = string.format("%s [%.0fm]", txt, dist)
+                    end
+                    if data.label then
+                        -- label update is cheap
+                        pcall(function() data.label.Text = txt end)
+                    end
+                end
             end
-
-            if data.label then data.label.Text = txt end
         end
     end
 end)
 
--- ⚡ Bật/Tắt từng loại
+-- ⚡ Bật/Tắt từng loại ESP
 function ESPManager:SetEnabled(typeName, state)
     self.ActiveTypes[typeName] = state
 
     if state then
         self:StartWatcher(typeName)
+        -- khi bật lại, quét nhanh toàn bộ workspace và schedule create (debounced)
+        local filterFn = self.Filters[typeName]
+        if filterFn then
+            for _, obj in ipairs(workspace:GetDescendants()) do
+                if filterFn(obj) then
+                    self:_ScheduleCreate(obj, typeName)
+                end
+            end
+        end
     else
         self:StopWatcher(typeName)
+        -- xóa toàn bộ ESP loại đó
         for model, data in pairs(self.Objects) do
             if data.type == typeName then
                 self:Remove(model)
