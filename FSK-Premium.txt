@@ -18,7 +18,7 @@ local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.
 -- Tạo cửa sổ Fluent chính
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Premium] | Forsaken |",
-    SubTitle = "Version 5.1.6",
+    SubTitle = "Version 5.1.7",
     Search = true,
     Icon = "rbxassetid://121302760641013",
     TabWidth = 160,
@@ -4174,155 +4174,162 @@ local TargetNames = {
 }
 
 -- ⚙️ Cài đặt
-local ScanInterval = 1.5     -- thời gian quét (giây)
-local HeightOffset = 0       -- độ cao khi teleport
-local IgnoreCenter = Vector3.new(-3485.02, 4.48, 217.77) -- tâm khu vực bỏ qua
-local IgnoreRadius = 500     -- bán kính bỏ qua (studs)
+local ScanInterval = 0.5          -- thời gian quét (giây)
+local TeleportDelay = 0.25        -- delay nhỏ giữa mỗi lần teleport
+local HeightSafe = 5              -- nếu model thấp hơn -10 → nâng lên
+local IgnoreCenter = Vector3.new(-3485.02, 4.48, 217.77)
+local IgnoreRadius = 500
 
 -- ⚡ Biến điều khiển
 local autoTeleport = false
-local running = false
-local animTrack
-local InvisibleEnabled = false
+local visitedModels = {}
+local currentTarget = nil
 
 -- === SERVICES ===
 local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
-
--- 🔍 Tự động lấy Survivors trong workspace
-local survivorsFolder = workspace:WaitForChild("Players"):WaitForChild("Survivors")
 
 -- === HÀM HỖ TRỢ ===
 local function getHumanoid()
-    local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-    return char:FindFirstChildOfClass("Humanoid"), char
+	local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+	return char:FindFirstChildOfClass("Humanoid"), char
 end
 
-local function getAnimator(humanoid)
-    local animator = humanoid:FindFirstChildOfClass("Animator")
-    if not animator then
-        animator = Instance.new("Animator")
-        animator.Parent = humanoid
-    end
-    return animator
-end
-
-local function playInvisibleAnim(humanoid)
-    local animator = getAnimator(humanoid)
-    if not animTrack or not animTrack.IsPlaying then
-        local animation = Instance.new("Animation")
-        animation.AnimationId = "rbxassetid://75804462760596"
-        animTrack = animator:LoadAnimation(animation)
-        animTrack.Looped = true
-        animTrack:Play()
-        animTrack:AdjustSpeed(0)
-    end
-end
-
-local function stopInvisibleAnim()
-    if animTrack and animTrack.IsPlaying then
-        animTrack:Stop()
-        animTrack = nil
-    end
-end
-
--- ✅ Kiểm tra nếu character là survivor (trong folder Survivors)
-local function isSurvivorModel(char)
-    if not char then return false end
-    if survivorsFolder:FindFirstChild(char.Name) then
-        return true
-    end
-    return false
-end
-
--- === LOGIC TELEPORT ===
 local function getModelCFrame(model)
-    local part = model:FindFirstChild("HumanoidRootPart") or model.PrimaryPart
-    if part and part:IsA("BasePart") then
-        return part.CFrame
-    end
-    if model.GetPivot then
-        local ok, pivot = pcall(function() return model:GetPivot() end)
-        if ok then return pivot end
-    end
-    local sum, count = Vector3.zero, 0
-    for _, v in ipairs(model:GetDescendants()) do
-        if v:IsA("BasePart") then
-            sum += v.Position
-            count += 1
-        end
-    end
-    return count > 0 and CFrame.new(sum / count) or nil
+	local part = model:FindFirstChild("HumanoidRootPart") or model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart")
+	if part then
+		return part.CFrame
+	end
+	if model.GetPivot then
+		local ok, pivot = pcall(function()
+			return model:GetPivot()
+		end)
+		if ok then
+			return pivot
+		end
+	end
+	return nil
 end
 
+local function isValidModel(model)
+	if not model or not model:IsDescendantOf(workspace) then
+		return false
+	end
+	for _, name in ipairs(TargetNames) do
+		if model.Name:lower() == name:lower() then
+			local cf = getModelCFrame(model)
+			if cf then
+				local pos = cf.Position
+				if (pos - IgnoreCenter).Magnitude > IgnoreRadius then
+					return true
+				end
+			end
+		end
+	end
+	return false
+end
+
+-- === TÌM CÁC MODEL HỢP LỆ ===
 local function findTargets()
-    local result = {}
-    local lowerNames = {}
-    for _, n in ipairs(TargetNames) do
-        lowerNames[n:lower()] = true
-    end
-
-    for _, obj in ipairs(workspace:GetDescendants()) do
-        if obj:IsA("Model") and lowerNames[obj.Name:lower()] then
-            local cf = getModelCFrame(obj)
-            if cf then
-                local pos = cf.Position
-                if (pos - IgnoreCenter).Magnitude > IgnoreRadius then
-                    table.insert(result, obj)
-                end
-            end
-        end
-    end
-    return result
+	local list = {}
+	for _, obj in ipairs(workspace:GetDescendants()) do
+		if obj:IsA("Model") and isValidModel(obj) then
+			table.insert(list, obj)
+		end
+	end
+	return list
 end
 
--- === VÒNG LẶP TELEPORT + INVISIBLE ANIM ===
+-- === KIỂM TRA NHÂN VẬT ĐANG CHẠM MODEL HIỆN TẠI ===
+local function isTouchingTarget(target)
+	if not target or not LocalPlayer.Character then
+		return false
+	end
+	local hrp = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+	if not hrp then
+		return false
+	end
+
+	local targetPart = target:FindFirstChild("HumanoidRootPart") or target.PrimaryPart or target:FindFirstChildWhichIsA("BasePart")
+	if not targetPart then
+		return false
+	end
+
+	local dist = (hrp.Position - targetPart.Position).Magnitude
+	return dist <= 6 -- khoảng cách 6 stud coi như “chạm”
+end
+
+-- === TELEPORT SANG MODEL TIẾP THEO ===
+local function teleportToNext()
+	local humanoid, char = getHumanoid()
+	local hrp = char and char:FindFirstChild("HumanoidRootPart")
+	if not hrp then
+		return
+	end
+
+	local allTargets = findTargets()
+	local available = {}
+
+	for _, m in ipairs(allTargets) do
+		if not visitedModels[m] then
+			table.insert(available, m)
+		end
+	end
+
+	if #available == 0 then
+		return -- hết mục tiêu
+	end
+
+	-- chọn model gần nhất còn lại
+	table.sort(available, function(a, b)
+		local pa = getModelCFrame(a).Position
+		local pb = getModelCFrame(b).Position
+		local d1 = (hrp.Position - pa).Magnitude
+		local d2 = (hrp.Position - pb).Magnitude
+		return d1 < d2
+	end)
+
+	local nextTarget = available[1]
+	if nextTarget then
+		local cf = getModelCFrame(nextTarget)
+		if cf then
+			local pos = cf.Position
+			if pos.Y < -10 then
+				pos = Vector3.new(pos.X, HeightSafe, pos.Z)
+			end
+			hrp.CFrame = CFrame.new(pos + Vector3.new(0, 3, 0))
+			currentTarget = nextTarget
+		end
+	end
+end
+
+-- === VÒNG CHÍNH ===
 task.spawn(function()
-    while task.wait(ScanInterval) do
-        if autoTeleport and LocalPlayer.Character then
-            local humanoid, char = getHumanoid()
-            local hrp = char and char:FindFirstChild("HumanoidRootPart")
-            if hrp and humanoid then
-                -- Invisible anim logic
-                if isSurvivorModel(char) then
-                    playInvisibleAnim(humanoid)
-                else
-                    stopInvisibleAnim()
-                end
-
-                -- Teleport logic
-                local targets = findTargets()
-                for _, model in ipairs(targets) do
-                    local cf = getModelCFrame(model)
-                    if cf then
-                        hrp.CFrame = cf + Vector3.new(0, HeightOffset, 0)
-                        task.wait(ScanInterval)
-                    end
-                end
-            end
-        end
-    end
+	while task.wait(ScanInterval) do
+		if autoTeleport and LocalPlayer.Character then
+			if currentTarget and isTouchingTarget(currentTarget) then
+				visitedModels[currentTarget] = true
+				task.wait(TeleportDelay)
+				teleportToNext()
+			elseif not currentTarget then
+				teleportToNext()
+			end
+		end
+	end
 end)
 
--- === RESET ANIM KHI NHÂN VẬT HỒI SINH ===
-LocalPlayer.CharacterAdded:Connect(function(char)
-    task.wait(1)
-    if InvisibleEnabled and isSurvivorModel(char) then
-        playInvisibleAnim(char:FindFirstChildOfClass("Humanoid"))
-    end
-end)
-
--- === FLUENT GUI TOGGLE ===
+-- === TOGGLE GUI ===
 Tabs.Event:AddToggle("AutoFarmSukkars", {
-    Title = "Auto Farm Sukkars",
-    Default = false,
-    Callback = function(Value)
-        autoTeleport = Value
-        InvisibleEnabled = Value
-        if not Value then
-            stopInvisibleAnim()
-        end
-    end,
+	Title = "Auto Farm Sukkars",
+	Default = false,
+	Callback = function(state)
+		autoTeleport = state
+		if not state then
+			currentTarget = nil
+			table.clear(visitedModels)
+		end
+	end,
 })
 
 
