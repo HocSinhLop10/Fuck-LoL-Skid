@@ -18,7 +18,7 @@ local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.
 -- Tạo cửa sổ Fluent chính
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Premium] | Forsaken |",
-    SubTitle = "Version 5.1.9",
+    SubTitle = "Version 5.2.0",
     Search = true,
     Icon = "rbxassetid://121302760641013",
     TabWidth = 160,
@@ -7546,25 +7546,6 @@ Tabs.Misc:AddInput("DetectRadiusInput", {
 end)
 
 end
-
-
-
-
--- Nút Auto Teleport Cao (1 lần duy nhất khi bật)
-Tabs.Misc:AddToggle("AutoTeleportHigh", {
-    Title = "Anti Bug",
-    Default = true
-})
-:OnChanged(function(Value)
-    if Value then
-        local char = LP.Character
-        if char and char:FindFirstChild("HumanoidRootPart") then
-            -- Teleport lên cao thêm 10 studs
-            char:PivotTo(char.HumanoidRootPart.CFrame + Vector3.new(0, 5, 0))
-        end
-    end
-end)
-
 
 
 
