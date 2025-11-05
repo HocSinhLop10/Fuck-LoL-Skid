@@ -18,7 +18,7 @@ local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.
 -- Tạo cửa sổ Fluent chính
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Premium] | Forsaken |",
-    SubTitle = "Version 5.2.3",
+    SubTitle = "Version 5.2.4",
     Search = true,
     Icon = "rbxassetid://121302760641013",
     TabWidth = 160,
@@ -4321,6 +4321,7 @@ Tabs.Event:AddToggle("ESPSukkarsToggle", {
 end)
 
 
+
 -- 🧭 Danh sách model cần teleport tới
 local TargetNames = {
     "dumsek",
@@ -4331,9 +4332,9 @@ local TargetNames = {
 }
 
 -- ⚙️ Cài đặt
-local ScanInterval = 0.5          -- thời gian quét (giây)
-local TeleportDelay = 0.25        -- delay nhỏ giữa mỗi lần teleport
-local HeightSafe = 5              -- nếu model thấp hơn -10 → nâng lên
+local ScanInterval = 0.5
+local TeleportDelay = 0.25
+local HeightSafe = 5
 local IgnoreCenter = Vector3.new(-3485.02, 4.48, 217.77)
 local IgnoreRadius = 500
 
@@ -4344,7 +4345,6 @@ local currentTarget = nil
 
 -- === SERVICES ===
 local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 
 -- === HÀM HỖ TRỢ ===
@@ -4354,19 +4354,16 @@ local function getHumanoid()
 end
 
 local function getModelCFrame(model)
+	if not model or not model:IsDescendantOf(workspace) then return end
 	local part = model:FindFirstChild("HumanoidRootPart") or model.PrimaryPart or model:FindFirstChildWhichIsA("BasePart")
 	if part then
 		return part.CFrame
-	end
-	if model.GetPivot then
+	elseif model.GetPivot then
 		local ok, pivot = pcall(function()
 			return model:GetPivot()
 		end)
-		if ok then
-			return pivot
-		end
+		if ok then return pivot end
 	end
-	return nil
 end
 
 local function isValidModel(model)
@@ -4400,51 +4397,55 @@ end
 
 -- === KIỂM TRA NHÂN VẬT ĐANG CHẠM MODEL HIỆN TẠI ===
 local function isTouchingTarget(target)
-	if not target or not LocalPlayer.Character then
+	if not target or not target:IsDescendantOf(workspace) then
 		return false
 	end
-	local hrp = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-	if not hrp then
-		return false
-	end
+	local char = LocalPlayer.Character
+	if not char then return false end
+
+	local hrp = char:FindFirstChild("HumanoidRootPart")
+	if not hrp then return false end
 
 	local targetPart = target:FindFirstChild("HumanoidRootPart") or target.PrimaryPart or target:FindFirstChildWhichIsA("BasePart")
-	if not targetPart then
-		return false
-	end
+	if not targetPart then return false end
 
 	local dist = (hrp.Position - targetPart.Position).Magnitude
-	return dist <= 6 -- khoảng cách 6 stud coi như “chạm”
+	return dist <= 6
 end
 
 -- === TELEPORT SANG MODEL TIẾP THEO ===
 local function teleportToNext()
 	local humanoid, char = getHumanoid()
 	local hrp = char and char:FindFirstChild("HumanoidRootPart")
-	if not hrp then
-		return
+	if not hrp then return end
+
+	-- Dọn dẹp model đã biến mất khỏi danh sách
+	for m in pairs(visitedModels) do
+		if not m:IsDescendantOf(workspace) then
+			visitedModels[m] = nil
+		end
 	end
 
+	-- Lấy danh sách hợp lệ
 	local allTargets = findTargets()
 	local available = {}
-
 	for _, m in ipairs(allTargets) do
-		if not visitedModels[m] then
+		if not visitedModels[m] and m:IsDescendantOf(workspace) then
 			table.insert(available, m)
 		end
 	end
 
+	-- Nếu hết mục tiêu thì reset visited để quét lại
 	if #available == 0 then
-		return -- hết mục tiêu
+		table.clear(visitedModels)
+		return
 	end
 
-	-- chọn model gần nhất còn lại
+	-- Chọn model gần nhất
 	table.sort(available, function(a, b)
 		local pa = getModelCFrame(a).Position
 		local pb = getModelCFrame(b).Position
-		local d1 = (hrp.Position - pa).Magnitude
-		local d2 = (hrp.Position - pb).Magnitude
-		return d1 < d2
+		return (hrp.Position - pa).Magnitude < (hrp.Position - pb).Magnitude
 	end)
 
 	local nextTarget = available[1]
@@ -4465,7 +4466,12 @@ end
 task.spawn(function()
 	while task.wait(ScanInterval) do
 		if autoTeleport and LocalPlayer.Character then
-			if currentTarget and isTouchingTarget(currentTarget) then
+			-- nếu target hiện tại biến mất, bỏ qua và chuyển model khác
+			if currentTarget and not currentTarget:IsDescendantOf(workspace) then
+				currentTarget = nil
+				task.wait(TeleportDelay)
+				teleportToNext()
+			elseif currentTarget and isTouchingTarget(currentTarget) then
 				visitedModels[currentTarget] = true
 				task.wait(TeleportDelay)
 				teleportToNext()
