@@ -18,7 +18,7 @@ local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.
 -- Tạo cửa sổ Fluent chính
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Premium] | Forsaken |",
-    SubTitle = "Version 5.2.1",
+    SubTitle = "Version 5.2.2",
     Search = true,
     Icon = "rbxassetid://121302760641013",
     TabWidth = 160,
@@ -1953,7 +1953,7 @@ local aimMode = "Normal"
 local aimDuration = 1.7
 local fasterDuration = 1.5
 local spinDuration = 0.5
-local aimTargets = {"Slasher", "c00lkidd", "JohnDoe", "1x1x1x1", "Noli", "Guest666"}
+local aimTargets = {"Slasher", "c00lkidd", "JohnDoe", "1x1x1x1", "Noli", "Guest 666", "Sixer"}
 
 local Humanoid, HRP = nil, nil
 local originalWS, originalJP, originalAutoRotate = nil, nil, nil
@@ -2976,7 +2976,8 @@ do
         ["c00lkidd"] = true,
         ["Noli"] = true,
         ["JohnDoe"] = true,
-        ["Quest666"] = true
+        ["Guest 666"] = true,
+        ["Sixer"] = true
     }
 
     local function isKiller(player)
@@ -3486,7 +3487,7 @@ do
             local charges = punchBtn and punchBtn:FindFirstChild("Charges")
 
             if charges and charges.Text == "1" then
-                local killerNames = {"c00lkidd", "Slasher", "JohnDoe", "1x1x1x1", "Noli"}
+                local killerNames = {"c00lkidd", "Slasher", "JohnDoe", "1x1x1x1", "Noli", "Guest 666", "Sixer"}
                 for _, name in ipairs(killerNames) do
                     local killer = workspace:FindFirstChild("Players")
                         and workspace.Players:FindFirstChild("Killers")
