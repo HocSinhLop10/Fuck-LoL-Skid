@@ -18,7 +18,7 @@ local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.
 -- Tạo cửa sổ Fluent chính
 local Window = Fluent:CreateWindow({
     Title = "Hutao Hub [Premium] | Forsaken |",
-    SubTitle = "Version 5.2.2",
+    SubTitle = "Version 5.2.3",
     Search = true,
     Icon = "rbxassetid://121302760641013",
     TabWidth = 160,
@@ -5776,39 +5776,6 @@ Tabs.Player:AddToggle("InfiniteZoom", {
         end
     end
 })
-
-
-
-
-do
-local Players = game:GetService("Players")
-local LP = Players.LocalPlayer
-
-local humanoid
-
--- Hàm cập nhật Humanoid
-local function refreshCharacter()
-    local char = LP.Character or LP.CharacterAdded:Wait()
-    humanoid = char:FindFirstChildOfClass("Humanoid")
-end
-
-refreshCharacter()
-LP.CharacterAdded:Connect(refreshCharacter)
-
--- 🟢 Toggle Unlock Jump Button
-Tabs.Player:AddToggle("UnlockJump", {
-    Title = "Jump Button",
-    Default = true
-}):OnChanged(function(state)
-    if humanoid then
-        if state then
-            humanoid.JumpPower = 50 -- hiện nút nhảy
-        else
-            humanoid.JumpPower = 0 -- ẩn nút nhảy
-        end
-    end
-end)
-end
 
 
 
